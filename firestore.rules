@@ -2,16 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * St. John Chrysostom Bookclub - Security Rules
-     *
-     * Core Philosophy: 
-     * This ruleset enforces a strict user-ownership model for personal progress, notifications, 
-     * and nudges, while providing a Database-Based Access Control (DBAC) layer for administrators.
-     */
-
     // --- Helper Functions ---
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -20,15 +11,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    // --- Global Collections (Top Level for simple listing) ---
+    // --- Global Collections ---
 
     match /challenges/{challengeId} {
       allow get, list: if isSignedIn();
@@ -59,39 +46,33 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get, list: if isSignedIn();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.id == userId;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
 
       match /userChallenges/{userChallengeId} {
         allow get, list: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == userId;
+        allow create, update: if isOwner(userId);
         allow delete: if isAdmin();
       }
 
       match /notifications/{notificationId} {
         allow get, list, update: if isOwner(userId);
-        allow create: if isOwner(userId) || isAdmin();
-        allow delete: if isOwner(userId) || isAdmin();
+        allow create, delete: if isOwner(userId) || isAdmin();
       }
 
       match /sentNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.senderId == userId;
-        allow update, delete: if isAdmin();
+        allow create: if isOwner(userId);
       }
 
       match /receivedNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
-        allow create, update: if isAdmin() || (isSignedIn() && request.resource.data.receiverId == userId);
-        allow delete: if isAdmin();
+        allow create: if isSignedIn();
       }
 
       match /readingProgress/{userReadingProgressId} {
-        allow get, list: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isOwner(userId) && request.resource.data.userId == userId;
+        allow get, list, create, update: if isOwner(userId);
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
