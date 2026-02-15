@@ -32,7 +32,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, Timestamp, where } from "firebase/firestore";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
 import { 
@@ -47,6 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 const chartConfig = {
   engagement: {
@@ -164,8 +165,9 @@ export default function AdminDashboard() {
   const handleSaveDiscussion = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const topic = formData.get("topic") as string;
     const discussionData = {
-      topic: formData.get("topic") as string,
+      topic: topic,
       scheduledDateTime: formData.get("dateTime") as string,
       isActive: true,
       organizerId: user.uid,
@@ -173,6 +175,21 @@ export default function AdminDashboard() {
 
     const id = Math.random().toString(36).substring(7);
     addDocumentNonBlocking(collection(db, "discussions"), { ...discussionData, id });
+    
+    // Automatic Notification for New Discussion
+    members?.forEach(member => {
+      const notifId = Math.random().toString(36).substring(7);
+      setDoc(doc(db, "users", member.id, "notifications", notifId), {
+        id: notifId,
+        userId: member.id,
+        type: "DiscussionScheduled",
+        message: `New discussion scheduled: "${topic}" on ${new Date(discussionData.scheduledDateTime).toLocaleString()}`,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      });
+    });
+
     logAction("create_discussion", id, `Announced discussion: ${discussionData.topic}`);
     toast({ title: "Discussion Scheduled" });
     setIsDiscussionDialogOpen(false);
@@ -211,9 +228,9 @@ export default function AdminDashboard() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
           <div className="space-y-1">
             <h1 className="font-headline text-3xl font-bold text-primary flex items-center gap-2">
-              <ShieldAlert className="h-8 w-8 text-accent" /> Control Center
+              <ShieldAlert className="h-8 w-8 text-accent" /> Admin Control Center
             </h1>
-            <p className="text-muted-foreground">Comprehensive management of books, users, and spiritual content.</p>
+            <p className="text-muted-foreground">Manage library, challenges, and members of the fellowship.</p>
           </div>
           <div className="flex gap-2">
              <Dialog open={isBookDialogOpen} onOpenChange={setIsBookDialogOpen}>
