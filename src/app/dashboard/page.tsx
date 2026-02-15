@@ -23,14 +23,15 @@ import {
   History,
   Send,
   Bell,
-  CheckCircle2
+  CheckCircle2,
+  Zap
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, UserProfile } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, limit, doc, setDoc, getDocs, where } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -48,6 +49,33 @@ export default function Dashboard() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Streak logic: Check if streak should reset (missed > 48 hours)
+  useEffect(() => {
+    if (profile && profile.lastReadAt && profile.streak > 0) {
+      const lastRead = new Date(profile.lastReadAt).getTime();
+      const now = Date.now();
+      const hoursSinceLastRead = (now - lastRead) / (1000 * 60 * 60);
+      
+      if (hoursSinceLastRead > 48) {
+        updateDocumentNonBlocking(doc(db, "users", profile.id), {
+          streak: 0
+        });
+        
+        // Trigger notification
+        const notifId = Math.random().toString(36).substring(7);
+        setDoc(doc(db, "users", profile.id, "notifications", notifId), {
+          id: notifId,
+          userId: profile.id,
+          type: "StreakWarning",
+          message: "Oh no! Your reading streak has reset. Start a new one today!",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+        });
+      }
+    }
+  }, [profile, db]);
 
   const booksQuery = useMemoFirebase(() => query(collection(db, "books"), limit(1)), [db]);
   const { data: books } = useCollection(booksQuery);
@@ -89,14 +117,12 @@ export default function Dashboard() {
     const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
     
-    // Streak logic: simple daily update
     updateDocumentNonBlocking(userRef, {
       points: profile.points + ptsToAdd,
       streak: profile.streak + 1,
       lastReadAt: new Date().toISOString()
     });
 
-    // Check level up
     const newRank = getRank(profile.points + ptsToAdd);
     if (newRank.level > rank.level) {
       const notifId = Math.random().toString(36).substring(7);
@@ -194,7 +220,7 @@ export default function Dashboard() {
     setSelectedNudgeMember("");
   };
 
-  const progressPercentage = currentBook ? Math.min(100, Math.round(((profile.readingProgress || 0) / currentBook.totalPages) * 100)) : 0;
+  const progressPercentage = currentBook ? Math.min(100, Math.round(((profile.points / 10) / currentBook.totalPages) * 100)) : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
