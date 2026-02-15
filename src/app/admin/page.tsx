@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
@@ -17,26 +15,27 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
-  Plus, 
-  BookOpen, 
   Users, 
   BarChart3, 
-  Edit, 
   Trash,
   ShieldAlert,
-  Calendar,
   Zap,
-  History,
-  ArrowUpRight,
   UserCheck
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, addDoc } from "firebase/firestore";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
+
+const chartConfig = {
+  engagement: {
+    label: "Engagement",
+    color: "hsl(var(--accent))",
+  },
+} satisfies ChartConfig;
 
 export default function AdminDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -60,12 +59,6 @@ export default function AdminDashboard() {
 
   const booksQuery = useMemoFirebase(() => collection(db, "books"), [db]);
   const { data: books } = useCollection(booksQuery);
-
-  const challengesQuery = useMemoFirebase(() => collection(db, "challenges"), [db]);
-  const { data: challenges } = useCollection(challengesQuery);
-
-  const discussionsQuery = useMemoFirebase(() => collection(db, "discussions"), [db]);
-  const { data: discussions } = useCollection(discussionsQuery);
 
   const logsQuery = useMemoFirebase(() => query(collection(db, "adminActionLogs"), orderBy("timestamp", "desc"), limit(20)), [db]);
   const { data: logs } = useCollection(logsQuery);
@@ -158,21 +151,34 @@ export default function AdminDashboard() {
               <CardDescription>Daily active user interactions over the last 7 days.</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px] w-full pt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area type="monotone" dataKey="engagement" stroke="hsl(var(--accent))" fillOpacity={1} fill="url(#colorEngagement)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-engagement)" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="var(--color-engagement)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis 
+                      dataKey="day" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tickMargin={8}
+                    />
+                    <YAxis hide />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="engagement" 
+                      stroke="var(--color-engagement)" 
+                      fillOpacity={1} 
+                      fill="url(#colorEngagement)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
 
@@ -190,7 +196,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               ))}
-              <Button variant="outline" className="w-full text-xs" onClick={() => router.push("/admin?tab=logs")}>View All Logs</Button>
+              <Button variant="outline" className="w-full text-xs" onClick={() => router.push("/admin")}>Refresh Logs</Button>
             </CardContent>
           </Card>
         </div>
@@ -199,8 +205,6 @@ export default function AdminDashboard() {
           <TabsList className="bg-muted p-1 rounded-xl">
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="books">Library</TabsTrigger>
-            <TabsTrigger value="challenges">Challenges</TabsTrigger>
-            <TabsTrigger value="discussions">Discussions</TabsTrigger>
             <TabsTrigger value="logs">Full Audit</TabsTrigger>
           </TabsList>
 
@@ -271,9 +275,6 @@ export default function AdminDashboard() {
                   ))}
                 </TableBody>
               </Table>
-              <div className="p-4 border-t">
-                <Button className="w-full bg-accent text-primary">Add New Book</Button>
-              </div>
             </Card>
           </TabsContent>
 

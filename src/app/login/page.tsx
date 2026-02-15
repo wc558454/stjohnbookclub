@@ -26,8 +26,9 @@ export default function LoginPage() {
     
     setIsLoggingIn(true);
     try {
+      const trimmedEmail = email.trim().toLowerCase();
       // Consistent with registration logic: append a standard suffix to meet 6-char requirement
-      await signInWithEmailAndPassword(auth, email, pin + "000000"); 
+      await signInWithEmailAndPassword(auth, trimmedEmail, pin + "000000"); 
       toast({ title: "Welcome Back" });
       router.push("/dashboard");
     } catch (error: any) {
