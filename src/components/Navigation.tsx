@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Settings } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,11 +28,18 @@ export function Navigation() {
           </Link>
         </div>
 
-        <div className="hidden md:flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
-          <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Discussions</Link>
-          {user?.isAdmin && (
-            <Link href="/admin" className="text-sm font-medium hover:text-accent transition-colors">Admin</Link>
+        <div className="hidden md:flex items-center gap-8">
+          <Link href="/#about" className="text-sm font-medium hover:text-accent transition-colors">About</Link>
+          <Link href="/register" className="text-sm font-medium hover:text-accent transition-colors">Join</Link>
+          {user ? (
+            <>
+              <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
+              <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Discussions</Link>
+            </>
+          ) : (
+            <button onClick={() => login()} className="text-sm font-medium hover:text-accent transition-colors flex items-center gap-1.5">
+              <LogIn className="h-4 w-4" /> Login
+            </button>
           )}
         </div>
 
@@ -40,20 +47,23 @@ export function Navigation() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full border border-accent/20">
                   <User className="h-5 w-5 text-primary" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
                     <p className="font-medium text-sm">{user.name}</p>
-                    <p className="w-[200px] truncate text-xs text-muted-foreground">{user.email}</p>
+                    <p className="w-[180px] truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard">Dashboard</Link>
+                  <Link href="/dashboard">Member Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/forum">Community Forum</Link>
                 </DropdownMenuItem>
                 {user.isAdmin && (
                   <DropdownMenuItem asChild>
@@ -61,15 +71,15 @@ export function Navigation() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button onClick={() => login()} variant="default" className="bg-primary hover:bg-primary/90">
-              Sign In
+            <Button asChild variant="default" className="bg-primary hover:bg-primary/90 rounded-full px-6">
+              <Link href="/register">Join Club</Link>
             </Button>
           )}
           <Button variant="ghost" size="icon" className="md:hidden">

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Users, Trophy, MessageCircle } from "lucide-react";
+import { BookOpen, Users, Trophy, MessageSquare, Quote } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function Home() {
@@ -18,95 +18,100 @@ export default function Home() {
       
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative h-[80vh] flex items-center overflow-hidden">
+        <section className="relative h-[85vh] flex items-center overflow-hidden bg-primary/5">
           <div className="absolute inset-0 z-0">
             {heroImg && (
               <Image 
                 src={heroImg.imageUrl} 
                 alt={heroImg.description}
                 fill
-                className="object-cover opacity-20"
+                className="object-cover opacity-10"
                 priority
+                data-ai-hint="ancient library"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
           </div>
 
-          <div className="container relative z-10 mx-auto px-4">
-            <div className="max-w-2xl space-y-6">
-              <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary leading-tight">
-                Wisdom of the <br />
-                <span className="text-accent italic">Golden-Mouthed</span>
+          <div className="container relative z-10 mx-auto px-4 text-center">
+            <div className="max-w-3xl mx-auto space-y-8">
+              <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary leading-tight tracking-tight">
+                St. John Chrysostom <br />
+                <span className="text-accent italic">Bookclub</span>
               </h1>
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-lg">
-                Join a community dedicated to exploring the profound theological and moral teachings of St. John Chrysostom.
+              <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed font-medium">
+                “A community of spiritual reading students committed to disciplined study and growth.”
               </p>
-              <div className="flex flex-wrap gap-4 pt-4">
-                <Button size="lg" className="bg-primary text-white hover:bg-primary/90 px-8">
-                  Join the Club
+              <div className="flex flex-wrap justify-center gap-4 pt-6">
+                <Button asChild size="lg" className="bg-primary text-white hover:bg-primary/90 px-10 h-14 text-lg rounded-full">
+                  <Link href="/register">Join the Bookclub</Link>
                 </Button>
-                <Button variant="outline" size="lg" className="border-accent text-accent hover:bg-accent/10 px-8">
-                  Browse Readings
+                <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent/10 px-10 h-14 text-lg rounded-full">
+                  <Link href="/dashboard">Member Login</Link>
                 </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-24 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center space-y-4 mb-16">
-              <h2 className="font-headline text-3xl md:text-4xl font-bold text-primary">A Spiritual Journey Together</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Our platform provides everything you need to engage deeply with sacred texts and a community of seekers.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                { icon: BookOpen, title: "Structured Reading", desc: "Follow our curated plans through the Homilies and Epistles." },
-                { icon: MessageCircle, title: "Deep Discussions", desc: "Engage in thoughtful dialogue with members around the world." },
-                { icon: Trophy, title: "Spiritual Growth", desc: "Track your progress and participate in reading challenges." },
-                { icon: Users, title: "Global Fellowship", desc: "Connect with like-minded individuals in a respectful environment." }
-              ].map((feat, idx) => (
-                <Card key={idx} className="border-none shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-8 space-y-4 text-center">
-                    <div className="inline-flex p-3 rounded-full bg-accent/10 text-accent mx-auto">
-                      <feat.icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-headline text-xl font-bold text-primary">{feat.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feat.desc}</p>
-                  </CardContent>
-                </Card>
-              ))}
+        {/* Quote Section */}
+        <section className="py-24 bg-background border-y border-accent/10">
+          <div className="container mx-auto px-4 text-center">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <Quote className="h-12 w-12 text-accent/30 mx-auto" />
+              <blockquote className="font-headline text-3xl md:text-4xl italic text-primary leading-snug">
+                “Take heed to reading, to exhortation, to doctrine.”
+              </blockquote>
+              <footer className="text-accent font-bold tracking-widest uppercase text-sm">— St. John Chrysostom</footer>
             </div>
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* Features Section */}
         <section className="py-24">
-          <div className="container mx-auto px-4 text-center bg-primary rounded-3xl p-16 text-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative z-10 space-y-6">
-              <h2 className="font-headline text-4xl font-bold">Ready to Start Reading?</h2>
-              <p className="text-primary-foreground/80 max-w-xl mx-auto text-lg">
-                Create your account today and gain access to our current reading schedule: The Homilies on the Statues.
-              </p>
-              <Button size="lg" className="bg-accent hover:bg-accent/90 text-primary font-bold px-12">
-                Sign Up Now
-              </Button>
+          <div className="container mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-12">
+              {[
+                { 
+                  icon: BookOpen, 
+                  title: "Structured Reading", 
+                  desc: "Meticulously planned schedules through the golden-mouthed father's homilies and treatises." 
+                },
+                { 
+                  icon: Trophy, 
+                  title: "Accountability & Streaks", 
+                  desc: "Stay disciplined with reading challenges, progress tracking, and daily meditation streaks." 
+                },
+                { 
+                  icon: MessageSquare, 
+                  title: "Community Discussions", 
+                  desc: "Engage in meaningful fellowship with fellow students of the Word in our private forums." 
+                }
+              ].map((feat, idx) => (
+                <div key={idx} className="space-y-6 text-center group">
+                  <div className="inline-flex p-5 rounded-3xl bg-primary text-accent group-hover:scale-110 transition-transform shadow-lg">
+                    <feat.icon className="h-8 w-8" />
+                  </div>
+                  <h3 className="font-headline text-2xl font-bold text-primary">{feat.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed">{feat.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t py-12 bg-background">
-        <div className="container mx-auto px-4 text-center space-y-4">
-          <span className="font-headline text-xl font-bold text-primary tracking-tight">
-            Chrysostom <span className="text-accent">Bookclub</span>
-          </span>
-          <p className="text-sm text-muted-foreground">© 2024 St. John Chrysostom Bookclub. All rights reserved.</p>
+      <footer className="bg-primary text-white py-16">
+        <div className="container mx-auto px-4 flex flex-col items-center space-y-8 text-center">
+          <div className="space-y-2">
+            <p className="font-headline text-xl font-bold text-accent">የቅዱስ ጳውሎስ ህክምና ኮሌጅ ግቢ ጉባኤ</p>
+            <p className="text-primary-foreground/60 text-sm">St. Paul Hospital Medical College Campus Fellowship</p>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-primary-foreground/40 pt-8 border-t border-white/10 w-full justify-between">
+            <p>© 2024 St. John Chrysostom Bookclub. All rights reserved.</p>
+            <p className="font-medium">Made by <span className="text-white">William</span></p>
+          </div>
         </div>
       </footer>
     </div>
