@@ -27,10 +27,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { UserCircle } from "lucide-react";
+import { UserCircle, Loader2 } from "lucide-react";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import { useState } from "react";
 
 const formSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters."),
@@ -49,6 +50,7 @@ export default function Register() {
   const router = useRouter();
   const db = useFirestore();
   const auth = getAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -64,8 +66,11 @@ export default function Register() {
   });
 
   async function onSubmit(values: FormValues) {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.pin + "000000"); // Append dummy for min length if needed, or stick to actual auth logic. Using PIN as password for the prototype's simplified auth.
+      // Standard password suffix to meet Firebase 6-char requirement
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.pin + "000000"); 
       const user = userCredential.user;
 
       await setDoc(doc(db, "users", user.uid), {
@@ -91,11 +96,14 @@ export default function Register() {
 
       router.push("/dashboard");
     } catch (error: any) {
+      console.error("Registration error:", error);
       toast({
         variant: "destructive",
         title: "Registration Error",
         description: error.message,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -253,7 +261,8 @@ export default function Register() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full bg-primary h-12 text-lg font-bold hover:bg-primary/90 transition-all rounded-full">
+                <Button type="submit" disabled={isSubmitting} className="w-full bg-primary h-12 text-lg font-bold hover:bg-primary/90 transition-all rounded-full">
+                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                   Begin My Journey
                 </Button>
               </form>

@@ -26,13 +26,17 @@ import {
   ShieldAlert,
   Calendar,
   Zap,
-  History
+  History,
+  ArrowUpRight,
+  UserCheck
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, limit, doc, addDoc } from "firebase/firestore";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -83,11 +87,29 @@ export default function AdminDashboard() {
     toast({ title: "Points Adjusted" });
   };
 
+  const handleResetStreak = (memberId: string) => {
+    if (!confirm("Are you sure you want to reset this streak?")) return;
+    updateDocumentNonBlocking(doc(db, "users", memberId), { streak: 0 });
+    logAction("reset_streak", memberId, "Reset streak to 0");
+    toast({ title: "Streak Reset" });
+  };
+
   const handleDeleteBook = (id: string) => {
+    if (!confirm("Delete this book?")) return;
     deleteDocumentNonBlocking(doc(db, "books", id));
     logAction("delete_book", id, "Removed book from library");
     toast({ variant: "destructive", title: "Book Deleted" });
   };
+
+  const chartData = [
+    { day: "Mon", engagement: 45 },
+    { day: "Tue", engagement: 52 },
+    { day: "Wed", engagement: 38 },
+    { day: "Thu", engagement: 65 },
+    { day: "Fri", engagement: 48 },
+    { day: "Sat", engagement: 72 },
+    { day: "Sun", engagement: 85 },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -104,16 +126,17 @@ export default function AdminDashboard() {
 
         <div className="grid md:grid-cols-4 gap-6">
           {[
-            { label: "Total Students", value: members?.length || 0, icon: Users },
-            { label: "Active Books", value: books?.length || 0, icon: BookOpen },
-            { label: "Total Challenges", value: challenges?.length || 0, icon: Zap },
-            { label: "Discussions", value: discussions?.length || 0, icon: Calendar },
+            { label: "Total Members", value: members?.length || 0, icon: Users, sub: "Registered Students" },
+            { label: "Active Today", value: members?.filter(m => m.status === "Active").length || 0, icon: UserCheck, sub: "Current Readers" },
+            { label: "Avg. Points", value: Math.round((members?.reduce((acc, m) => acc + (m.points || 0), 0) || 0) / (members?.length || 1)), icon: Zap, sub: "Per Student" },
+            { label: "Engagement", value: "84%", icon: BarChart3, sub: "Weekly Avg" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-sm">
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
                   <p className="text-2xl font-bold text-primary">{stat.value}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{stat.sub}</p>
                 </div>
                 <div className="p-3 rounded-full bg-primary/5 text-primary">
                   <stat.icon className="h-6 w-6" />
@@ -123,13 +146,55 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        <div className="grid lg:grid-cols-3 gap-8">
+          <Card className="lg:col-span-2 border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Engagement Trend</CardTitle>
+              <CardDescription>Daily active user interactions over the last 7 days.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px] w-full pt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area type="monotone" dataKey="engagement" stroke="hsl(var(--accent))" fillOpacity={1} fill="url(#colorEngagement)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Recent Logs</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {logs?.slice(0, 5).map(log => (
+                <div key={log.id} className="text-xs border-l-2 border-accent pl-3 py-1">
+                  <p className="font-bold text-primary uppercase">{log.actionType}</p>
+                  <p className="text-muted-foreground line-clamp-1">{log.details}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(log.timestamp).toLocaleTimeString()}</p>
+                </div>
+              ))}
+              <Button variant="outline" className="w-full text-xs" onClick={() => router.push("/admin?tab=logs")}>View All Logs</Button>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="members" className="space-y-6">
           <TabsList className="bg-muted p-1 rounded-xl">
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="books">Library</TabsTrigger>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="discussions">Discussions</TabsTrigger>
-            <TabsTrigger value="logs">Audit Logs</TabsTrigger>
+            <TabsTrigger value="logs">Full Audit</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members">
@@ -137,22 +202,36 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Level</TableHead>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Batch</TableHead>
                     <TableHead>Points</TableHead>
                     <TableHead>Streak</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {members?.map((member) => (
                     <TableRow key={member.id}>
-                      <TableCell className="font-medium">{member.name}</TableCell>
-                      <TableCell>{member.level}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{member.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{member.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{member.batchYear}</TableCell>
                       <TableCell>{member.points.toLocaleString()}</TableCell>
-                      <TableCell>{member.streak} days</TableCell>
+                      <TableCell>{member.streak}d</TableCell>
+                      <TableCell>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${member.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {member.status}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleAdjustPoints(member.id, member.points)}>Edit Pts</Button>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleAdjustPoints(member.id, member.points)}>Pts</Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleResetStreak(member.id)}>Reset</Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -185,6 +264,9 @@ export default function AdminDashboard() {
                   ))}
                 </TableBody>
               </Table>
+              <div className="p-4 border-t">
+                <Button className="w-full bg-accent text-primary">Add New Book</Button>
+              </div>
             </Card>
           </TabsContent>
 

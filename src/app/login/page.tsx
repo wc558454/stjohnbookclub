@@ -8,29 +8,37 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, KeyRound } from "lucide-react";
+import { LogIn, KeyRound, Loader2 } from "lucide-react";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const auth = getAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return;
+    
+    setIsLoggingIn(true);
     try {
-      await signInWithEmailAndPassword(auth, email, pin + "000000"); // Using PIN as password prototype
+      // Consistent with registration logic: append a standard suffix to meet 6-char requirement
+      await signInWithEmailAndPassword(auth, email, pin + "000000"); 
       toast({ title: "Welcome Back" });
       router.push("/dashboard");
     } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "Login Failed",
         description: "Invalid email or PIN. Please try again.",
       });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -71,8 +79,9 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full bg-primary h-12 text-lg font-bold hover:bg-primary/90 rounded-full">
-                <LogIn className="mr-2 h-5 w-5" /> Access Dashboard
+              <Button type="submit" disabled={isLoggingIn} className="w-full bg-primary h-12 text-lg font-bold hover:bg-primary/90 rounded-full">
+                {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
+                Access Dashboard
               </Button>
             </form>
           </CardContent>
