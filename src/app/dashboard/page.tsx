@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Trophy, 
   BookOpen, 
@@ -43,6 +44,13 @@ export default function Dashboard() {
   const [pagesReadToday, setPagesReadToday] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
+  // Redirection logic moved to useEffect to avoid render-phase navigation error
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
   // Rank Titles Logic
   const rankInfo = useMemo(() => {
     if (!user) return { title: "Visitor", level: 0 };
@@ -75,18 +83,13 @@ export default function Dashboard() {
       if (lastDate) {
         const diffInHours = (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60);
         if (diffInHours > 48) {
-          // Streak reset if more than 24h missed (plus 24h grace = 48h total from last completion)
           updateUser({ currentStreak: 0 });
         }
       }
     }
   }, [user, loading, updateUser]);
 
-  if (loading) return null;
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  if (loading || !user) return null;
 
   const addNotification = (title: string, message: string) => {
     const newNotif = {
@@ -145,7 +148,7 @@ export default function Dashboard() {
       updates.currentStreak = user.currentStreak + 1;
       updates.longestStreak = Math.max(updates.currentStreak, user.longestStreak);
       updates.lastChallengeDate = new Date().toISOString();
-      updates.points = (updates.points || 0) + 50; // Challenge completion reward
+      updates.points = (updates.points || 0) + 50; 
     }
 
     updateUser(updates);
@@ -165,7 +168,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-        {/* Top Header Section */}
         <div className="grid md:grid-cols-4 gap-6 items-center">
           <div className="md:col-span-2 flex items-center gap-6">
             <div className="relative h-24 w-24 rounded-full border-4 border-accent overflow-hidden shadow-lg">
@@ -214,7 +216,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Reading Tracking */}
           <div className="lg:col-span-2 space-y-8">
             <Card className="border-none shadow-md overflow-hidden bg-primary text-white">
               <CardHeader>
@@ -323,7 +324,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Sidebar: Leaderboard & Badges */}
           <div className="space-y-8">
             <Card className="shadow-sm border-none">
               <CardHeader>

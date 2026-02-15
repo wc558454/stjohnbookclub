@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,8 @@ import {
   Edit, 
   Trash 
 } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 const INITIAL_BOOKS = [
@@ -33,8 +35,18 @@ const INITIAL_BOOKS = [
 ];
 
 export default function AdminDashboard() {
-  const [books, setBooks] = useState(INITIAL_BOOKS);
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
+  const [books, setBooks] = useState(INITIAL_BOOKS);
+
+  useEffect(() => {
+    if (!loading && (!user || !user.isAdmin)) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user || !user.isAdmin) return null;
 
   const handleDelete = (id: number) => {
     setBooks(books.filter(b => b.id !== id));
@@ -59,7 +71,6 @@ export default function AdminDashboard() {
           </Button>
         </header>
 
-        {/* Stats Grid */}
         <div className="grid md:grid-cols-3 gap-6">
           {[
             { label: "Active Readers", value: "1,248", icon: Users },
@@ -80,7 +91,6 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Content Table */}
         <Card className="border-none shadow-md overflow-hidden">
           <CardHeader className="bg-primary text-white border-b-0">
             <CardTitle>Reading Selections</CardTitle>
@@ -130,7 +140,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Settings Teaser */}
         <div className="grid md:grid-cols-2 gap-8">
           <Card className="border-none shadow-sm">
             <CardHeader>
