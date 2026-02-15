@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,17 +9,23 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, KeyRound } from "lucide-react";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
-  const { login } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
+  const auth = getAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = login(email, pin);
-    if (!success) {
+    try {
+      await signInWithEmailAndPassword(auth, email, pin + "000000"); // Using PIN as password prototype
+      toast({ title: "Welcome Back" });
+      router.push("/dashboard");
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",

@@ -28,6 +28,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { UserCircle } from "lucide-react";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters."),
@@ -44,6 +47,9 @@ type FormValues = z.infer<typeof formSchema>;
 export default function Register() {
   const { toast } = useToast();
   const router = useRouter();
+  const db = useFirestore();
+  const auth = getAuth();
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,34 +63,40 @@ export default function Register() {
     },
   });
 
-  function onSubmit(values: FormValues) {
-    const registrationsRaw = localStorage.getItem("sim_registrations") || "[]";
-    const registrations = JSON.parse(registrationsRaw);
-    
-    const newUser = {
-      ...values,
-      id: Math.random().toString(36).substr(2, 9),
-      name: values.fullName,
-      points: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      totalPagesRead: 0,
-      discussionsAttended: 0,
-      badges: [],
-      isAdmin: false,
-    };
+  async function onSubmit(values: FormValues) {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.pin + "000000"); // Append dummy for min length if needed, or stick to actual auth logic. Using PIN as password for the prototype's simplified auth.
+      const user = userCredential.user;
 
-    registrations.push(newUser);
-    localStorage.setItem("sim_registrations", JSON.stringify(registrations));
-    
-    toast({
-      title: "Welcome to the Fellowship!",
-      description: "Your registration has been submitted. Please login with your email and PIN.",
-    });
+      await setDoc(doc(db, "users", user.uid), {
+        id: user.uid,
+        name: values.fullName,
+        email: values.email,
+        batchYear: values.batchYear,
+        readingLevel: values.readingLevel,
+        pagesPerDay: values.pagesPerDay,
+        spiritualGoal: values.spiritualGoal,
+        points: 0,
+        level: 1,
+        streak: 0,
+        status: "Active",
+        role: "member",
+        createdAt: new Date().toISOString()
+      });
 
-    setTimeout(() => {
-      router.push("/login");
-    }, 1500);
+      toast({
+        title: "Welcome to the Fellowship!",
+        description: "Your registration has been submitted.",
+      });
+
+      router.push("/dashboard");
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Registration Error",
+        description: error.message,
+      });
+    }
   }
 
   const batchYears = Array.from({ length: 2030 - 2011 + 1 }, (_, i) => (2011 + i).toString());
