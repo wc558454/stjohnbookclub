@@ -24,7 +24,8 @@ import {
   Send,
   Bell,
   CheckCircle2,
-  Zap
+  Zap,
+  Clock
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,11 @@ export default function Dashboard() {
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
   const [selectedNudgeMember, setSelectedNudgeMember] = useState<string>("");
   const [nudgeMessage, setNudgeMessage] = useState<string>("Keep up the great reading today!");
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,7 +56,6 @@ export default function Dashboard() {
     }
   }, [user, loading, router]);
 
-  // Streak logic: Check if streak should reset (missed > 48 hours)
   useEffect(() => {
     if (profile && profile.lastReadAt && profile.streak > 0) {
       const lastRead = new Date(profile.lastReadAt).getTime();
@@ -62,7 +67,6 @@ export default function Dashboard() {
           streak: 0
         });
         
-        // Trigger notification
         const notifId = Math.random().toString(36).substring(7);
         setDoc(doc(db, "users", profile.id, "notifications", notifId), {
           id: notifId,
@@ -169,7 +173,7 @@ export default function Dashboard() {
     });
 
     updateDocumentNonBlocking(userRef, {
-      points: profile.points + reward
+      points: (profile.points || 0) + reward
     });
 
     const notifId = Math.random().toString(36).substring(7);
@@ -248,14 +252,14 @@ export default function Dashboard() {
               <Star className="h-6 w-6 text-accent fill-accent" />
               <div>
                 <p className="text-xs text-muted-foreground font-bold uppercase">Points</p>
-                <p className="text-xl font-bold text-primary">{profile.points.toLocaleString()}</p>
+                <p className="text-xl font-bold text-primary">{profile.points?.toLocaleString() || 0}</p>
               </div>
             </div>
             <div className="bg-white p-4 rounded-xl shadow-sm border flex items-center gap-3">
               <Flame className={`h-6 w-6 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted'}`} />
               <div>
                 <p className="text-xs text-muted-foreground font-bold uppercase">Streak</p>
-                <p className="text-xl font-bold text-primary">{profile.streak} Days</p>
+                <p className="text-xl font-bold text-primary">{profile.streak || 0} Days</p>
               </div>
             </div>
           </div>
@@ -297,7 +301,9 @@ export default function Dashboard() {
                     <div className="bg-white/5 p-4 rounded-lg">
                       <p className="text-xs text-primary-foreground/50 uppercase font-bold">Due Date</p>
                       <p className="text-lg font-bold text-accent">
-                        {currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'Dec 25'}
+                        {hasMounted && currentBook.currentReadingPlanDueDate 
+                          ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() 
+                          : 'Dec 25'}
                       </p>
                     </div>
                   </div>
@@ -334,7 +340,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h3 className="font-headline text-xl font-bold text-primary flex items-center gap-2">
                 <Zap className="h-5 w-5 text-accent" /> Spiritual Challenges
               </h3>
@@ -345,28 +351,34 @@ export default function Dashboard() {
                   const isInProgress = userChallenge?.status === "InProgress";
 
                   return (
-                    <Card key={challenge.id} className="border-none shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between">
+                    <Card key={challenge.id} className="border-none shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow flex flex-col h-full">
+                      <CardHeader className="pb-2 flex-none">
+                        <div className="flex justify-between items-center mb-2">
                           <Badge variant="secondary" className="text-[10px] font-bold uppercase">{challenge.type}</Badge>
                           <span className="text-xs font-bold text-accent flex items-center gap-1">
                             <Star className="h-3 w-3 fill-accent" /> +{challenge.pointsReward} PTS
                           </span>
                         </div>
-                        <CardTitle className="text-base mt-2 font-headline">{challenge.title}</CardTitle>
-                        <CardDescription className="text-xs line-clamp-3">{challenge.description}</CardDescription>
+                        <CardTitle className="text-base font-headline">{challenge.title}</CardTitle>
+                        <CardDescription className="text-xs line-clamp-3 mt-1">{challenge.description}</CardDescription>
                       </CardHeader>
-                      <CardFooter className="pt-2">
+                      <CardContent className="py-2 flex-1">
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                          <Clock className="h-3 w-3" />
+                          <span>Ends: {hasMounted ? new Date(challenge.endDate).toLocaleDateString() : '...'}</span>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-2 flex-none">
                         {!userChallenge && (
-                          <Button onClick={() => handleStartChallenge(challenge.id)} className="w-full text-xs rounded-full" variant="outline">Start Challenge</Button>
+                          <Button onClick={() => handleStartChallenge(challenge.id)} className="w-full text-xs rounded-full h-9" variant="outline">Start Challenge</Button>
                         )}
                         {isInProgress && (
-                          <Button onClick={() => handleCompleteChallenge(userChallenge.id, challenge.pointsReward, challenge.title)} className="w-full text-xs bg-primary text-white hover:bg-primary/90 rounded-full">
+                          <Button onClick={() => handleCompleteChallenge(userChallenge.id, challenge.pointsReward, challenge.title)} className="w-full text-xs bg-primary text-white hover:bg-primary/90 rounded-full h-9">
                             <CheckCircle2 className="mr-2 h-4 w-4" /> Complete Now
                           </Button>
                         )}
                         {isCompleted && (
-                          <div className="w-full flex items-center justify-center gap-2 bg-accent/20 text-primary py-2 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                          <div className="w-full flex items-center justify-center gap-2 bg-accent/20 text-primary py-2 rounded-full text-[10px] font-bold uppercase tracking-widest h-9">
                             <CheckCircle2 className="h-4 w-4" /> Fully Completed
                           </div>
                         )}
@@ -423,7 +435,7 @@ export default function Dashboard() {
                     <div className="font-headline font-bold text-lg text-primary/20 w-6">#{i + 1}</div>
                     <div className="flex-1">
                       <p className={`text-sm font-bold ${member.id === user?.uid ? 'text-primary' : 'text-muted-foreground'}`}>{member.name}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{member.points.toLocaleString()} pts</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{member.points?.toLocaleString() || 0} pts</p>
                     </div>
                     {member.streak > 0 && (
                       <div className="flex items-center gap-1 text-orange-500 font-bold text-xs">

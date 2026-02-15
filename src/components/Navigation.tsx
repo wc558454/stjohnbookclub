@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,11 @@ import Image from "next/image";
 export function Navigation() {
   const { user, profile, isAdmin, logout, loading } = useAuth();
   const db = useFirestore();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!user?.uid) return null;
@@ -63,7 +69,7 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           {!user && !loading && (
             <div className="flex items-center gap-2">
-              <Button asChild variant="ghost" className="hidden sm:flex">
+              <Button asChild variant="ghost" className="flex">
                 <Link href="/login">Login</Link>
               </Button>
               <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6">
@@ -97,7 +103,9 @@ export function Navigation() {
                       onClick={() => handleMarkAsRead(n.id)}
                     >
                       <p className={`font-medium ${!n.isRead ? 'text-primary' : 'text-muted-foreground'}`}>{n.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {hasMounted ? new Date(n.createdAt).toLocaleString() : '...'}
+                      </p>
                     </div>
                   )) : (
                     <div className="p-8 text-center text-xs text-muted-foreground italic">No new alerts.</div>
@@ -113,7 +121,7 @@ export function Navigation() {
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-accent/20 overflow-hidden">
                   <div className="h-full w-full bg-accent/20 flex items-center justify-center font-bold text-primary">
                     {profile?.profilePictureUrl ? (
-                      <Image src={profile.profilePictureUrl} alt={profile.name} fill className="object-cover" />
+                      <Image src={profile.profilePictureUrl} alt={profile.name || 'User'} fill className="object-cover" />
                     ) : (profile?.name?.charAt(0) || 'U')}
                   </div>
                 </Button>

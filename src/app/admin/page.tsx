@@ -43,6 +43,11 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   const db = useFirestore();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -81,7 +86,7 @@ export default function AdminDashboard() {
   const handleAdjustPoints = (memberId: string, currentPoints: number) => {
     const amount = prompt("Adjust points by (use negative for deduction):");
     if (!amount) return;
-    const newPoints = currentPoints + parseInt(amount);
+    const newPoints = (currentPoints || 0) + parseInt(amount);
     updateDocumentNonBlocking(doc(db, "users", memberId), { points: newPoints });
     logAction("adjust_points", memberId, `Adjusted points to ${newPoints}`);
     toast({ title: "Points Adjusted" });
@@ -180,7 +185,9 @@ export default function AdminDashboard() {
                 <div key={log.id} className="text-xs border-l-2 border-accent pl-3 py-1">
                   <p className="font-bold text-primary uppercase">{log.actionType}</p>
                   <p className="text-muted-foreground line-clamp-1">{log.details}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(log.timestamp).toLocaleTimeString()}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {hasMounted ? new Date(log.timestamp).toLocaleTimeString() : '...'}
+                  </p>
                 </div>
               ))}
               <Button variant="outline" className="w-full text-xs" onClick={() => router.push("/admin?tab=logs")}>View All Logs</Button>
@@ -220,8 +227,8 @@ export default function AdminDashboard() {
                         </div>
                       </TableCell>
                       <TableCell>{member.batchYear}</TableCell>
-                      <TableCell>{member.points.toLocaleString()}</TableCell>
-                      <TableCell>{member.streak}d</TableCell>
+                      <TableCell>{(member.points || 0).toLocaleString()}</TableCell>
+                      <TableCell>{member.streak || 0}d</TableCell>
                       <TableCell>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${member.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {member.status}
@@ -284,7 +291,9 @@ export default function AdminDashboard() {
                 <TableBody>
                   {logs?.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="text-xs">{new Date(log.timestamp).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs">
+                        {hasMounted ? new Date(log.timestamp).toLocaleString() : '...'}
+                      </TableCell>
                       <TableCell className="text-xs font-bold">{log.adminId}</TableCell>
                       <TableCell className="text-xs font-medium uppercase">{log.actionType}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{log.details}</TableCell>
