@@ -58,16 +58,32 @@ export default function Register() {
   });
 
   function onSubmit(values: FormValues) {
-    // Simulate frontend storage
-    localStorage.setItem("sim_registration", JSON.stringify(values));
+    const registrationsRaw = localStorage.getItem("sim_registrations") || "[]";
+    const registrations = JSON.parse(registrationsRaw);
+    
+    const newUser = {
+      ...values,
+      id: Math.random().toString(36).substr(2, 9),
+      name: values.fullName,
+      points: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      totalPagesRead: 0,
+      discussionsAttended: 0,
+      badges: [],
+      isAdmin: false,
+    };
+
+    registrations.push(newUser);
+    localStorage.setItem("sim_registrations", JSON.stringify(registrations));
     
     toast({
       title: "Welcome to the Fellowship!",
-      description: "Your registration has been submitted successfully.",
+      description: "Your registration has been submitted. Please login with your email and PIN.",
     });
 
     setTimeout(() => {
-      router.push("/dashboard");
+      router.push("/login");
     }, 1500);
   }
 
@@ -89,7 +105,6 @@ export default function Register() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Basic Info */}
                   <FormField
                     control={form.control}
                     name="fullName"

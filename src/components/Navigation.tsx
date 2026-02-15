@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 
 export function Navigation() {
-  const { user, logout, login } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,16 +30,18 @@ export function Navigation() {
 
         <div className="hidden md:flex items-center gap-8">
           <Link href="/#about" className="text-sm font-medium hover:text-accent transition-colors">About</Link>
-          <Link href="/register" className="text-sm font-medium hover:text-accent transition-colors">Join</Link>
+          {!user && (
+            <Link href="/register" className="text-sm font-medium hover:text-accent transition-colors">Join</Link>
+          )}
           {user ? (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
               <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Discussions</Link>
             </>
           ) : (
-            <button onClick={() => login()} className="text-sm font-medium hover:text-accent transition-colors flex items-center gap-1.5">
+            <Link href="/login" className="text-sm font-medium hover:text-accent transition-colors flex items-center gap-1.5">
               <LogIn className="h-4 w-4" /> Login
-            </button>
+            </Link>
           )}
         </div>
 
@@ -47,31 +49,33 @@ export function Navigation() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full border border-accent/20">
-                  <User className="h-5 w-5 text-primary" />
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-accent/20 overflow-hidden">
+                  <div className="h-full w-full bg-accent/20 flex items-center justify-center font-bold text-primary">
+                    {user.name.charAt(0)}
+                  </div>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm">{user.name}</p>
-                    <p className="w-[180px] truncate text-xs text-muted-foreground">{user.email}</p>
-                  </div>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="flex flex-col space-y-1 p-4">
+                  <p className="font-bold text-sm leading-none">{user.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard">Member Dashboard</Link>
+                  <Link href="/dashboard" className="cursor-pointer">Member Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/forum">Community Forum</Link>
+                  <Link href="/forum" className="cursor-pointer">Community Forum</Link>
                 </DropdownMenuItem>
                 {user.isAdmin && (
                   <DropdownMenuItem asChild>
-                    <Link href="/admin">Admin Panel</Link>
+                    <Link href="/admin" className="cursor-pointer flex items-center gap-2">
+                      <Shield className="h-4 w-4" /> Admin Panel
+                    </Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive cursor-pointer">
+                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
