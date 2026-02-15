@@ -85,7 +85,6 @@ export default function Dashboard() {
   const membersQuery = useMemoFirebase(() => query(collection(db, "users"), orderBy("points", "desc"), limit(20)), [db]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
 
-  // Check today's nudges
   const [todayNudgeCount, setTodayNudgeCount] = useState(0);
   useEffect(() => {
     async function checkNudges() {
@@ -126,14 +125,26 @@ export default function Dashboard() {
     const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
     
-    // Check if streak should increment
     const lastRead = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
     const today = new Date();
     today.setHours(0,0,0,0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     
     let newStreak = profile.streak || 0;
-    if (!lastRead || lastRead.getTime() < today.getTime()) {
-      newStreak += 1;
+    
+    if (!lastRead) {
+      newStreak = 1;
+    } else {
+      const lastReadDate = new Date(lastRead);
+      lastReadDate.setHours(0,0,0,0);
+      
+      if (lastReadDate.getTime() === yesterday.getTime()) {
+        newStreak += 1;
+      } else if (lastReadDate.getTime() < yesterday.getTime()) {
+        newStreak = 1;
+      }
+      // If today, stay same
     }
 
     updateDocumentNonBlocking(userRef, {
@@ -158,7 +169,7 @@ export default function Dashboard() {
     const userRef = doc(db, "users", user.uid);
     updateDocumentNonBlocking(userRef, { points: profile.points + reward });
     
-    const reflectionId = Math.random().toString(36).substring(7);
+    const reflectionId = `reflection_${new Date().toISOString().split('T')[0]}`;
     setDoc(doc(db, "users", user.uid, "userChallenges", reflectionId), {
       id: reflectionId,
       challengeId: "reflection_daily",
@@ -184,7 +195,6 @@ export default function Dashboard() {
     const nudgeId = Math.random().toString(36).substring(7);
     const reward = 3;
 
-    // Save sent nudge
     setDoc(doc(db, "users", user.uid, "sentNudges", nudgeId), {
       id: nudgeId,
       senderId: user.uid,
@@ -194,7 +204,6 @@ export default function Dashboard() {
       isBonusAwarded: false
     });
 
-    // Notify receiver
     const notifId = Math.random().toString(36).substring(7);
     setDoc(doc(db, "users", selectedNudgeMember, "notifications", notifId), {
       id: notifId,
@@ -206,12 +215,36 @@ export default function Dashboard() {
       expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
     });
 
-    // Award sender points
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: profile.points + reward });
 
     toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
     setSelectedNudgeMember("");
     setTodayNudgeCount(prev => prev + 1);
+  };
+
+  const handleStartChallenge = (challengeId: string) => {
+    if (!user?.uid) return;
+    const userChallengeId = Math.random().toString(36).substring(7);
+    setDoc(doc(db, "users", user.uid, "userChallenges", userChallengeId), {
+      id: userChallengeId,
+      challengeId: challengeId,
+      userId: user.uid,
+      status: "InProgress",
+      startedAt: new Date().toISOString(),
+      progress: "Started"
+    });
+    toast({ title: "Challenge Started" });
+  };
+
+  const handleCompleteChallenge = (userChallengeId: string, points: number, title: string) => {
+    if (!user?.uid || !profile) return;
+    updateDocumentNonBlocking(doc(db, "users", user.uid, "userChallenges", userChallengeId), {
+      status: "Completed",
+      completedAt: new Date().toISOString(),
+      pointsEarned: points
+    });
+    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: profile.points + points });
+    toast({ title: "Challenge Completed", description: `+${points} points for ${title}` });
   };
 
   const handleDiscussionCheckIn = (discussion: any) => {
@@ -392,11 +425,11 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <CardTitle className="text-base font-headline">Reflection of the Day</CardTitle>
-                    <CardDescription className="text-xs">Share what you learned from your reading today.</CardDescription>
+                    <CardDescription className="text-xs">Share what you learned from your reading today (2-5 sentences).</CardDescription>
                   </CardHeader>
                   <CardContent className="flex-1 space-y-4">
                     <Textarea 
-                      placeholder="Write 2-5 sentences about today's reading..."
+                      placeholder="Write your reflection here..."
                       value={reflection}
                       onChange={(e) => setReflection(e.target.value)}
                       className="bg-white text-xs min-h-[100px]"
@@ -414,7 +447,7 @@ export default function Dashboard() {
                   </CardFooter>
                 </Card>
 
-                {/* Fellow Member Challenges Managed by Admin */}
+                {/* Fellow Member Challenges */}
                 {challenges?.map(challenge => {
                   const userChallenge = userChallenges?.find(uc => uc.challengeId === challenge.id);
                   const isCompleted = userChallenge?.status === "Completed";
