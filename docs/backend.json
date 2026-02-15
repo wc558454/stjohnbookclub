@@ -1,0 +1,657 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a member of the St. John Chrysostom Bookclub, including their personal details, progress metrics, and administrative attributes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for contact and display purposes. (Not for authentication credentials)",
+          "format": "email"
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL to the user's uploaded profile picture.",
+          "format": "uri"
+        },
+        "batchYear": {
+          "type": "string",
+          "description": "The year or batch identifier when the user joined the bookclub."
+        },
+        "readingLevel": {
+          "type": "string",
+          "description": "A descriptive level indicating the user's reading proficiency or engagement (e.g., 'Beginner', 'Intermediate', 'Advanced')."
+        },
+        "points": {
+          "type": "number",
+          "description": "The total cumulative points earned by the user.",
+          "format": "int32"
+        },
+        "level": {
+          "type": "number",
+          "description": "The current achievement level of the user based on points or engagement.",
+          "format": "int32"
+        },
+        "streak": {
+          "type": "number",
+          "description": "The current consecutive daily reading streak of the user.",
+          "format": "int32"
+        },
+        "status": {
+          "type": "string",
+          "description": "The active status of the user (e.g., 'Active', 'Inactive')."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the bookclub (e.g., 'member', 'admin')."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "batchYear",
+        "readingLevel",
+        "points",
+        "level",
+        "streak",
+        "status",
+        "role"
+      ]
+    },
+    "Book": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Book",
+      "type": "object",
+      "description": "Represents a book that is or has been part of the bookclub's reading plan.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Book entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the book."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief summary or description of the book."
+        },
+        "totalPages": {
+          "type": "number",
+          "description": "The total number of pages in the book.",
+          "format": "int32"
+        },
+        "currentReadingPlanDueDate": {
+          "type": "string",
+          "description": "The due date for completing this book within the current bookclub reading plan. (Optional)",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "totalPages"
+      ]
+    },
+    "Challenge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Challenge",
+      "type": "object",
+      "description": "Defines a specific task or goal that members can undertake to earn points and engage with the club's activities.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Challenge entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the challenge."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the challenge and its objectives."
+        },
+        "pointsReward": {
+          "type": "number",
+          "description": "The number of points awarded upon successful completion of the challenge.",
+          "format": "int32"
+        },
+        "completionCriteria": {
+          "type": "string",
+          "description": "Description of what needs to be done to complete the challenge (e.g., 'Read 10 pages', 'Answer 3 questions')."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The date and time when the challenge becomes active.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The date and time when the challenge expires.",
+          "format": "date-time"
+        },
+        "type": {
+          "type": "string",
+          "description": "The category or type of challenge (e.g., 'Daily', 'Weekly', 'Special')."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the challenge is currently active and available to members."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "pointsReward",
+        "completionCriteria",
+        "startDate",
+        "endDate",
+        "type",
+        "isActive"
+      ]
+    },
+    "UserChallenge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserChallenge",
+      "type": "object",
+      "description": "Tracks a specific member's participation and progress on a particular challenge.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserChallenge entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User participating in the challenge. (Relationship: User 1:N UserChallenge)"
+        },
+        "challengeId": {
+          "type": "string",
+          "description": "Reference to the Challenge being undertaken. (Relationship: Challenge 1:N UserChallenge)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the user's challenge (e.g., 'Pending', 'InProgress', 'Completed', 'Failed')."
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "The date and time when the user started the challenge.",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "description": "The date and time when the user completed the challenge. Null if not completed.",
+          "format": "date-time"
+        },
+        "progress": {
+          "type": "string",
+          "description": "A textual or numerical representation of the user's progress within the challenge (e.g., '3/10 pages read')."
+        },
+        "pointsEarned": {
+          "type": "number",
+          "description": "The actual points earned by the user for this specific completion, reflecting the challenge's reward at the time of completion.",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "challengeId",
+        "status",
+        "startedAt"
+      ]
+    },
+    "Discussion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Discussion",
+      "type": "object",
+      "description": "Represents a scheduled discussion event for members, often related to a specific book or topic.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Discussion entity."
+        },
+        "bookId": {
+          "type": "string",
+          "description": "Reference to the Book this discussion is about. (Optional. Relationship: Book 1:N Discussion)"
+        },
+        "topic": {
+          "type": "string",
+          "description": "The main topic of the discussion."
+        },
+        "scheduledDateTime": {
+          "type": "string",
+          "description": "The date and time when the discussion is scheduled.",
+          "format": "date-time"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the discussion is currently active or upcoming."
+        },
+        "organizerId": {
+          "type": "string",
+          "description": "Reference to the User who organized the discussion. (Optional. Relationship: User 1:N Discussion)"
+        }
+      },
+      "required": [
+        "id",
+        "topic",
+        "scheduledDateTime",
+        "isActive"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a system-generated alert or message sent to a specific user within the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notification entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who is the recipient of the notification. (Relationship: User 1:N Notification)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of event that triggered the notification (e.g., 'LevelUp', 'NewChallenge', 'ChallengeCompleted', 'DiscussionScheduled', 'NudgeReceived', 'StreakWarning')."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notification message."
+        },
+        "relatedEntityType": {
+          "type": "string",
+          "description": "The type of entity related to this notification (e.g., 'Challenge', 'Discussion', 'Nudge'). Optional."
+        },
+        "relatedEntityId": {
+          "type": "string",
+          "description": "The ID of the entity related to this notification. Optional."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Indicates whether the user has read the notification."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the notification was created.",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "The date and time when the notification is set to expire and disappear (e.g., 48 hours after creation).",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "message",
+        "isRead",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "Nudge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nudge",
+      "type": "object",
+      "description": "Represents an encouragement message sent from one member to another to motivate reading or challenge completion.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Nudge entity."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to the User who sent the nudge. (Relationship: User 1:N Nudge - as sender)"
+        },
+        "receiverId": {
+          "type": "string",
+          "description": "Reference to the User who received the nudge. (Relationship: User 1:N Nudge - as receiver)"
+        },
+        "message": {
+          "type": "string",
+          "description": "The encouragement message sent with the nudge."
+        },
+        "sentAt": {
+          "type": "string",
+          "description": "The date and time when the nudge was sent.",
+          "format": "date-time"
+        },
+        "isBonusAwarded": {
+          "type": "boolean",
+          "description": "Indicates if the nudger received bonus points for the receiver completing reading within 24 hours."
+        },
+        "bonusAwardedAt": {
+          "type": "string",
+          "description": "The date and time when the bonus points were awarded, if applicable. Null if not awarded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "senderId",
+        "receiverId",
+        "message",
+        "sentAt",
+        "isBonusAwarded"
+      ]
+    },
+    "UserReadingProgress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserReadingProgress",
+      "type": "object",
+      "description": "Tracks an individual member's progress through a specific book.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserReadingProgress entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User whose reading progress is being tracked. (Relationship: User 1:N UserReadingProgress)"
+        },
+        "bookId": {
+          "type": "string",
+          "description": "Reference to the Book being read. (Relationship: Book 1:N UserReadingProgress)"
+        },
+        "currentPage": {
+          "type": "number",
+          "description": "The last page number the user has read in this book.",
+          "format": "int32"
+        },
+        "startedReadingAt": {
+          "type": "string",
+          "description": "The date and time when the user started reading this book.",
+          "format": "date-time"
+        },
+        "lastReadAt": {
+          "type": "string",
+          "description": "The most recent date and time the user updated their reading progress for this book.",
+          "format": "date-time"
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates if the user has completed reading this book."
+        },
+        "completedAt": {
+          "type": "string",
+          "description": "The date and time when the user marked the book as completed. Null if not completed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "bookId",
+        "currentPage",
+        "startedReadingAt",
+        "lastReadAt",
+        "isCompleted"
+      ]
+    },
+    "AdminActionLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminActionLog",
+      "type": "object",
+      "description": "Records administrative actions performed by users with 'admin' roles for auditing purposes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AdminActionLog entity."
+        },
+        "adminId": {
+          "type": "string",
+          "description": "Reference to the User (admin) who performed the action. (Relationship: User 1:N AdminActionLog)"
+        },
+        "actionType": {
+          "type": "string",
+          "description": "The type of administrative action performed (e.g., 'adjust_points', 'reset_streak', 'assign_role', 'create_book', 'edit_challenge', 'create_discussion')."
+        },
+        "targetEntityType": {
+          "type": "string",
+          "description": "The type of entity that was affected by the action (e.g., 'User', 'Book', 'Challenge', 'Discussion')."
+        },
+        "targetEntityId": {
+          "type": "string",
+          "description": "The ID of the specific entity that was affected by the action."
+        },
+        "details": {
+          "type": "string",
+          "description": "A descriptive message or JSON string containing details of the change (e.g., old value, new value)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the administrative action was performed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "adminId",
+        "actionType",
+        "targetEntityType",
+        "targetEntityId",
+        "details",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Collection storing user profiles. Each document is uniquely identified by the user's Firebase Authentication UID. Includes denormalized 'role' for application logic and general user details. Ownership is path-based, meaning a user can only read/write their own document."
+        }
+      },
+      {
+        "path": "/roles_admin/{adminId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection for identifying administrators. The document ID (`adminId`) corresponds to a user's UID. The *existence* of a document at this path signifies an admin role. This enables secure and simple DBAC (Database-Based Access Control) rules for admin-only operations by checking for document existence. Documents in this collection can be empty or contain minimal metadata, but their primary purpose is authorization via presence.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier (UID) of the user who has an 'admin' role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/books/{bookId}",
+        "definition": {
+          "entityName": "Book",
+          "schema": {
+            "$ref": "#/backend/entities/Book"
+          },
+          "description": "Global collection for all books in the bookclub. Accessible by all authenticated members for viewing. Admin users have privileges to create, edit, and delete documents in this collection.",
+          "params": [
+            {
+              "name": "bookId",
+              "description": "The unique identifier for a specific book."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/challenges/{challengeId}",
+        "definition": {
+          "entityName": "Challenge",
+          "schema": {
+            "$ref": "#/backend/entities/Challenge"
+          },
+          "description": "Global collection for all challenges available to members. Accessible by all authenticated members for viewing. Admin users have privileges to create, edit, and delete documents in this collection.",
+          "params": [
+            {
+              "name": "challengeId",
+              "description": "The unique identifier for a specific challenge."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/discussions/{discussionId}",
+        "definition": {
+          "entityName": "Discussion",
+          "schema": {
+            "$ref": "#/backend/entities/Discussion"
+          },
+          "description": "Global collection for all scheduled discussion events. Accessible by all authenticated members for viewing. Admin users have privileges to create, edit, and delete documents in this collection.",
+          "params": [
+            {
+              "name": "discussionId",
+              "description": "The unique identifier for a specific discussion event."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/userChallenges/{userChallengeId}",
+        "definition": {
+          "entityName": "UserChallenge",
+          "schema": {
+            "$ref": "#/backend/entities/UserChallenge"
+          },
+          "description": "Subcollection tracking a specific user's participation in challenges. Ownership is determined by the `userId` in the path, ensuring Authorization Independence. A user can only access their own userChallenge documents.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this challenge progress."
+            },
+            {
+              "name": "userChallengeId",
+              "description": "The unique identifier for a specific user's challenge progress record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Subcollection for system-generated notifications specific to each user. Ownership is determined by the `userId` in the path, ensuring Authorization Independence. Notifications include an `expiresAt` field for automated disappearance after 48 hours.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is the recipient of this notification."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier for a specific notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{senderId}/sentNudges/{nudgeId}",
+        "definition": {
+          "entityName": "Nudge",
+          "schema": {
+            "$ref": "#/backend/entities/Nudge"
+          },
+          "description": "Subcollection storing nudges sent by a specific user. This denormalized path allows the sender to easily retrieve their nudge history, ensuring Authorization Independence for the sender. When a nudge is created, a document is also created in the receiver's `receivedNudges` subcollection.",
+          "params": [
+            {
+              "name": "senderId",
+              "description": "The unique identifier of the user who sent the nudge."
+            },
+            {
+              "name": "nudgeId",
+              "description": "The unique identifier for a specific nudge instance."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{receiverId}/receivedNudges/{nudgeId}",
+        "definition": {
+          "entityName": "Nudge",
+          "schema": {
+            "$ref": "#/backend/entities/Nudge"
+          },
+          "description": "Subcollection storing nudges received by a specific user. This denormalized path allows the receiver to easily retrieve their received nudges, ensuring Authorization Independence for the receiver. When a nudge is created, a document is also created in the sender's `sentNudges` subcollection.",
+          "params": [
+            {
+              "name": "receiverId",
+              "description": "The unique identifier of the user who received the nudge."
+            },
+            {
+              "name": "nudgeId",
+              "description": "The unique identifier for a specific nudge instance."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/readingProgress/{userReadingProgressId}",
+        "definition": {
+          "entityName": "UserReadingProgress",
+          "schema": {
+            "$ref": "#/backend/entities/UserReadingProgress"
+          },
+          "description": "Subcollection tracking an individual member's progress for specific books. Ownership is determined by the `userId` in the path, ensuring Authorization Independence. A user can only access their own reading progress records.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user whose reading progress is being tracked."
+            },
+            {
+              "name": "userReadingProgressId",
+              "description": "The unique identifier for a specific user's reading progress record for a book."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/adminActionLogs/{adminActionLogId}",
+        "definition": {
+          "entityName": "AdminActionLog",
+          "schema": {
+            "$ref": "#/backend/entities/AdminActionLog"
+          },
+          "description": "Global collection for auditing administrative actions. Only users with the 'admin' role (verified by `/roles_admin/{adminId}`) can read or write to this collection, ensuring a homogeneous security posture and easy querying for audit purposes.",
+          "params": [
+            {
+              "name": "adminActionLogId",
+              "description": "The unique identifier for a specific administrative action log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure prioritizes Authorization Independence and Structural Segregation to ensure robust, debuggable security rules and efficient data access. \n\n**Authorization Independence (Denormalization Strategy):**\n\n1.  **User-Owned Data:** For entities strictly owned by a user (e.g., `UserChallenge`, `Notification`, `UserReadingProgress`), the `userId` is embedded directly into the collection path (e.g., `/users/{userId}/notifications/{notificationId}`). This makes the owner explicit in the path, allowing security rules to simply check `request.auth.uid == userId` without needing any `get()` operations, which would break atomic writes and complicate rule debugging. This strategy is foundational for secure and scalable user-specific data.\n\n2.  **Nudging Feature (`Nudge`):** To manage nudges where both the sender and receiver need access (e.g., sender views 'sent' history, receiver views 'received' nudges), the `Nudge` entity is denormalized into two user-specific subcollections: `/users/{senderId}/sentNudges/{nudgeId}` and `/users/{receiverId}/receivedNudges/{nudgeId}`. When a nudge is created, a single logical nudge is represented by two physical documents (one in each subcollection). This ensures that a user can easily list their sent or received nudges without complex queries or cross-document `get()` calls in security rules. Rules can simply check `request.auth.uid == senderId` for sent nudges and `request.auth.uid == receiverId` for received nudges, maintaining authorization independence.\n\n3.  **Global Roles (Admin Access):** Administrative access is handled by a dedicated top-level collection, `/roles_admin/{adminId}`. An admin's UID will exist as a document ID in this collection. Security rules can check for the *existence* of `request.auth.uid` in this collection (`exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))`). This is a highly efficient and secure `DBAC` (Database-Based Access Control) pattern, avoiding custom claims and complex role lookups.\n\n**Querying for Authorization Purposes (QAPs):**\n\nAll collections are structured to directly support Query-as-Permission (QAP). This means that a client-side query for data should inherently only return data the user is authorized to see, without the need for `where` clauses that security rules would have to filter. \n\n*   **User-Specific Data:** Queries like `db.collection('users').doc(auth.currentUser.uid).collection('notifications').get()` inherently filter by the authenticated user's ID, fulfilling QAP. The security rules then only need to verify that `userId` in the path matches `request.auth.uid`.\n*   **Global Data (`Books`, `Challenges`, `Discussions`):** These are top-level collections accessible (likely read-only) by all authenticated members. This provides a homogeneous security posture for all documents within these collections, simplifying rules. Admin actions on these are controlled by the `/roles_admin` collection.\n*   **Admin Logs (`AdminActionLog`):** This collection is a global log but secured such that only authenticated administrators (as determined by `/roles_admin`) can read or write to it, ensuring QAP for administrative oversight."
+  }
+}

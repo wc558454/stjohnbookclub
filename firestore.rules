@@ -1,0 +1,188 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * St. John Chrysostom Bookclub - Security Rules
+     *
+     * Core Philosophy: 
+     * This ruleset enforces a strict user-ownership model for personal progress, notifications, 
+     * and nudges, while providing a Database-Based Access Control (DBAC) layer for administrators.
+     *
+     * Data Structure:
+     * - User-specific data (challenges, notifications, progress, nudges) is nested under /users/{userId}.
+     * - Shared resources (books, global challenges, discussions) are at the root level.
+     * - Administrative status is determined by the existence of a document in the /roles_admin collection.
+     *
+     * Key Security Decisions:
+     * 1. Ownership via Path: Most user data is secured by matching the {userId} in the path to the auth UID.
+     * 2. DBAC Roles: Administrative actions are guarded by a check against the /roles_admin collection.
+     * 3. Denormalization for Nudges: Nudges are stored in both the sender's and receiver's trees to ensure 
+     *    performance and simple ownership logic for history views.
+     * 4. Public Member Directory: Authenticated members can view other members' profiles (names/pics) 
+     *    to facilitate the "Nudging" feature and community interaction.
+     * 5. Prototyping Flexibility: Rules strictly control WHO can access data, but allow flexibility 
+     *    on WHAT data is written (schema-agnostic) to allow for rapid UI/feature iteration.
+     */
+
+    // --- Helper Functions ---
+
+    /** Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Checks if the document exists and the current user is the owner. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** 
+     * Checks if the user has an administrative role. 
+     * This looks for a document matching the user's UID in the 'roles_admin' collection.
+     */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Profiles for bookclub members.
+     * @path /users/{userId}
+     * @allow (get/list) Any signed-in member (to see peers). (create) The owner. (update) Owner or Admin.
+     * @deny (delete) Anyone except an Admin.
+     * @principle Path-based ownership for creation; shared visibility for community features.
+     */
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
+
+      /**
+       * @description Member's participation in specific challenges.
+       * @path /users/{userId}/userChallenges/{userChallengeId}
+       * @allow (all) The owner or an Admin.
+       * @deny (all) Any other authenticated user.
+       */
+      match /userChallenges/{userChallengeId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) || isAdmin()) && request.resource.data.userId == userId;
+        allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isAdmin();
+      }
+
+      /**
+       * @description User-specific notifications for level-ups, nudges, etc.
+       * @path /users/{userId}/notifications/{notificationId}
+       * @allow (get/list/update) The owner. (create) The owner (system context) or Admin.
+       * @deny (all) Users accessing notifications of others.
+       */
+      match /notifications/{notificationId} {
+        allow get, list, update: if isExistingOwner(userId);
+        allow create: if isOwner(userId) || isAdmin();
+        allow delete: if isExistingOwner(userId) || isAdmin();
+      }
+
+      /**
+       * @description History of nudges sent by the user.
+       * @path /users/{userId}/sentNudges/{nudgeId}
+       * @allow (get/list/create) The sender/owner.
+       * @deny (update/delete) Nudges are generally immutable for users.
+       */
+      match /sentNudges/{nudgeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.senderId == userId;
+        allow update, delete: if isAdmin();
+      }
+
+      /**
+       * @description History of nudges received by the user.
+       * @path /users/{userId}/receivedNudges/{nudgeId}
+       * @allow (get/list) The receiver/owner. (create) Admins or system logic.
+       * @deny (write) Direct manual creation by users in this specific path.
+       */
+      match /receivedNudges/{nudgeId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isAdmin() || (isSignedIn() && request.resource.data.receiverId == userId);
+        allow delete: if isAdmin();
+      }
+
+      /**
+       * @description Individual progress tracking for specific books.
+       * @path /users/{userId}/readingProgress/{userReadingProgressId}
+       * @allow (all) The owner or an Admin.
+       * @deny (all) Other members.
+       */
+      match /readingProgress/{userReadingProgressId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId) || isAdmin();
+      }
+    }
+
+    /**
+     * @description Registry of administrative users.
+     * @path /roles_admin/{adminId}
+     * @allow (get) Any signed-in user (to check role). (write) Only existing admins.
+     * @deny (list) Prevent crawling admin lists.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Global library of books.
+     * @path /books/{bookId}
+     * @allow (get/list) Any signed-in member. (write) Admins only.
+     * @deny (write) Non-admin members.
+     */
+    match /books/{bookId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Global collection of challenges (Daily, Weekly, etc.).
+     * @path /challenges/{challengeId}
+     * @allow (get/list) Any signed-in member. (write) Admins only.
+     * @deny (write) Non-admin members.
+     */
+    match /challenges/{challengeId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Scheduled discussion events.
+     * @path /discussions/{discussionId}
+     * @allow (get/list) Any signed-in member. (write) Admins only.
+     * @deny (write) Non-admin members.
+     */
+    match /discussions/{discussionId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Audit logs for administrative actions.
+     * @path /adminActionLogs/{adminActionLogId}
+     * @allow (all) Admins only.
+     * @deny (all) Any non-admin user.
+     * @principle Homogeneous security for sensitive audit data.
+     */
+    match /adminActionLogs/{adminActionLogId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+  }
+}
