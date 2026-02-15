@@ -15,7 +15,6 @@ import {
   Target, 
   Star, 
   MessageSquare, 
-  FileText, 
   Award,
   ChevronRight,
   TrendingUp,
@@ -25,14 +24,15 @@ import {
   Bell,
   CheckCircle2,
   Zap,
-  Clock
+  Clock,
+  CalendarDays
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth, UserProfile } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, getDocs, where } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -56,32 +56,7 @@ export default function Dashboard() {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (profile && profile.lastReadAt && profile.streak > 0) {
-      const lastRead = new Date(profile.lastReadAt).getTime();
-      const now = Date.now();
-      const hoursSinceLastRead = (now - lastRead) / (1000 * 60 * 60);
-      
-      if (hoursSinceLastRead > 48) {
-        updateDocumentNonBlocking(doc(db, "users", profile.id), {
-          streak: 0
-        });
-        
-        const notifId = Math.random().toString(36).substring(7);
-        setDoc(doc(db, "users", profile.id, "notifications", notifId), {
-          id: notifId,
-          userId: profile.id,
-          type: "StreakWarning",
-          message: "Oh no! Your reading streak has reset. Start a new one today!",
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-        });
-      }
-    }
-  }, [profile, db]);
-
-  const booksQuery = useMemoFirebase(() => query(collection(db, "books"), limit(1)), [db]);
+  const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title"), limit(1)), [db]);
   const { data: books } = useCollection(booksQuery);
   const currentBook = books?.[0];
 
@@ -93,6 +68,9 @@ export default function Dashboard() {
     return collection(db, "users", user.uid, "userChallenges");
   }, [db, user?.uid]);
   const { data: userChallenges } = useCollection(userChallengesQuery);
+
+  const discussionsQuery = useMemoFirebase(() => query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(3)), [db]);
+  const { data: discussions } = useCollection(discussionsQuery);
 
   const membersQuery = useMemoFirebase(() => query(collection(db, "users"), orderBy("points", "desc"), limit(20)), [db]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
@@ -127,22 +105,32 @@ export default function Dashboard() {
       lastReadAt: new Date().toISOString()
     });
 
-    const newRank = getRank(profile.points + ptsToAdd);
-    if (newRank.level > rank.level) {
-      const notifId = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "users", user.uid, "notifications", notifId), {
-        id: notifId,
-        userId: user.uid,
-        type: "LevelUp",
-        message: `Congratulations! You've reached Level ${newRank.level}: ${newRank.title}`,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-      });
-    }
-
     toast({ title: "Progress Recorded", description: `You earned ${ptsToAdd} points!` });
     setPagesReadToday(0);
+  };
+
+  const handleFinishBook = () => {
+    if (!user?.uid || !profile || !currentBook) return;
+    if (!confirm(`Mark "${currentBook.title}" as completely finished?`)) return;
+
+    const bonusPoints = 100;
+    const userRef = doc(db, "users", user.uid);
+    updateDocumentNonBlocking(userRef, {
+      points: profile.points + bonusPoints,
+    });
+
+    const notifId = Math.random().toString(36).substring(7);
+    setDoc(doc(db, "users", user.uid, "notifications", notifId), {
+      id: notifId,
+      userId: user.uid,
+      type: "ChallengeCompleted",
+      message: `Masterful! You've finished "${currentBook.title}" and earned a ${bonusPoints} point bonus!`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+    });
+
+    toast({ title: "Book Finished!", description: `Enjoy your ${bonusPoints} bonus points.` });
   };
 
   const handleStartChallenge = (challengeId: string) => {
@@ -158,7 +146,7 @@ export default function Dashboard() {
       progress: "Started",
       pointsEarned: 0
     });
-    toast({ title: "Challenge Started", description: "Good luck with your spiritual goal!" });
+    toast({ title: "Challenge Started" });
   };
 
   const handleCompleteChallenge = (userChallengeId: string, reward: number, title: string) => {
@@ -176,18 +164,7 @@ export default function Dashboard() {
       points: (profile.points || 0) + reward
     });
 
-    const notifId = Math.random().toString(36).substring(7);
-    setDoc(doc(db, "users", user.uid, "notifications", notifId), {
-      id: notifId,
-      userId: user.uid,
-      type: "ChallengeCompleted",
-      message: `Well done! You completed "${title}" and earned ${reward} points.`,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-    });
-
-    toast({ title: "Challenge Completed!", description: `Reward: +${reward} points!` });
+    toast({ title: "Challenge Completed!", description: `+${reward} points!` });
   };
 
   const handleSendNudge = async () => {
@@ -204,23 +181,17 @@ export default function Dashboard() {
       isBonusAwarded: false
     };
 
-    const senderNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
-    const receiverNudgeRef = doc(db, "users", selectedNudgeMember, "receivedNudges", nudgeId);
-    const notificationRef = doc(db, "users", selectedNudgeMember, "notifications", nudgeId);
-
-    setDoc(senderNudgeRef, nudgeData);
-    setDoc(receiverNudgeRef, nudgeData);
-    setDoc(notificationRef, {
+    setDoc(doc(db, "users", selectedNudgeMember, "notifications", nudgeId), {
       id: nudgeId,
       userId: selectedNudgeMember,
       type: "NudgeReceived",
-      message: `You received a nudge from ${profile.name}: "${nudgeMessage}"`,
+      message: `Encouragement from ${profile.name}: "${nudgeMessage}"`,
       isRead: false,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
     });
 
-    toast({ title: "Nudge Sent", description: "Encouragement shared with your fellow member." });
+    toast({ title: "Nudge Sent" });
     setSelectedNudgeMember("");
   };
 
@@ -284,30 +255,33 @@ export default function Dashboard() {
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                      <span>Total Progress</span>
+                      <span>Reading Progress</span>
                       <span>{progressPercentage}%</span>
                     </div>
                     <Progress value={progressPercentage} className="h-3 bg-white/10" />
                   </div>
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="bg-white/5 p-4 rounded-lg">
-                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Total Pages</p>
+                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Pages</p>
                       <p className="text-lg font-bold">{currentBook.totalPages}</p>
                     </div>
                     <div className="bg-white/5 p-4 rounded-lg">
-                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Daily Goal</p>
+                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Goal</p>
                       <p className="text-lg font-bold">{profile.pagesPerDay || 5} pgs</p>
                     </div>
                     <div className="bg-white/5 p-4 rounded-lg">
-                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Due Date</p>
+                      <p className="text-xs text-primary-foreground/50 uppercase font-bold">Plan Due</p>
                       <p className="text-lg font-bold text-accent">
-                        {hasMounted && currentBook.currentReadingPlanDueDate 
-                          ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() 
-                          : 'Dec 25'}
+                        {currentBook.currentReadingPlanDueDate || 'TBD'}
                       </p>
                     </div>
                   </div>
                 </CardContent>
+                <CardFooter className="bg-black/20 gap-2">
+                   <Button onClick={handleFinishBook} className="bg-accent text-primary hover:bg-accent/90 font-bold rounded-full w-full">
+                     <CheckCircle2 className="mr-2 h-4 w-4" /> I Finished the Whole Book
+                   </Button>
+                </CardFooter>
               </Card>
             )}
 
@@ -315,7 +289,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Target className="h-5 w-5 text-accent" />
-                  Personal Reading Tracker
+                  Daily Progress Tracker
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -351,35 +325,32 @@ export default function Dashboard() {
                   const isInProgress = userChallenge?.status === "InProgress";
 
                   return (
-                    <Card key={challenge.id} className="border-none shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow flex flex-col h-full">
-                      <CardHeader className="pb-2 flex-none">
+                    <Card key={challenge.id} className="border-none shadow-sm flex flex-col">
+                      <CardHeader className="pb-2">
                         <div className="flex justify-between items-center mb-2">
                           <Badge variant="secondary" className="text-[10px] font-bold uppercase">{challenge.type}</Badge>
                           <span className="text-xs font-bold text-accent flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-accent" /> +{challenge.pointsReward} PTS
+                            <Star className="h-3 w-3 fill-accent" /> +{challenge.pointsReward}
                           </span>
                         </div>
                         <CardTitle className="text-base font-headline">{challenge.title}</CardTitle>
-                        <CardDescription className="text-xs line-clamp-3 mt-1">{challenge.description}</CardDescription>
+                        <CardDescription className="text-xs line-clamp-2 mt-1">{challenge.description}</CardDescription>
                       </CardHeader>
                       <CardContent className="py-2 flex-1">
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
-                          <Clock className="h-3 w-3" />
-                          <span>Ends: {hasMounted ? new Date(challenge.endDate).toLocaleDateString() : '...'}</span>
-                        </div>
+                        <p className="text-[10px] text-muted-foreground font-bold italic">Criteria: {challenge.completionCriteria}</p>
                       </CardContent>
-                      <CardFooter className="pt-2 flex-none">
+                      <CardFooter className="pt-2">
                         {!userChallenge && (
                           <Button onClick={() => handleStartChallenge(challenge.id)} className="w-full text-xs rounded-full h-9" variant="outline">Start Challenge</Button>
                         )}
                         {isInProgress && (
                           <Button onClick={() => handleCompleteChallenge(userChallenge.id, challenge.pointsReward, challenge.title)} className="w-full text-xs bg-primary text-white hover:bg-primary/90 rounded-full h-9">
-                            <CheckCircle2 className="mr-2 h-4 w-4" /> Complete Now
+                             Mark Completed
                           </Button>
                         )}
                         {isCompleted && (
                           <div className="w-full flex items-center justify-center gap-2 bg-accent/20 text-primary py-2 rounded-full text-[10px] font-bold uppercase tracking-widest h-9">
-                            <CheckCircle2 className="h-4 w-4" /> Fully Completed
+                            <CheckCircle2 className="h-4 w-4" /> Completed
                           </div>
                         )}
                       </CardFooter>
@@ -422,14 +393,38 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-none">
-              <CardHeader>
+            <Card className="shadow-sm border-none bg-secondary/30 overflow-hidden">
+              <CardHeader className="bg-secondary/50">
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <CalendarDays className="h-5 w-5 text-accent" />
+                  Upcoming Discussions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                {discussions?.length ? discussions.map(disc => (
+                  <div key={disc.id} className="border-b last:border-0 pb-3 last:pb-0">
+                    <p className="font-bold text-sm text-primary">{disc.topic}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-[9px] h-4">ANNOUNCEMENT</Badge>
+                      <p className="text-[10px] text-muted-foreground">
+                        {hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : "..."}
+                      </p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-xs text-muted-foreground italic text-center py-4">No scheduled discussions yet.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm border-none overflow-hidden">
+              <CardHeader className="bg-accent/10">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Award className="h-5 w-5 text-accent" />
                   Leaderboard
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4">
                 {leaderboardMembers?.map((member, i) => (
                   <div key={member.id} className={`flex items-center gap-3 p-3 rounded-lg ${member.id === user?.uid ? 'bg-accent/10 border border-accent/20' : ''}`}>
                     <div className="font-headline font-bold text-lg text-primary/20 w-6">#{i + 1}</div>
@@ -444,25 +439,6 @@ export default function Dashboard() {
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm border-none overflow-hidden">
-              <CardHeader className="bg-accent/10">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <History className="h-5 w-5 text-accent" />
-                  Recent Nudges
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                {receivedNudges?.length ? receivedNudges.map(nudge => (
-                  <div key={nudge.id} className="text-xs border-b pb-2 last:border-0">
-                    <p className="font-bold text-primary">From {nudge.senderName}</p>
-                    <p className="text-muted-foreground italic">"{nudge.message}"</p>
-                  </div>
-                )) : (
-                  <p className="text-xs text-muted-foreground italic text-center py-4">No nudges received yet.</p>
-                )}
               </CardContent>
             </Card>
           </div>

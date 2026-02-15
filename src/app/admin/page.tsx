@@ -20,15 +20,33 @@ import {
   Trash,
   ShieldAlert,
   Zap,
-  UserCheck
+  UserCheck,
+  Plus,
+  BookOpen,
+  Calendar,
+  Settings2,
+  Edit,
+  MessageSquare
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, Timestamp } from "firebase/firestore";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from "recharts";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const chartConfig = {
   engagement: {
@@ -44,6 +62,15 @@ export default function AdminDashboard() {
   const db = useFirestore();
   const [hasMounted, setHasMounted] = useState(false);
 
+  // Form States
+  const [isBookDialogOpen, setIsBookDialogOpen] = useState(false);
+  const [editingBook, setEditingBook] = useState<any>(null);
+  
+  const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
+  const [editingChallenge, setEditingChallenge] = useState<any>(null);
+
+  const [isDiscussionDialogOpen, setIsDiscussionDialogOpen] = useState(false);
+
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -57,8 +84,14 @@ export default function AdminDashboard() {
   const membersQuery = useMemoFirebase(() => collection(db, "users"), [db]);
   const { data: members } = useCollection(membersQuery);
 
-  const booksQuery = useMemoFirebase(() => collection(db, "books"), [db]);
+  const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title")), [db]);
   const { data: books } = useCollection(booksQuery);
+
+  const challengesQuery = useMemoFirebase(() => query(collection(db, "challenges"), orderBy("startDate", "desc")), [db]);
+  const { data: challenges } = useCollection(challengesQuery);
+
+  const discussionsQuery = useMemoFirebase(() => query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc")), [db]);
+  const { data: discussions } = useCollection(discussionsQuery);
 
   const logsQuery = useMemoFirebase(() => query(collection(db, "adminActionLogs"), orderBy("timestamp", "desc"), limit(20)), [db]);
   const { data: logs } = useCollection(logsQuery);
@@ -76,6 +109,75 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleSaveBook = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const bookData = {
+      title: formData.get("title") as string,
+      description: formData.get("description") as string,
+      totalPages: parseInt(formData.get("totalPages") as string),
+      currentReadingPlanDueDate: formData.get("dueDate") as string,
+    };
+
+    if (editingBook) {
+      updateDocumentNonBlocking(doc(db, "books", editingBook.id), bookData);
+      logAction("edit_book", editingBook.id, `Updated book: ${bookData.title}`);
+      toast({ title: "Book Updated" });
+    } else {
+      const id = Math.random().toString(36).substring(7);
+      addDocumentNonBlocking(collection(db, "books"), { ...bookData, id });
+      logAction("create_book", id, `Created book: ${bookData.title}`);
+      toast({ title: "Book Created" });
+    }
+    setIsBookDialogOpen(false);
+    setEditingBook(null);
+  };
+
+  const handleSaveChallenge = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const challengeData = {
+      title: formData.get("title") as string,
+      description: formData.get("description") as string,
+      pointsReward: parseInt(formData.get("points") as string),
+      type: formData.get("type") as string,
+      completionCriteria: formData.get("criteria") as string,
+      startDate: new Date().toISOString(),
+      endDate: formData.get("endDate") as string,
+      isActive: true,
+    };
+
+    if (editingChallenge) {
+      updateDocumentNonBlocking(doc(db, "challenges", editingChallenge.id), challengeData);
+      logAction("edit_challenge", editingChallenge.id, `Updated challenge: ${challengeData.title}`);
+      toast({ title: "Challenge Updated" });
+    } else {
+      const id = Math.random().toString(36).substring(7);
+      addDocumentNonBlocking(collection(db, "challenges"), { ...challengeData, id });
+      logAction("create_challenge", id, `Created challenge: ${challengeData.title}`);
+      toast({ title: "Challenge Created" });
+    }
+    setIsChallengeDialogOpen(false);
+    setEditingChallenge(null);
+  };
+
+  const handleSaveDiscussion = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const discussionData = {
+      topic: formData.get("topic") as string,
+      scheduledDateTime: formData.get("dateTime") as string,
+      isActive: true,
+      organizerId: user.uid,
+    };
+
+    const id = Math.random().toString(36).substring(7);
+    addDocumentNonBlocking(collection(db, "discussions"), { ...discussionData, id });
+    logAction("create_discussion", id, `Announced discussion: ${discussionData.topic}`);
+    toast({ title: "Discussion Scheduled" });
+    setIsDiscussionDialogOpen(false);
+  };
+
   const handleAdjustPoints = (memberId: string, currentPoints: number) => {
     const amount = prompt("Adjust points by (use negative for deduction):");
     if (!amount) return;
@@ -90,13 +192,6 @@ export default function AdminDashboard() {
     updateDocumentNonBlocking(doc(db, "users", memberId), { streak: 0 });
     logAction("reset_streak", memberId, "Reset streak to 0");
     toast({ title: "Streak Reset" });
-  };
-
-  const handleDeleteBook = (id: string) => {
-    if (!confirm("Delete this book?")) return;
-    deleteDocumentNonBlocking(doc(db, "books", id));
-    logAction("delete_book", id, "Removed book from library");
-    toast({ variant: "destructive", title: "Book Deleted" });
   };
 
   const chartData = [
@@ -119,6 +214,124 @@ export default function AdminDashboard() {
               <ShieldAlert className="h-8 w-8 text-accent" /> Control Center
             </h1>
             <p className="text-muted-foreground">Comprehensive management of books, users, and spiritual content.</p>
+          </div>
+          <div className="flex gap-2">
+             <Dialog open={isBookDialogOpen} onOpenChange={setIsBookDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary hover:bg-primary/90 rounded-full text-xs" onClick={() => setEditingBook(null)}>
+                    <BookOpen className="h-4 w-4 mr-2" /> Add Book
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleSaveBook}>
+                    <DialogHeader>
+                      <DialogTitle>{editingBook ? "Edit Book" : "Add New Book"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Title</Label>
+                        <Input name="title" defaultValue={editingBook?.title} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Total Pages</Label>
+                        <Input name="totalPages" type="number" defaultValue={editingBook?.totalPages} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Due Date</Label>
+                        <Input name="dueDate" type="date" defaultValue={editingBook?.currentReadingPlanDueDate} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea name="description" defaultValue={editingBook?.description} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit">{editingBook ? "Update" : "Create"}</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+             </Dialog>
+
+             <Dialog open={isChallengeDialogOpen} onOpenChange={setIsChallengeDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-full text-xs" onClick={() => setEditingChallenge(null)}>
+                    <Zap className="h-4 w-4 mr-2" /> New Challenge
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleSaveChallenge}>
+                    <DialogHeader>
+                      <DialogTitle>{editingChallenge ? "Edit Challenge" : "Add Challenge"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Title</Label>
+                        <Input name="title" defaultValue={editingChallenge?.title} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Points Reward</Label>
+                        <Input name="points" type="number" defaultValue={editingChallenge?.pointsReward} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Frequency</Label>
+                        <Select name="type" defaultValue={editingChallenge?.type || "Daily"}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Daily">Daily</SelectItem>
+                            <SelectItem value="Weekly">Weekly</SelectItem>
+                            <SelectItem value="Special">Special</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Input name="endDate" type="date" defaultValue={editingChallenge?.endDate} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Completion Criteria (Limit)</Label>
+                        <Input name="criteria" defaultValue={editingChallenge?.completionCriteria} placeholder="e.g. Read 10 pages" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea name="description" defaultValue={editingChallenge?.description} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit">{editingChallenge ? "Update" : "Create"}</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+             </Dialog>
+
+             <Dialog open={isDiscussionDialogOpen} onOpenChange={setIsDiscussionDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="secondary" className="rounded-full text-xs">
+                    <MessageSquare className="h-4 w-4 mr-2" /> Announce Discussion
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleSaveDiscussion}>
+                    <DialogHeader>
+                      <DialogTitle>Announce Discussion</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Topic</Label>
+                        <Input name="topic" placeholder="The Mystery of Silence" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Date & Time</Label>
+                        <Input name="dateTime" type="datetime-local" required />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit">Announce</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+             </Dialog>
           </div>
         </header>
 
@@ -144,67 +357,11 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <Card className="lg:col-span-2 border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Engagement Trend</CardTitle>
-              <CardDescription>Daily active user interactions over the last 7 days.</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px] w-full pt-4">
-              <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-engagement)" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="var(--color-engagement)" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis 
-                      dataKey="day" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tickMargin={8}
-                    />
-                    <YAxis hide />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="engagement" 
-                      stroke="var(--color-engagement)" 
-                      fillOpacity={1} 
-                      fill="url(#colorEngagement)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Logs</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {logs?.slice(0, 5).map(log => (
-                <div key={log.id} className="text-xs border-l-2 border-accent pl-3 py-1">
-                  <p className="font-bold text-primary uppercase">{log.actionType}</p>
-                  <p className="text-muted-foreground line-clamp-1">{log.details}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {hasMounted ? new Date(log.timestamp).toLocaleTimeString() : '...'}
-                  </p>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full text-xs" onClick={() => router.push("/admin")}>Refresh Logs</Button>
-            </CardContent>
-          </Card>
-        </div>
-
         <Tabs defaultValue="members" className="space-y-6">
           <TabsList className="bg-muted p-1 rounded-xl">
             <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="books">Library</TabsTrigger>
+            <TabsTrigger value="content">Books & Content</TabsTrigger>
+            <TabsTrigger value="challenges">Challenges</TabsTrigger>
             <TabsTrigger value="logs">Full Audit</TabsTrigger>
           </TabsList>
 
@@ -251,23 +408,95 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="books">
+          <TabsContent value="content">
+            <div className="grid md:grid-cols-2 gap-8">
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg">Library Management</CardTitle>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {books?.map((book) => (
+                      <TableRow key={book.id}>
+                        <TableCell className="font-medium">{book.title}</TableCell>
+                        <TableCell className="text-xs">{book.currentReadingPlanDueDate}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingBook(book); setIsBookDialogOpen(true); }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", book.id))}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg">Upcoming Discussions</CardTitle>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Topic</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {discussions?.map((disc) => (
+                      <TableRow key={disc.id}>
+                        <TableCell className="font-medium">{disc.topic}</TableCell>
+                        <TableCell className="text-xs">
+                          {hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : "..."}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", disc.id))}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="challenges">
             <Card className="border-none shadow-md">
-              <Table>
-                <TableHeader className="bg-muted/50">
+               <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Pages</TableHead>
+                    <TableHead>Challenge</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Points</TableHead>
+                    <TableHead>Criteria</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {books?.map((book) => (
-                    <TableRow key={book.id}>
-                      <TableCell>{book.title}</TableCell>
-                      <TableCell>{book.totalPages}</TableCell>
+                  {challenges?.map((chall) => (
+                    <TableRow key={chall.id}>
+                      <TableCell className="font-medium">{chall.title}</TableCell>
+                      <TableCell><Badge variant="outline">{chall.type}</Badge></TableCell>
+                      <TableCell>+{chall.pointsReward}</TableCell>
+                      <TableCell className="text-xs italic">{chall.completionCriteria}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteBook(book.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingChallenge(chall); setIsChallengeDialogOpen(true); }}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", chall.id))}>
                           <Trash className="h-4 w-4" />
                         </Button>
                       </TableCell>
