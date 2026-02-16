@@ -57,11 +57,10 @@ export function Navigation() {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#about" className="text-sm font-medium hover:text-accent transition-colors">About</Link>
+          <Link href="/" className="text-sm font-medium hover:text-accent transition-colors">Home</Link>
           {user && (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
-              <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Discussions</Link>
             </>
           )}
         </div>
