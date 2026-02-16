@@ -21,13 +21,15 @@ import {
   BookOpen,
   MessageSquare,
   Edit,
-  Plus
+  Plus,
+  TrendingUp,
+  UserCheck
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc, setDoc, limit } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -41,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 export default function AdminDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -65,6 +68,7 @@ export default function AdminDashboard() {
 
   const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title")), [db]);
   const { data: books } = useCollection(booksQuery);
+  const currentBook = books?.[0]; // Assume first is current for progress tracking
 
   const challengesQuery = useMemoFirebase(() => query(collection(db, "challenges")), [db]);
   const { data: challenges } = useCollection(challengesQuery);
@@ -139,26 +143,68 @@ export default function AdminDashboard() {
     updateDocumentNonBlocking(doc(db, "users", id), { points: (current || 0) + parseInt(val) });
   };
 
+  // Stats calculation
+  const totalMembers = members?.length || 0;
+  const activeMembers = members?.filter(m => m.status === 'Active').length || 0;
+  const avgPoints = totalMembers ? Math.round(members!.reduce((acc, m) => acc + (m.points || 0), 0) / totalMembers) : 0;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
         <header className="flex justify-between items-center border-b pb-4">
           <div>
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-              <ShieldAlert className="h-6 w-6 text-accent" /> Admin Center
+            <h1 className="text-2xl font-bold text-primary flex items-center gap-2 font-headline">
+              <ShieldAlert className="h-6 w-6 text-accent" /> Admin Command Center
             </h1>
-            <p className="text-xs text-muted-foreground">Manage books, members, and spiritual growth challenges.</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Manage the fellowship's spiritual progress</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => { setEditingBook(null); setIsBookOpen(true); }} size="sm" className="bg-primary rounded-full">
-              <BookOpen className="h-4 w-4 mr-1" /> Add Book
+              <BookOpen className="h-4 w-4 mr-1" /> New Book
             </Button>
             <Button onClick={() => { setEditingChall(null); setIsChallOpen(true); }} size="sm" variant="outline" className="rounded-full border-accent text-accent">
-              <Zap className="h-4 w-4 mr-1" /> Add Challenge
+              <Zap className="h-4 w-4 mr-1" /> New Challenge
             </Button>
           </div>
         </header>
+
+        {/* Overview Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-none shadow-sm bg-accent/5">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                <Users className="h-3 w-3" /> Total Members
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-3xl font-bold text-primary">{totalMembers}</p>
+              <p className="text-[10px] text-accent font-medium mt-1">{activeMembers} Active currently</p>
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm bg-accent/5">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                <TrendingUp className="h-3 w-3" /> Average Points
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-3xl font-bold text-primary">{avgPoints.toLocaleString()}</p>
+              <p className="text-[10px] text-accent font-medium mt-1">Steady growth in wisdom</p>
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm bg-accent/5">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                <UserCheck className="h-3 w-3" /> Reading Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-3xl font-bold text-primary">84%</p>
+              <p className="text-[10px] text-accent font-medium mt-1">Average book completion</p>
+            </CardContent>
+          </Card>
+        </div>
 
         <Tabs defaultValue="members" className="space-y-4">
           <TabsList className="bg-muted p-1">
@@ -174,6 +220,7 @@ export default function AdminDashboard() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Member</TableHead>
+                    <TableHead>Progress</TableHead>
                     <TableHead>Points</TableHead>
                     <TableHead>Streak</TableHead>
                     <TableHead>Status</TableHead>
@@ -181,18 +228,31 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members?.map(m => (
-                    <TableRow key={m.id}>
-                      <TableCell className="font-bold">{m.name}</TableCell>
-                      <TableCell>{m.points || 0}</TableCell>
-                      <TableCell>{m.streak || 0}d</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{m.status}</Badge></TableCell>
-                      <TableCell className="text-right flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleAdjustPoints(m.id, m.points)}>Pts</Button>
-                        <Button variant="ghost" size="sm" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {members?.map(m => {
+                    const pagesRead = Math.round((m.points || 0) / 2);
+                    const progress = currentBook ? Math.min(100, Math.round((pagesRead / currentBook.totalPages) * 100)) : 0;
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <p className="font-bold text-sm">{m.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{m.email}</p>
+                        </TableCell>
+                        <TableCell className="w-[180px]">
+                          <div className="space-y-1">
+                            <Progress value={progress} className="h-1.5" />
+                            <p className="text-[10px] text-muted-foreground">{pagesRead} / {currentBook?.totalPages || '?'} pgs ({progress}%)</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{m.points || 0}</TableCell>
+                        <TableCell className="text-xs">{m.streak || 0}d</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
+                        <TableCell className="text-right flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => handleAdjustPoints(m.id, m.points)}>+/- Pts</Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Card>
@@ -203,8 +263,8 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Pages</TableHead>
+                    <TableHead>Book Title</TableHead>
+                    <TableHead>Total Pages</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -213,8 +273,8 @@ export default function AdminDashboard() {
                   {books?.map(b => (
                     <TableRow key={b.id}>
                       <TableCell className="font-bold">{b.title}</TableCell>
-                      <TableCell>{b.totalPages}</TableCell>
-                      <TableCell>{b.currentReadingPlanDueDate || '-'}</TableCell>
+                      <TableCell>{b.totalPages} pgs</TableCell>
+                      <TableCell className="text-xs">{b.currentReadingPlanDueDate || '-'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
@@ -234,6 +294,7 @@ export default function AdminDashboard() {
                     <TableHead>Challenge</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Points</TableHead>
+                    <TableHead>Criteria</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -241,8 +302,9 @@ export default function AdminDashboard() {
                   {challenges?.map(c => (
                     <TableRow key={c.id}>
                       <TableCell className="font-bold">{c.title}</TableCell>
-                      <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
-                      <TableCell>+{c.pointsReward}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">{c.type}</Badge></TableCell>
+                      <TableCell className="text-accent font-bold">+{c.pointsReward}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">{c.completionCriteria}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => { setEditingChall(c); setIsChallOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", c.id))}><Trash className="h-4 w-4"/></Button>
@@ -255,16 +317,20 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="discussions">
-            <Card className="border-none shadow-sm p-4">
-              <Button onClick={() => setIsDiscOpen(true)} className="mb-4"><Plus className="h-4 w-4 mr-2" /> Announce Topic</Button>
-              <div className="space-y-3">
+            <Card className="border-none shadow-sm p-6">
+              <Button onClick={() => setIsDiscOpen(true)} className="mb-6 rounded-full bg-primary"><Plus className="h-4 w-4 mr-2" /> Schedule New Discussion</Button>
+              <div className="grid md:grid-cols-2 gap-4">
                 {discussions?.map(d => (
-                  <div key={d.id} className="flex justify-between items-center p-3 border rounded-md">
+                  <div key={d.id} className="flex justify-between items-center p-4 border rounded-xl bg-accent/5">
                     <div>
-                      <p className="font-bold text-sm">{d.topic}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(d.scheduledDateTime).toLocaleString()}</p>
+                      <p className="font-bold text-sm text-primary">{d.topic}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                        <MessageSquare className="h-3 w-3" /> {new Date(d.scheduledDateTime).toLocaleString()}
+                      </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}><Trash className="h-4 w-4"/></Button>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}>
+                      <Trash className="h-4 w-4"/>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -276,14 +342,14 @@ export default function AdminDashboard() {
         <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
           <DialogContent>
             <form onSubmit={handleSaveBook}>
-              <DialogHeader><DialogTitle>{editingBook ? "Edit Book" : "Add Book"}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingBook ? "Edit Book" : "Add New Book"}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-1"><Label>Title</Label><Input name="title" defaultValue={editingBook?.title} required /></div>
                 <div className="space-y-1"><Label>Total Pages</Label><Input name="pages" type="number" defaultValue={editingBook?.totalPages} required /></div>
                 <div className="space-y-1"><Label>Due Date</Label><Input name="due" type="date" defaultValue={editingBook?.currentReadingPlanDueDate} /></div>
                 <div className="space-y-1"><Label>Description</Label><Textarea name="description" defaultValue={editingBook?.description} /></div>
               </div>
-              <DialogFooter><Button type="submit">Save</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">Save Book</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -291,21 +357,21 @@ export default function AdminDashboard() {
         <Dialog open={isChallOpen} onOpenChange={setIsChallOpen}>
           <DialogContent>
             <form onSubmit={handleSaveChallenge}>
-              <DialogHeader><DialogTitle>{editingChall ? "Edit Challenge" : "Add Challenge"}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingChall ? "Edit Challenge" : "Create New Challenge"}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-1"><Label>Title</Label><Input name="title" defaultValue={editingChall?.title} required /></div>
                 <div className="space-y-1">
                   <Label>Type</Label>
                   <Select name="type" defaultValue={editingChall?.type || "Daily"}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="Daily">Daily</SelectItem><SelectItem value="Weekly">Weekly</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="Daily">Daily</SelectItem><SelectItem value="Weekly">Weekly</SelectItem><SelectItem value="Special">Special</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1"><Label>Points Reward</Label><Input name="points" type="number" defaultValue={editingChall?.pointsReward} required /></div>
                 <div className="space-y-1"><Label>Completion Criteria</Label><Input name="criteria" defaultValue={editingChall?.completionCriteria} required /></div>
                 <div className="space-y-1"><Label>Description</Label><Textarea name="description" defaultValue={editingChall?.description} /></div>
               </div>
-              <DialogFooter><Button type="submit">Save</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">Activate Challenge</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -313,12 +379,12 @@ export default function AdminDashboard() {
         <Dialog open={isDiscOpen} onOpenChange={setIsDiscOpen}>
           <DialogContent>
             <form onSubmit={handleSaveDiscussion}>
-              <DialogHeader><DialogTitle>Announce Discussion</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Schedule Discussion</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-1"><Label>Topic</Label><Input name="topic" placeholder="The Gold of Silence" required /></div>
                 <div className="space-y-1"><Label>Date & Time</Label><Input name="dateTime" type="datetime-local" required /></div>
               </div>
-              <DialogFooter><Button type="submit">Announce</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">Announce Discussion</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

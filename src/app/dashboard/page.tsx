@@ -14,15 +14,13 @@ import {
   Flame, 
   Target, 
   Star, 
-  MessageSquare, 
   Award,
-  ChevronRight,
   Send,
-  Bell,
   CheckCircle2,
   Zap,
   CalendarDays,
-  Settings2
+  Settings2,
+  Loader2
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -32,7 +30,7 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc, setDoc, where, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -47,6 +45,7 @@ export default function Dashboard() {
   const [nudgeMessage, setNudgeMessage] = useState<string>("Keep up the great reading today!");
   const [hasMounted, setHasMounted] = useState(false);
   const [todayNudgeCount, setTodayNudgeCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -115,6 +114,9 @@ export default function Dashboard() {
   };
 
   const handleMarkComplete = () => {
+    if (pagesReadToday <= 0) return;
+    setIsSubmitting(true);
+    
     const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
     
@@ -132,9 +134,11 @@ export default function Dashboard() {
       const lastReadDate = new Date(lastRead);
       lastReadDate.setHours(0, 0, 0, 0);
       
-      if (lastReadDate.getTime() === yesterday.getTime()) {
+      if (lastReadDate.getTime() === today.getTime()) {
+        // Already read today, don't double streak but add points
+      } else if (lastReadDate.getTime() === yesterday.getTime()) {
         newStreak += 1;
-      } else if (lastReadDate.getTime() < yesterday.getTime()) {
+      } else {
         newStreak = 1;
       }
     }
@@ -147,6 +151,7 @@ export default function Dashboard() {
 
     toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
     setPagesReadToday(0);
+    setIsSubmitting(false);
   };
 
   const handleReflectionSubmit = () => {
@@ -187,7 +192,8 @@ export default function Dashboard() {
       senderId: user.uid,
       receiverId: selectedNudgeMember,
       message: nudgeMessage,
-      sentAt: new Date().toISOString()
+      sentAt: new Date().toISOString(),
+      isBonusAwarded: false
     });
 
     const notifId = Math.random().toString(36).substring(7);
@@ -211,8 +217,9 @@ export default function Dashboard() {
     const now = new Date();
     const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
 
+    // Allow check-in within 24 hours of start
     if (diffHours < 0 || diffHours > 24) {
-      toast({ variant: "destructive", title: "Invalid Window", description: "Check-in only available within 24h of discussion start." });
+      toast({ variant: "destructive", title: "Check-in Not Available", description: "You can only check-in within 24 hours of the discussion start time." });
       return;
     }
 
@@ -229,6 +236,23 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
+  };
+
+  const handleCompleteDynamicChallenge = (challenge: any) => {
+    const reward = challenge.pointsReward;
+    const userChallengeId = `dynamic_${challenge.id}`;
+    
+    setDoc(doc(db, "users", user.uid, "userChallenges", userChallengeId), {
+      id: userChallengeId,
+      challengeId: challenge.id,
+      userId: user.uid,
+      status: "Completed",
+      completedAt: new Date().toISOString(),
+      pointsEarned: reward
+    });
+
+    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
+    toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
   };
 
   const readingTotal = Math.round((profile.points || 0) / 2);
@@ -312,12 +336,12 @@ export default function Dashboard() {
                             <Settings2 className="h-3 w-3 text-accent opacity-50 hover:opacity-100" />
                           </DialogTrigger>
                           <DialogContent>
-                            <DialogHeader><DialogTitle>Edit Goal</DialogTitle></DialogHeader>
+                            <DialogHeader><DialogTitle>Edit Daily Goal</DialogTitle></DialogHeader>
                             <div className="py-4 space-y-2">
                               <Label>Pages per Day</Label>
                               <Input type="number" value={pagesGoal} onChange={(e) => setPagesGoal(parseInt(e.target.value) || 0)} />
                             </div>
-                            <DialogFooter><Button onClick={handleUpdateGoal}>Update</Button></DialogFooter>
+                            <DialogFooter><Button onClick={handleUpdateGoal} className="w-full">Update Goal</Button></DialogFooter>
                           </DialogContent>
                         </Dialog>
                       </div>
@@ -330,18 +354,18 @@ export default function Dashboard() {
             {/* Tracker */}
             <Card className="border-none shadow-sm bg-accent/5">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2 font-headline">
                   <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
                 </CardTitle>
-                <CardDescription className="text-xs">Submit your reading for the day to maintain your streak.</CardDescription>
+                <CardDescription className="text-xs">Submit your reading for the day to earn points and maintain your streak.</CardDescription>
               </CardHeader>
               <CardContent className="flex items-end gap-3 pb-6">
                 <div className="flex-1 space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read</Label>
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Today</Label>
                   <Input type="number" value={pagesReadToday} onChange={(e) => setPagesReadToday(parseInt(e.target.value) || 0)} className="h-10 bg-white" />
                 </div>
-                <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0} className="h-10 px-8 rounded-full font-bold">
-                  Submit Reading
+                <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting} className="h-10 px-8 rounded-full font-bold">
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
                 </Button>
               </CardContent>
             </Card>
@@ -397,7 +421,9 @@ export default function Dashboard() {
                             <CheckCircle2 className="h-3.3" /> COMPLETED
                           </div>
                         ) : (
-                          <Button variant="outline" className="w-full h-8 text-xs rounded-full">Coming Soon</Button>
+                          <Button onClick={() => handleCompleteDynamicChallenge(chall)} variant="outline" className="w-full h-8 text-xs rounded-full border-accent text-accent hover:bg-accent hover:text-white transition-colors">
+                            Complete Challenge
+                          </Button>
                         )}
                       </CardFooter>
                     </Card>
@@ -415,6 +441,7 @@ export default function Dashboard() {
                   <CardTitle className="text-sm">Fellowship Nudge</CardTitle>
                   <Badge className="bg-white/10 text-accent">{todayNudgeCount}/3 Sent</Badge>
                 </div>
+                <CardDescription className="text-[10px] text-primary-foreground/60 italic">Encourage a brother or sister today.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Select value={selectedNudgeMember} onValueChange={setSelectedNudgeMember}>
@@ -428,7 +455,7 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
                 <Input value={nudgeMessage} onChange={(e) => setNudgeMessage(e.target.value)} className="bg-white/5 border-white/10 h-9 text-xs" />
-                <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs">
+                <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs hover:bg-accent/90">
                   <Send className="h-3 w-3 mr-1.5" /> Send Nudge (+3)
                 </Button>
               </CardContent>
@@ -451,9 +478,12 @@ export default function Dashboard() {
                         <p className="text-[10px] text-muted-foreground">{hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : '...'}</p>
                       </div>
                       {!attended && (
-                        <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20">
+                        <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
                           Check-in (+20)
                         </Button>
+                      )}
+                      {attended && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
                       )}
                     </div>
                   );
