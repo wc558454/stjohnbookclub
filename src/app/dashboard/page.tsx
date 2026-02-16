@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -30,7 +31,7 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc, setDoc, where, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -60,7 +61,6 @@ export default function Dashboard() {
     }
   }, [user, loading, router, profile]);
 
-  // Fetch daily nudge count
   useEffect(() => {
     async function checkNudges() {
       if (!user?.uid || !db) return;
@@ -135,7 +135,7 @@ export default function Dashboard() {
       lastReadDate.setHours(0, 0, 0, 0);
       
       if (lastReadDate.getTime() === today.getTime()) {
-        // Already read today, don't double streak but add points
+        // Already read today, add points but streak remains
       } else if (lastReadDate.getTime() === yesterday.getTime()) {
         newStreak += 1;
       } else {
@@ -217,7 +217,6 @@ export default function Dashboard() {
     const now = new Date();
     const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
 
-    // Allow check-in within 24 hours of start
     if (diffHours < 0 || diffHours > 24) {
       toast({ variant: "destructive", title: "Check-in Not Available", description: "You can only check-in within 24 hours of the discussion start time." });
       return;
@@ -262,7 +261,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-        {/* Profile Header */}
         <div className="grid md:grid-cols-4 gap-6 items-center">
           <div className="md:col-span-2 flex items-center gap-6">
             <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold">
@@ -298,7 +296,6 @@ export default function Dashboard() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Reading Plan */}
             {currentBook && (
               <Card className="border-none shadow-sm bg-primary text-white overflow-hidden">
                 <CardHeader className="pb-4">
@@ -351,7 +348,6 @@ export default function Dashboard() {
               </Card>
             )}
 
-            {/* Tracker */}
             <Card className="border-none shadow-sm bg-accent/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2 font-headline">
@@ -370,13 +366,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Spiritual Challenges */}
             <div className="space-y-4">
               <h3 className="font-headline text-lg font-bold text-primary flex items-center gap-2">
                 <Zap className="h-4 w-4 text-accent" /> Spiritual Challenges
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Reflection Challenge */}
                 <Card className="border-none shadow-sm flex flex-col bg-secondary/20">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-center mb-1">
@@ -399,7 +393,6 @@ export default function Dashboard() {
                   </CardFooter>
                 </Card>
 
-                {/* Dynamic Challenges from Admin */}
                 {challenges?.map(chall => {
                   const completed = userChallenges?.some(uc => uc.challengeId === chall.id && uc.status === "Completed");
                   return (
@@ -434,7 +427,6 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-6">
-            {/* Nudge Tool */}
             <Card className="border-none shadow-sm bg-primary text-white">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-center">
@@ -461,7 +453,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Discussions */}
             <Card className="border-none shadow-sm bg-secondary/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -491,7 +482,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Leaderboard */}
             <Card className="border-none shadow-sm overflow-hidden">
               <CardHeader className="bg-accent/5 pb-3">
                 <CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-accent" /> Fellowship Rank</CardTitle>
