@@ -7,50 +7,132 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Heart, Share2, CornerDownRight, UserCircle } from "lucide-react";
+import { MessageCircle, Heart, Share2, CornerDownRight, UserCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-const INITIAL_POSTS = [
-  {
-    id: 1,
-    author: "Gregory of Nazianzus",
-    content: "The way Chrysostom describes the fear of the residents of Antioch is truly visceral. How do we find similar courage in our own modern trials?",
-    likes: 24,
-    replies: [
-      { id: 101, author: "Basil the Great", content: "I believe it starts with the anchoring of the soul in the liturgy, as he suggests." }
-    ]
-  },
-  {
-    id: 2,
-    author: "Monica S.",
-    content: "Homily 3 really touched on the beauty of silence. Sometimes we speak too much even in prayer.",
-    likes: 12,
-    replies: []
-  }
-];
+function CommentSection({ postId }: { postId: string }) {
+  const db = useFirestore();
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const commentsQuery = useMemoFirebase(() => {
+    return query(collection(db, "forumPosts", postId, "comments"), orderBy("createdAt", "asc"));
+  }, [db, postId]);
+
+  const { data: comments, isLoading } = useCollection(commentsQuery);
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !user || !profile || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const commentId = Math.random().toString(36).substring(7);
+      await setDoc(doc(db, "forumPosts", postId, "comments", commentId), {
+        id: commentId,
+        postId,
+        authorId: user.uid,
+        authorName: profile.name,
+        content: newComment,
+        createdAt: new Date().toISOString()
+      });
+
+      // Reward: +2 points for commenting
+      updateDocumentNonBlocking(doc(db, "users", user.uid), {
+        points: (profile.points || 0) + 2
+      });
+
+      setNewComment("");
+      toast({ title: "Comment Added", description: "+2 points earned!" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to post comment." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      {comments?.map(reply => (
+        <div key={reply.id} className="ml-8 pl-4 border-l-2 border-accent/20 flex gap-3">
+          <CornerDownRight className="h-4 w-4 text-accent/40 mt-1" />
+          <Card className="border-none shadow-sm flex-1 bg-muted/30">
+            <CardContent className="p-4 space-y-2">
+              <p className="font-bold text-xs text-primary">{reply.authorName}</p>
+              <p className="text-sm text-foreground/70">{reply.content}</p>
+            </CardContent>
+          </Card>
+        </div>
+      ))}
+      {user && (
+        <form onSubmit={handleCommentSubmit} className="ml-8 flex gap-2">
+          <Input 
+            value={newComment} 
+            onChange={(e) => setNewComment(e.target.value)} 
+            placeholder="Write a reply..." 
+            className="text-xs h-8 bg-white"
+          />
+          <Button type="submit" size="sm" className="h-8 text-[10px]" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : "Reply"}
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function Forum() {
-  const [posts, setPosts] = useState(INITIAL_POSTS);
-  const [newPost, setNewPost] = useState("");
+  const { user, profile, loading } = useAuth();
+  const db = useFirestore();
   const { toast } = useToast();
+  const [newPost, setNewPost] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePostSubmit = (e: React.FormEvent) => {
+  const postsQuery = useMemoFirebase(() => {
+    return query(collection(db, "forumPosts"), orderBy("createdAt", "desc"));
+  }, [db]);
+
+  const { data: posts } = useCollection(postsQuery);
+
+  const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPost.trim()) return;
+    if (!newPost.trim() || !user || !profile || isSubmitting) return;
 
-    const post = {
-      id: Date.now(),
-      author: "Member You",
-      content: newPost,
-      likes: 0,
-      replies: []
-    };
+    setIsSubmitting(true);
+    try {
+      const postId = Math.random().toString(36).substring(7);
+      await setDoc(doc(db, "forumPosts", postId), {
+        id: postId,
+        authorId: user.uid,
+        authorName: profile.name,
+        content: newPost,
+        likes: 0,
+        createdAt: new Date().toISOString()
+      });
 
-    setPosts([post, ...posts]);
-    setNewPost("");
-    toast({
-      title: "Success",
-      description: "Your reflection has been posted to the community.",
+      // Reward: +5 points for posting reflection
+      updateDocumentNonBlocking(doc(db, "users", user.uid), {
+        points: (profile.points || 0) + 5
+      });
+
+      setNewPost("");
+      toast({ title: "Reflection Shared", description: "Your reflection is live! +5 points earned." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to post reflection." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLike = (postId: string, currentLikes: number) => {
+    if (!user) return;
+    updateDocumentNonBlocking(doc(db, "forumPosts", postId), {
+      likes: (currentLikes || 0) + 1
     });
   };
 
@@ -59,70 +141,73 @@ export default function Forum() {
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl space-y-8">
         <header className="space-y-2">
-          <h1 className="font-headline text-3xl font-bold text-primary">Discussion Forum</h1>
-          <p className="text-muted-foreground">Engage with fellow readers in a spirit of charity and wisdom.</p>
+          <h1 className="font-headline text-3xl font-bold text-primary">Fellowship Reflections</h1>
+          <p className="text-muted-foreground">Actual reflections from our community members. Share and interact to grow in wisdom.</p>
         </header>
 
-        {/* New Post Form */}
-        <Card className="border-none shadow-sm bg-accent/5">
-          <form onSubmit={handlePostSubmit}>
-            <CardContent className="p-6">
-              <Textarea 
-                placeholder="Share your reflection on the current reading..." 
-                className="min-h-[120px] bg-white border-none shadow-inner resize-none focus-visible:ring-accent"
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-              />
-            </CardContent>
-            <CardFooter className="px-6 pb-6 pt-0 flex justify-between items-center">
-              <p className="text-xs text-muted-foreground">Please maintain a respectful tone.</p>
-              <Button type="submit" className="bg-primary text-white hover:bg-primary/90">Post Reflection</Button>
-            </CardFooter>
-          </form>
-        </Card>
+        {user && (
+          <Card className="border-none shadow-sm bg-accent/5">
+            <form onSubmit={handlePostSubmit}>
+              <CardContent className="p-6">
+                <Textarea 
+                  placeholder="Share your meditation on today's reading..." 
+                  className="min-h-[120px] bg-white border-none shadow-inner resize-none focus-visible:ring-accent"
+                  value={newPost}
+                  onChange={(e) => setNewPost(e.target.value)}
+                />
+              </CardContent>
+              <CardFooter className="px-6 pb-6 pt-0 flex justify-between items-center">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter italic">Earn +5 points per reflection</p>
+                <Button type="submit" disabled={isSubmitting || !newPost.trim()} className="bg-primary text-white hover:bg-primary/90 rounded-full">
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  Share Reflection
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        )}
 
-        {/* Post List */}
-        <div className="space-y-6">
-          {posts.map((post) => (
-            <div key={post.id} className="space-y-4">
+        <div className="space-y-8">
+          {posts?.map((post) => (
+            <div key={post.id} className="space-y-2">
               <Card className="border-none shadow-sm">
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center gap-3">
-                    <UserCircle className="h-8 w-8 text-accent" />
+                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs">
+                      {post.authorName?.charAt(0)}
+                    </div>
                     <div>
-                      <p className="font-bold text-sm text-primary">{post.author}</p>
-                      <p className="text-xs text-muted-foreground">2 hours ago</p>
+                      <p className="font-bold text-sm text-primary">{post.authorName}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(post.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
                   <p className="text-base text-foreground/80 leading-relaxed">{post.content}</p>
                 </CardContent>
                 <CardFooter className="px-6 py-4 border-t flex gap-6">
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors">
-                    <Heart className="h-4 w-4" /> {post.likes} Likes
+                  <button 
+                    onClick={() => handleLike(post.id, post.likes)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors"
+                  >
+                    <Heart className={`h-4 w-4 ${post.likes > 0 ? 'fill-accent text-accent' : ''}`} /> {post.likes || 0} Likes
                   </button>
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors">
-                    <MessageCircle className="h-4 w-4" /> {post.replies.length} Replies
-                  </button>
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors">
-                    <Share2 className="h-4 w-4" /> Share
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageCircle className="h-4 w-4" /> Discussion
+                  </div>
+                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors ml-auto">
+                    <Share2 className="h-4 w-4" />
                   </button>
                 </CardFooter>
               </Card>
 
-              {/* Replies */}
-              {post.replies.map(reply => (
-                <div key={reply.id} className="ml-8 pl-4 border-l-2 border-accent/20 flex gap-3">
-                  <CornerDownRight className="h-4 w-4 text-accent/40 mt-1" />
-                  <Card className="border-none shadow-sm flex-1 bg-muted/30">
-                    <CardContent className="p-4 space-y-2">
-                      <p className="font-bold text-xs text-primary">{reply.author}</p>
-                      <p className="text-sm text-foreground/70">{reply.content}</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
+              <CommentSection postId={post.id} />
             </div>
           ))}
+
+          {posts?.length === 0 && (
+            <div className="text-center py-20 bg-muted/20 rounded-xl border border-dashed">
+              <p className="text-muted-foreground italic">No reflections shared yet. Be the first!</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

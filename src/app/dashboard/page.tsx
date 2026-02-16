@@ -175,7 +175,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setReflection("");
-    toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
+    toast({ title: "Reflection Shared", description: `+10 points earned!` });
   };
 
   const handleSendNudge = () => {
@@ -209,7 +209,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setTodayNudgeCount(prev => prev + 1);
-    toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
+    toast({ title: "Nudge Sent", description: `+3 points earned!` });
   };
 
   const handleCheckIn = (discussion: any) => {
@@ -234,7 +234,7 @@ export default function Dashboard() {
     });
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
-    toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
+    toast({ title: "Checked In", description: `+20 points for attending discussion!` });
   };
 
   const handleCompleteDynamicChallenge = (challenge: any) => {
@@ -266,7 +266,7 @@ export default function Dashboard() {
             <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold">
               {profile.profilePictureUrl ? (
                 <Image src={profile.profilePictureUrl} alt={profile.name} fill className="object-cover" />
-              ) : profile.name.charAt(0)}
+              ) : profile.name?.charAt(0)}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>

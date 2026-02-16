@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -29,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, limit } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
 
   const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title")), [db]);
   const { data: books } = useCollection(booksQuery);
-  const currentBook = books?.[0]; // Assume first is current for progress tracking
+  const currentBook = books?.[0]; 
 
   const challengesQuery = useMemoFirebase(() => query(collection(db, "challenges")), [db]);
   const { data: challenges } = useCollection(challengesQuery);
@@ -110,6 +111,7 @@ export default function AdminDashboard() {
       completionCriteria: formData.get("criteria") as string,
       isActive: true,
       startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
     if (editingChall) {
@@ -126,15 +128,35 @@ export default function AdminDashboard() {
   const handleSaveDiscussion = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
-      topic: formData.get("topic") as string,
-      scheduledDateTime: formData.get("dateTime") as string,
+    const topic = formData.get("topic") as string;
+    const dateTime = formData.get("dateTime") as string;
+    
+    const id = Math.random().toString(36).substring(7);
+    const discData = {
+      id,
+      topic,
+      scheduledDateTime: dateTime,
       isActive: true,
     };
-    const id = Math.random().toString(36).substring(7);
-    setDoc(doc(db, "discussions", id), { ...data, id });
+    
+    setDoc(doc(db, "discussions", id), discData);
+
+    // Announce to all members via notification
+    members?.forEach(member => {
+      const notifId = Math.random().toString(36).substring(7);
+      setDoc(doc(db, "users", member.id, "notifications", notifId), {
+        id: notifId,
+        userId: member.id,
+        type: "DiscussionScheduled",
+        message: `New discussion announced: "${topic}" on ${new Date(dateTime).toLocaleString()}`,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      });
+    });
+
     setIsDiscOpen(false);
-    toast({ title: "Discussion Announced" });
+    toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
   };
 
   const handleAdjustPoints = (id: string, current: number) => {
@@ -143,7 +165,6 @@ export default function AdminDashboard() {
     updateDocumentNonBlocking(doc(db, "users", id), { points: (current || 0) + parseInt(val) });
   };
 
-  // Stats calculation
   const totalMembers = members?.length || 0;
   const activeMembers = members?.filter(m => m.status === 'Active').length || 0;
   const avgPoints = totalMembers ? Math.round(members!.reduce((acc, m) => acc + (m.points || 0), 0) / totalMembers) : 0;
@@ -169,7 +190,6 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-none shadow-sm bg-accent/5">
             <CardHeader className="p-4 pb-2">
@@ -338,7 +358,6 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* Dialogs */}
         <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
           <DialogContent>
             <form onSubmit={handleSaveBook}>
