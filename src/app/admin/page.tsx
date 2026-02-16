@@ -46,6 +46,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
+function MemberChallengeStats({ userId }: { userId: string }) {
+  const db = useFirestore();
+
+  const userChallengesQuery = useMemoFirebase(() => {
+    if (!userId || !db) return null;
+    return collection(db, "users", userId, "userChallenges");
+  }, [db, userId]);
+
+  const { data: userChallenges } = useCollection(userChallengesQuery);
+
+  const challengesCount = userChallenges?.filter(c => !c.id.startsWith('att_')).length || 0;
+  const discussionsCount = userChallenges?.filter(c => c.id.startsWith('att_')).length || 0;
+
+  return (
+    <>
+      <TableCell className="font-mono text-xs text-center">{challengesCount}</TableCell>
+      <TableCell className="font-mono text-xs text-center">{discussionsCount}</TableCell>
+    </>
+  );
+}
+
 export default function AdminDashboard() {
   const { user, loading, isAdmin } = useAuth();
   const router = useRouter();
@@ -253,8 +274,10 @@ export default function AdminDashboard() {
                   <TableRow>
                     <TableHead>Member</TableHead>
                     <TableHead>Progress</TableHead>
-                    <TableHead>Points</TableHead>
-                    <TableHead>Streak</TableHead>
+                    <TableHead className="text-center">Points</TableHead>
+                    <TableHead className="text-center">Streak</TableHead>
+                    <TableHead className="text-center">Challenges</TableHead>
+                    <TableHead className="text-center">Discussions</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -275,8 +298,9 @@ export default function AdminDashboard() {
                             <p className="text-[10px] text-muted-foreground">{pagesRead} / {currentBook?.totalPages || '?'} pgs ({progress}%)</p>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{m.points || 0}</TableCell>
-                        <TableCell className="text-xs">{m.streak || 0}d</TableCell>
+                        <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
+                        <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
+                        <MemberChallengeStats userId={m.id} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => handleAdjustPoints(m.id, m.points)}>+/- Pts</Button>
