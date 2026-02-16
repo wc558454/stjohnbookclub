@@ -14,6 +14,7 @@
         "batchYear": { "type": "string" },
         "readingLevel": { "type": "string" },
         "points": { "type": "number", "format": "int32" },
+        "currentPagesRead": { "type": "number" },
         "level": { "type": "number", "format": "int32" },
         "streak": { "type": "number", "format": "int32" },
         "status": { "type": "string" },
@@ -32,7 +33,8 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "totalPages": { "type": "number" },
-        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" }
+        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "description", "totalPages"]
     },

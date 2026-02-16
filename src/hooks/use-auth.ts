@@ -22,6 +22,7 @@ export type UserProfile = {
   role: string;
   profilePictureUrl?: string;
   pagesPerDay?: number;
+  currentPagesRead?: number;
 };
 
 export function useAuth() {

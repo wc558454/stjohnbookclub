@@ -28,7 +28,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   const booksQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "books"), orderBy("title"), limit(1));
+    return query(collection(db, "books"), orderBy("createdAt", "desc"), limit(1));
   }, [db, user]);
   const { data: books } = useCollection(booksQuery);
   const currentBook = books?.[0];
@@ -119,7 +119,7 @@ export default function Dashboard() {
   };
 
   const rank = getRank(profile.points || 0);
-  const readingTotal = Math.round((profile.points || 0) / 2);
+  const readingTotal = profile.currentPagesRead || 0;
   const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
 
   const handleUpdateGoal = () => {
@@ -150,6 +150,7 @@ export default function Dashboard() {
     
     const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
+    const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
     
     const lastRead = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
     const today = new Date();
@@ -176,6 +177,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(userRef, {
       points: (profile.points || 0) + ptsToAdd,
+      currentPagesRead: newPagesRead,
       streak: newStreak,
       lastReadAt: new Date().toISOString()
     });
@@ -185,7 +187,7 @@ export default function Dashboard() {
     setIsSubmitting(false);
   };
 
-  const handleReflectionSubmit = () => {
+  const handleReflectionSubmit = async () => {
     const sentences = reflection.split(/[.!?]+/).filter(s => s.trim().length > 5);
     if (sentences.length < 2 || sentences.length > 5) {
       toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be between 2 and 5 sentences." });
@@ -195,7 +197,15 @@ export default function Dashboard() {
     const reward = 10;
     const reflectionId = `refl_${new Date().toISOString().split('T')[0]}`;
     
-    setDoc(doc(db, "users", user.uid, "userChallenges", reflectionId), {
+    // Check if already completed today
+    const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
+    const challSnap = await getDoc(challRef);
+    if(challSnap.exists()) {
+      toast({ variant: "destructive", title: "Already Reflected", description: "You can only submit one reflection per day."});
+      return;
+    }
+
+    setDoc(challRef, {
       id: reflectionId,
       challengeId: "reflection_daily",
       userId: user.uid,
@@ -206,7 +216,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setReflection("");
-    toast({ title: "Reflection Shared", description: `+10 points earned!` });
+    toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
   };
 
   const handleSendNudge = () => {
@@ -240,7 +250,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setTodayNudgeCount(prev => prev + 1);
-    toast({ title: "Nudge Sent", description: `+3 points earned!` });
+    toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
   };
 
   const handleCheckIn = (discussion: any) => {
@@ -265,7 +275,7 @@ export default function Dashboard() {
     });
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
-    toast({ title: "Checked In", description: `+20 points for attending discussion!` });
+    toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
   };
 
   const handleCompleteDynamicChallenge = (challenge: any) => {
@@ -346,7 +356,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-white/5 p-3 rounded-md text-center">
                       <p className="text-[10px] text-primary-foreground/40 font-bold uppercase">Due</p>
-                      <p className="text-sm font-bold">{currentBook.currentReadingPlanDueDate || 'N/A'}</p>
+                      <p className="text-sm font-bold">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
                     </div>
                     <div className="bg-white/5 p-3 rounded-md text-center">
                       <p className="text-[10px] text-primary-foreground/40 font-bold uppercase">Total Pages</p>
@@ -537,5 +547,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    

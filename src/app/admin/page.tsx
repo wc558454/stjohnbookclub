@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, getDocs, updateDoc } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -93,7 +93,7 @@ export default function AdminDashboard() {
 
   const booksQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "books"), orderBy("title"));
+    return query(collection(db, "books"), orderBy("createdAt", "desc"));
   }, [db, user]);
   const { data: books } = useCollection(booksQuery);
   const currentBook = books?.[0]; 
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
 
   if (loading || !user || !isAdmin) return null;
 
-  const handleSaveBook = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -124,13 +124,23 @@ export default function AdminDashboard() {
 
     if (editingBook) {
       updateDocumentNonBlocking(doc(db, "books", editingBook.id), data);
+      toast({ title: "Book Saved" });
     } else {
       const id = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "books", id), { ...data, id });
+      await setDoc(doc(db, "books", id), { ...data, id, createdAt: new Date().toISOString() });
+
+      // Reset all users' reading progress for the new book
+      const membersCollection = collection(db, "users");
+      const membersSnapshot = await getDocs(membersCollection);
+      const updates = membersSnapshot.docs.map(memberDoc => {
+        return updateDoc(doc(db, "users", memberDoc.id), { currentPagesRead: 0 });
+      });
+      await Promise.all(updates);
+      
+      toast({ title: "New Book Added", description: "All member progress has been reset for the new book." });
     }
     setIsBookOpen(false);
     setEditingBook(null);
-    toast({ title: "Book Saved" });
   };
 
   const handleSaveChallenge = (e: React.FormEvent<HTMLFormElement>) => {
@@ -284,7 +294,7 @@ export default function AdminDashboard() {
                 </TableHeader>
                 <TableBody>
                   {members?.map(m => {
-                    const pagesRead = Math.round((m.points || 0) / 2);
+                    const pagesRead = m.currentPagesRead || 0;
                     const progress = currentBook ? Math.min(100, Math.round((pagesRead / currentBook.totalPages) * 100)) : 0;
                     return (
                       <TableRow key={m.id}>
@@ -330,7 +340,7 @@ export default function AdminDashboard() {
                     <TableRow key={b.id}>
                       <TableCell className="font-bold">{b.title}</TableCell>
                       <TableCell>{b.totalPages} pgs</TableCell>
-                      <TableCell className="text-xs">{b.currentReadingPlanDueDate || '-'}</TableCell>
+                      <TableCell className="text-xs">{b.currentReadingPlanDueDate ? new Date(b.currentReadingPlanDueDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
