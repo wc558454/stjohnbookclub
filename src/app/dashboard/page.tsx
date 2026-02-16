@@ -119,6 +119,8 @@ export default function Dashboard() {
   };
 
   const rank = getRank(profile.points || 0);
+  const readingTotal = Math.round((profile.points || 0) / 2);
+  const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
 
   const handleUpdateGoal = () => {
     updateDocumentNonBlocking(doc(db, "users", user.uid), { pagesPerDay: pagesGoal });
@@ -126,7 +128,24 @@ export default function Dashboard() {
   };
 
   const handleMarkComplete = () => {
-    if (pagesReadToday <= 0) return;
+    if (pagesReadToday <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Input",
+        description: "Please enter a positive number of pages.",
+      });
+      return;
+    }
+
+    if (currentBook && (readingTotal + pagesReadToday) > currentBook.totalPages) {
+      toast({
+        variant: "destructive",
+        title: "Page Limit Exceeded",
+        description: `Cannot log more than ${currentBook.totalPages} pages for this book. You have already logged ${readingTotal} pages.`,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     const ptsToAdd = pagesReadToday * 2;
@@ -265,9 +284,6 @@ export default function Dashboard() {
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
   };
-
-  const readingTotal = Math.round((profile.points || 0) / 2);
-  const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -521,3 +537,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
