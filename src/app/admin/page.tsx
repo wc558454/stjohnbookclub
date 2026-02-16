@@ -64,17 +64,29 @@ export default function AdminDashboard() {
     }
   }, [user, loading, isAdmin, router]);
 
-  const membersQuery = useMemoFirebase(() => collection(db, "users"), [db]);
+  const membersQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "users");
+  }, [db, user]);
   const { data: members } = useCollection(membersQuery);
 
-  const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title")), [db]);
+  const booksQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "books"), orderBy("title"));
+  }, [db, user]);
   const { data: books } = useCollection(booksQuery);
   const currentBook = books?.[0]; 
 
-  const challengesQuery = useMemoFirebase(() => query(collection(db, "challenges")), [db]);
+  const challengesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "challenges"));
+  }, [db, user]);
   const { data: challenges } = useCollection(challengesQuery);
 
-  const discussionsQuery = useMemoFirebase(() => query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc")), [db]);
+  const discussionsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"));
+  }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
   if (loading || !user || !isAdmin) return null;

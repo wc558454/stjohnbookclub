@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Heart, Share2, CornerDownRight, UserCircle, Loader2 } from "lucide-react";
+import { MessageCircle, Heart, Share2, CornerDownRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
 
 function CommentSection({ postId }: { postId: string }) {
   const db = useFirestore();
@@ -21,10 +21,11 @@ function CommentSection({ postId }: { postId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const commentsQuery = useMemoFirebase(() => {
+    if (!user) return null;
     return query(collection(db, "forumPosts", postId, "comments"), orderBy("createdAt", "asc"));
-  }, [db, postId]);
+  }, [db, postId, user]);
 
-  const { data: comments, isLoading } = useCollection(commentsQuery);
+  const { data: comments } = useCollection(commentsQuery);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,15 +88,16 @@ function CommentSection({ postId }: { postId: string }) {
 }
 
 export default function Forum() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile } = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
   const [newPost, setNewPost] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const postsQuery = useMemoFirebase(() => {
+    if (!user) return null;
     return query(collection(db, "forumPosts"), orderBy("createdAt", "desc"));
-  }, [db]);
+  }, [db, user]);
 
   const { data: posts } = useCollection(postsQuery);
 
@@ -193,9 +195,6 @@ export default function Forum() {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <MessageCircle className="h-4 w-4" /> Discussion
                   </div>
-                  <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors ml-auto">
-                    <Share2 className="h-4 w-4" />
-                  </button>
                 </CardFooter>
               </Card>
 

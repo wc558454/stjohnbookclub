@@ -76,11 +76,17 @@ export default function Dashboard() {
     if (user?.uid) checkNudges();
   }, [db, user?.uid]);
 
-  const booksQuery = useMemoFirebase(() => query(collection(db, "books"), orderBy("title"), limit(1)), [db]);
+  const booksQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "books"), orderBy("title"), limit(1));
+  }, [db, user]);
   const { data: books } = useCollection(booksQuery);
   const currentBook = books?.[0];
 
-  const challengesQuery = useMemoFirebase(() => query(collection(db, "challenges"), where("isActive", "==", true)), [db]);
+  const challengesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "challenges"), where("isActive", "==", true));
+  }, [db, user]);
   const { data: challenges } = useCollection(challengesQuery);
 
   const userChallengesQuery = useMemoFirebase(() => {
@@ -89,10 +95,16 @@ export default function Dashboard() {
   }, [db, user?.uid]);
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  const discussionsQuery = useMemoFirebase(() => query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(5)), [db]);
+  const discussionsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(5));
+  }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
-  const membersQuery = useMemoFirebase(() => query(collection(db, "users"), orderBy("points", "desc"), limit(10)), [db]);
+  const membersQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
+  }, [db, user]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
 
   if (loading || !user || !profile) return null;
