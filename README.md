@@ -23,6 +23,15 @@ A specialized platform for spiritual reading fellowship, designed for the St. Pa
 2. **Environment Variables**: Configure your Firebase keys in the project settings.
 3. **Admin Setup**: To access the Admin Panel, add your UID to the `roles_admin` collection in Firestore.
 
+## Deployment
+
+This project is configured for deployment using **Firebase App Hosting**.
+
+1. **Connect to GitHub**: In the Firebase Console, navigate to the App Hosting section and connect your GitHub repository.
+2. **Automated Deploys**: Once connected, App Hosting will automatically build and deploy your application whenever you push new commits to your main branch.
+
+The `apphosting.yaml` file in the root directory contains the configuration for the App Hosting backend.
+
 ## Credits
 
 Developed by William for the fellowship community.
