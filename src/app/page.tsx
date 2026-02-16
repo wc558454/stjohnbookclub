@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Users, Trophy, MessageSquare, Quote } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import AddToHomeScreen from "@/components/AddToHomeScreen";
 
 export default function Home() {
   const heroImg = PlaceHolderImages.find(img => img.id === 'hero-spiritual');
@@ -42,13 +43,14 @@ export default function Home() {
               <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed font-medium">
                 “A community of spiritual reading students committed to disciplined study and growth.”
               </p>
-              <div className="flex flex-wrap justify-center gap-4 pt-6">
+              <div className="flex flex-wrap justify-center items-center gap-4 pt-6">
                 <Button asChild size="lg" className="bg-primary text-white hover:bg-primary/90 px-10 h-14 text-lg rounded-full">
                   <Link href="/register">Join the Bookclub</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent/10 px-10 h-14 text-lg rounded-full">
                   <Link href="/dashboard">Member Login</Link>
                 </Button>
+                <AddToHomeScreen />
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { FirebaseClientProvider } from '@/firebase';
 export const metadata: Metadata = {
   title: 'St. John Chrysostom Bookclub',
   description: 'Deepen your faith through the wisdom of the Golden-Mouthed Father.',
+  manifest: '/manifest.webmanifest',
 };
 
 export default function RootLayout({
