@@ -11,6 +11,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function Home() {
   const heroImg = PlaceHolderImages.find(img => img.id === 'hero-spiritual');
+  const iconImg = PlaceHolderImages.find(img => img.id === 'st-john');
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -103,6 +104,16 @@ export default function Home() {
 
       <footer className="bg-primary text-white py-16">
         <div className="container mx-auto px-4 flex flex-col items-center space-y-8 text-center">
+          {iconImg && (
+            <Image
+              src={iconImg.imageUrl}
+              alt={iconImg.description}
+              width={128}
+              height={128}
+              className="rounded-full border-4 border-accent/50 shadow-lg"
+              data-ai-hint={iconImg.imageHint}
+            />
+          )}
           <div className="space-y-2">
             <p className="font-headline text-xl font-bold text-accent">የቅዱስ ጳውሎስ ህክምና ኮሌጅ ግቢ ጉባኤ</p>
             <p className="text-primary-foreground/60 text-sm">St. Paul Hospital Medical College Campus Fellowship</p>
