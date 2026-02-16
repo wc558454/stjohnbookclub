@@ -7,248 +7,68 @@
       "type": "object",
       "description": "Represents a member of the St. John Chrysostom Bookclub, including their personal details, progress metrics, and administrative attributes.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address, used for contact and display purposes. (Not for authentication credentials)",
-          "format": "email"
-        },
-        "profilePictureUrl": {
-          "type": "string",
-          "description": "URL to the user's uploaded profile picture.",
-          "format": "uri"
-        },
-        "batchYear": {
-          "type": "string",
-          "description": "The year or batch identifier when the user joined the bookclub."
-        },
-        "readingLevel": {
-          "type": "string",
-          "description": "A descriptive level indicating the user's reading proficiency or engagement (e.g., 'Beginner', 'Intermediate', 'Advanced')."
-        },
-        "points": {
-          "type": "number",
-          "description": "The total cumulative points earned by the user.",
-          "format": "int32"
-        },
-        "level": {
-          "type": "number",
-          "description": "The current achievement level of the user based on points or engagement.",
-          "format": "int32"
-        },
-        "streak": {
-          "type": "number",
-          "description": "The current consecutive daily reading streak of the user.",
-          "format": "int32"
-        },
-        "status": {
-          "type": "string",
-          "description": "The active status of the user (e.g., 'Active', 'Inactive')."
-        },
-        "role": {
-          "type": "string",
-          "description": "The role of the user within the bookclub (e.g., 'member', 'admin')."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "profilePictureUrl": { "type": "string", "format": "uri" },
+        "batchYear": { "type": "string" },
+        "readingLevel": { "type": "string" },
+        "points": { "type": "number", "format": "int32" },
+        "level": { "type": "number", "format": "int32" },
+        "streak": { "type": "number", "format": "int32" },
+        "status": { "type": "string" },
+        "role": { "type": "string" },
+        "pagesPerDay": { "type": "number" },
+        "lastReadAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "batchYear",
-        "readingLevel",
-        "points",
-        "level",
-        "streak",
-        "status",
-        "role"
-      ]
+      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role"]
     },
     "Book": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Book",
       "type": "object",
-      "description": "Represents a book that is or has been part of the bookclub's reading plan.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Book entity."
-        },
-        "title": {
-          "type": "string",
-          "description": "The title of the book."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief summary or description of the book."
-        },
-        "totalPages": {
-          "type": "number",
-          "description": "The total number of pages in the book.",
-          "format": "int32"
-        },
-        "currentReadingPlanDueDate": {
-          "type": "string",
-          "description": "The due date for completing this book within the current bookclub reading plan. (Optional)",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "totalPages": { "type": "number" },
+        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "totalPages"
-      ]
+      "required": ["id", "title", "description", "totalPages"]
     },
     "Challenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Challenge",
       "type": "object",
-      "description": "Defines a specific task or goal that members can undertake to earn points and engage with the club's activities.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Challenge entity."
-        },
-        "title": {
-          "type": "string",
-          "description": "The title of the challenge."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the challenge and its objectives."
-        },
-        "pointsReward": {
-          "type": "number",
-          "description": "The number of points awarded upon successful completion of the challenge.",
-          "format": "int32"
-        },
-        "completionCriteria": {
-          "type": "string",
-          "description": "Description of what needs to be done to complete the challenge (e.g., 'Read 10 pages', 'Answer 3 questions')."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The date and time when the challenge becomes active.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The date and time when the challenge expires.",
-          "format": "date-time"
-        },
-        "type": {
-          "type": "string",
-          "description": "The category or type of challenge (e.g., 'Daily', 'Weekly', 'Special')."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if the challenge is currently active and available to members."
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "pointsReward": { "type": "number" },
+        "completionCriteria": { "type": "string" },
+        "type": { "type": "string" },
+        "isActive": { "type": "boolean" }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "pointsReward",
-        "completionCriteria",
-        "startDate",
-        "endDate",
-        "type",
-        "isActive"
-      ]
+      "required": ["id", "title", "pointsReward", "type", "isActive"]
     },
     "UserChallenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserChallenge",
       "type": "object",
-      "description": "Tracks a specific member's participation and progress on a particular challenge.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserChallenge entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User participating in the challenge."
-        },
-        "challengeId": {
-          "type": "string",
-          "description": "Reference to the Challenge being undertaken."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the user's challenge (e.g., 'Pending', 'InProgress', 'Completed', 'Failed')."
-        },
-        "startedAt": {
-          "type": "string",
-          "description": "The date and time when the user started the challenge.",
-          "format": "date-time"
-        },
-        "completedAt": {
-          "type": "string",
-          "description": "The date and time when the user completed the challenge.",
-          "format": "date-time"
-        },
-        "progress": {
-          "type": "string",
-          "description": "A representation of progress."
-        },
-        "pointsEarned": {
-          "type": "number",
-          "description": "Points earned for this challenge.",
-          "format": "int32"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "challengeId",
-        "status",
-        "startedAt"
-      ]
-    },
-    "ForumPost": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ForumPost",
-      "type": "object",
-      "description": "A reflection or post shared by a member in the discussion forum.",
       "properties": {
         "id": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "likes": { "type": "number" }
+        "userId": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "status": { "type": "string" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "pointsEarned": { "type": "number" }
       },
-      "required": ["id", "authorId", "authorName", "content", "createdAt"]
-    },
-    "ForumComment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ForumComment",
-      "type": "object",
-      "description": "A comment or reply on a forum post.",
-      "properties": {
-        "id": { "type": "string" },
-        "postId": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+      "required": ["id", "userId", "challengeId", "status"]
     },
     "Discussion": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Discussion",
       "type": "object",
-      "description": "Represents a scheduled discussion event for members.",
       "properties": {
         "id": { "type": "string" },
         "topic": { "type": "string" },
@@ -261,7 +81,6 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Notification",
       "type": "object",
-      "description": "System alerts for users.",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
@@ -271,14 +90,11 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "expiresAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "type", "message", "isRead", "createdAt", "expiresAt"]
+      "required": ["id", "userId", "message", "isRead", "createdAt", "expiresAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -291,19 +107,11 @@
         }
       },
       {
-        "path": "/forumPosts/{postId}",
+        "path": "/users/{userId}/notifications/{notifId}",
         "definition": {
-          "entityName": "ForumPost",
-          "schema": { "$ref": "#/backend/entities/ForumPost" },
-          "description": "Global collection for forum posts."
-        }
-      },
-      {
-        "path": "/forumPosts/{postId}/comments/{commentId}",
-        "definition": {
-          "entityName": "ForumComment",
-          "schema": { "$ref": "#/backend/entities/ForumComment" },
-          "description": "Comments on a forum post."
+          "entityName": "Notification",
+          "schema": { "$ref": "#/backend/entities/Notification" },
+          "description": "User notifications."
         }
       },
       {
@@ -320,6 +128,14 @@
           "entityName": "Discussion",
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
+        }
+      },
+      {
+        "path": "/books/{bookId}",
+        "definition": {
+          "entityName": "Book",
+          "schema": { "$ref": "#/backend/entities/Book" },
+          "description": "Library books."
         }
       }
     ]
