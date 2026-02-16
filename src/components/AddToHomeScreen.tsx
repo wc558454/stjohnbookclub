@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // This interface may not be part of the default TS DOM library
 interface BeforeInstallPromptEvent extends Event {
@@ -17,6 +19,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function AddToHomeScreen() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -61,14 +64,27 @@ export default function AddToHomeScreen() {
     return null;
   }
 
+  if (isMobile) {
+    return (
+      <Button
+        onClick={handleInstallClick}
+        variant="ghost"
+        size="icon"
+        aria-label="Install App"
+      >
+        <Download className="h-5 w-5" />
+      </Button>
+    )
+  }
+
   return (
     <Button
       onClick={handleInstallClick}
-      variant="outline"
-      size="lg"
-      className="border-primary text-primary hover:bg-primary/10 px-10 h-14 text-lg rounded-full"
+      variant="ghost"
+      size="sm"
+      className="text-sm font-medium"
     >
-      <Download className="mr-2 h-5 w-5" />
+      <Download className="mr-2 h-4 w-4" />
       Install App
     </Button>
   );

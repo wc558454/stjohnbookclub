@@ -17,6 +17,7 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import AddToHomeScreen from "./AddToHomeScreen";
 
 export function Navigation() {
   const { user, profile, isAdmin, logout, loading } = useAuth();
@@ -66,6 +67,7 @@ export function Navigation() {
         </div>
 
         <div className="flex items-center gap-4">
+          <AddToHomeScreen />
           {!user && !loading && (
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost" className="flex">
