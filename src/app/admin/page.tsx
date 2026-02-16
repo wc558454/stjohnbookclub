@@ -78,6 +78,8 @@ export default function AdminDashboard() {
   const [isChallOpen, setIsChallOpen] = useState(false);
   const [editingChall, setEditingChall] = useState<any>(null);
   const [isDiscOpen, setIsDiscOpen] = useState(false);
+  const [adjustingMember, setAdjustingMember] = useState<any>(null);
+  const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -202,10 +204,17 @@ export default function AdminDashboard() {
     toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
   };
 
-  const handleAdjustPoints = (id: string, current: number) => {
-    const val = prompt("Add/Subtract Points:");
-    if (!val) return;
-    updateDocumentNonBlocking(doc(db, "users", id), { points: (current || 0) + parseInt(val) });
+  const handleConfirmAdjustPoints = () => {
+    if (!adjustingMember) return;
+    
+    const currentPoints = adjustingMember.points || 0;
+    const newPoints = currentPoints + (pointsAdjustment || 0);
+
+    updateDocumentNonBlocking(doc(db, "users", adjustingMember.id), { points: newPoints });
+    
+    toast({ title: "Points Adjusted", description: `${adjustingMember.name}'s points updated to ${newPoints}.` });
+    setAdjustingMember(null);
+    setPointsAdjustment(0);
   };
 
   const totalMembers = members?.length || 0;
@@ -313,7 +322,7 @@ export default function AdminDashboard() {
                         <MemberChallengeStats userId={m.id} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => handleAdjustPoints(m.id, m.points)}>+/- Pts</Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
                         </TableCell>
                       </TableRow>
@@ -451,6 +460,36 @@ export default function AdminDashboard() {
               </div>
               <DialogFooter><Button type="submit" className="w-full">Announce Discussion</Button></DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!adjustingMember} onOpenChange={(open) => !open && setAdjustingMember(null)}>
+          <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adjust Points for {adjustingMember?.name}</DialogTitle>
+                <CardDescription>Manually add or subtract points from a member's total.</CardDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="points-adjustment">Points to Add/Subtract (use a negative number to subtract)</Label>
+                    <Input
+                        id="points-adjustment"
+                        type="number"
+                        value={pointsAdjustment}
+                        onChange={(e) => setPointsAdjustment(parseInt(e.target.value) || 0)}
+                        placeholder="e.g. 50 or -20"
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Current points: <span className="font-bold">{adjustingMember?.points || 0}</span>
+                    <br />
+                    New total will be: <span className="font-bold">{(adjustingMember?.points || 0) + pointsAdjustment}</span>
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setAdjustingMember(null)}>Cancel</Button>
+                  <Button onClick={handleConfirmAdjustPoints}>Confirm Adjustment</Button>
+              </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
