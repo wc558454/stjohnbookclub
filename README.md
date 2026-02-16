@@ -25,12 +25,13 @@ A specialized platform for spiritual reading fellowship, designed for the St. Pa
 
 ## Deployment
 
-This project is configured for deployment using **Firebase App Hosting**.
+This project is configured for deployment using **Firebase Hosting**.
 
-1. **Connect to GitHub**: In the Firebase Console, navigate to the App Hosting section and connect your GitHub repository.
-2. **Automated Deploys**: Once connected, App Hosting will automatically build and deploy your application whenever you push new commits to your main branch.
+1. **Install Firebase CLI**: If you haven't already, install the Firebase CLI on your local machine: `npm install -g firebase-tools`.
+2. **Login to Firebase**: Login to your Firebase account: `firebase login`.
+3. **Deploy**: Deploy your application to Firebase Hosting by running the following command from your project's root directory: `firebase deploy --only hosting`.
 
-The `apphosting.yaml` file in the root directory contains the configuration for the App Hosting backend.
+The `firebase.json` and `.firebaserc` files in the root directory contain the configuration for Firebase Hosting.
 
 ## Credits
 
