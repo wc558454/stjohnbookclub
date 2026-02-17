@@ -76,12 +76,18 @@ export default function Dashboard() {
     if (user?.uid) checkNudges();
   }, [db, user?.uid]);
 
-  const booksQuery = useMemoFirebase(() => {
+  const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "books"), orderBy("createdAt", "desc"), limit(1));
+    return query(collection(db, "books"), where("status", "==", "current"), limit(1));
   }, [db, user]);
-  const { data: books } = useCollection(booksQuery);
-  const currentBook = books?.[0];
+  const { data: currentBooks } = useCollection(currentBookQuery);
+  const currentBook = currentBooks?.[0];
+
+  const finishedBooksQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "books"), where("status", "==", "finished"), orderBy("createdAt", "desc"));
+  }, [db, user]);
+  const { data: finishedBooks } = useCollection(finishedBooksQuery);
 
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -489,6 +495,21 @@ export default function Dashboard() {
                   <Send className="h-3 w-3 mr-1.5" /> Send Nudge (+3)
                 </Button>
               </CardContent>
+            </Card>
+            
+            <Card className="border-none shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-accent" /> Finished Books
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-2">
+                    {finishedBooks?.length ? finishedBooks.map(book => (
+                        <div key={book.id} className="p-3 bg-muted/30 rounded-md">
+                            <p className="text-xs font-bold text-primary">{book.title}</p>
+                        </div>
+                    )) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No books finished yet.</p>}
+                </CardContent>
             </Card>
 
             <Card className="border-none shadow-sm bg-secondary/10">

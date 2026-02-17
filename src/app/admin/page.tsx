@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, getDocs, writeBatch } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -172,7 +172,7 @@ export default function AdminDashboard() {
     return query(collection(db, "books"), orderBy("createdAt", "desc"));
   }, [db, user]);
   const { data: books } = useCollection(booksQuery);
-  const currentBook = books?.[0]; 
+  const currentBook = books?.find(b => b.status === 'current');
 
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -187,6 +187,41 @@ export default function AdminDashboard() {
   const { data: discussions } = useCollection(discussionsQuery);
 
   if (loading || !user || !isAdmin) return null;
+
+  const handleSetCurrent = async (bookToSet: any) => {
+    if (!db || !books) return;
+
+    const batch = writeBatch(db);
+
+    const currentActiveBook = books.find(b => b.status === 'current');
+    if (currentActiveBook) {
+      const oldBookRef = doc(db, "books", currentActiveBook.id);
+      batch.update(oldBookRef, { status: "archived" });
+    }
+
+    const newBookRef = doc(db, "books", bookToSet.id);
+    batch.update(newBookRef, { status: "current" });
+
+    try {
+      const membersSnapshot = await getDocs(collection(db, "users"));
+      membersSnapshot.forEach(memberDoc => {
+        const userRef = doc(db, "users", memberDoc.id);
+        batch.update(userRef, { currentPagesRead: 0 });
+      });
+
+      await batch.commit();
+      toast({ title: "New Current Book Set", description: `${bookToSet.title} is now active. User progress reset.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error setting current book" });
+      console.error("Error setting current book:", error);
+    }
+  };
+
+  const handleMarkFinished = (bookToFinish: any) => {
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "books", bookToFinish.id), { status: 'finished' });
+    toast({ title: "Book Finished" });
+  };
 
   const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -203,17 +238,14 @@ export default function AdminDashboard() {
       toast({ title: "Book Saved" });
     } else {
       const id = Math.random().toString(36).substring(7);
-      await setDoc(doc(db, "books", id), { ...data, id, createdAt: new Date().toISOString() });
-
-      // Reset all users' reading progress for the new book
-      const membersCollection = collection(db, "users");
-      const membersSnapshot = await getDocs(membersCollection);
-      const updates = membersSnapshot.docs.map(memberDoc => {
-        return updateDoc(doc(db, "users", memberDoc.id), { currentPagesRead: 0 });
-      });
-      await Promise.all(updates);
-      
-      toast({ title: "New Book Added", description: "All member progress has been reset for the new book." });
+      const newBook = { 
+        ...data, 
+        id, 
+        createdAt: new Date().toISOString(),
+        status: 'pending' 
+      };
+      await setDoc(doc(db, "books", id), newBook);
+      toast({ title: "New Book Added", description: "You can now set it as the current book." });
     }
     setIsBookOpen(false);
     setEditingBook(null);
@@ -421,6 +453,7 @@ export default function AdminDashboard() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Book Title</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Total Pages</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -428,11 +461,18 @@ export default function AdminDashboard() {
                 </TableHeader>
                 <TableBody>
                   {books?.map(b => (
-                    <TableRow key={b.id}>
+                    <TableRow key={b.id} className={b.status === 'current' ? 'bg-accent/10' : ''}>
                       <TableCell className="font-bold">{b.title}</TableCell>
+                      <TableCell><Badge variant={b.status === 'current' ? 'default' : 'secondary'}>{b.status}</Badge></TableCell>
                       <TableCell>{b.totalPages} pgs</TableCell>
                       <TableCell className="text-xs">{b.currentReadingPlanDueDate ? new Date(b.currentReadingPlanDueDate).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        {b.status !== 'current' && b.status !== 'finished' && (
+                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Set Current</Button>
+                        )}
+                        {b.status === 'current' && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>Mark Finished</Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
                       </TableCell>
