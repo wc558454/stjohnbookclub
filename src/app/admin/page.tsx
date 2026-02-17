@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -185,6 +185,17 @@ export default function AdminDashboard() {
     return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"));
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
+
+  const avgBookProgress = useMemo(() => {
+    if (!currentBook || !members || members.length === 0) {
+      return 0;
+    }
+    const totalProgress = members.reduce((acc, member) => {
+      const progress = ((member.currentPagesRead || 0) / currentBook.totalPages) * 100;
+      return acc + Math.min(100, progress);
+    }, 0);
+    return Math.round(totalProgress / members.length);
+  }, [members, currentBook]);
 
   if (loading || !user || !isAdmin) return null;
 
@@ -386,7 +397,7 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold text-primary">84%</p>
+              <p className="text-3xl font-bold text-primary">{avgBookProgress}%</p>
               <p className="text-[10px] text-accent font-medium mt-1">Average book completion</p>
             </CardContent>
           </Card>
