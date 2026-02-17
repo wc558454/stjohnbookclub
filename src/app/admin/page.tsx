@@ -46,8 +46,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-function MemberChallengeStats({ userId }: { userId: string }) {
+function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
   const db = useFirestore();
+  const [isChallengeDetailsOpen, setIsChallengeDetailsOpen] = useState(false);
+  const [isDiscussionDetailsOpen, setIsDiscussionDetailsOpen] = useState(false);
 
   const userChallengesQuery = useMemoFirebase(() => {
     if (!userId || !db) return null;
@@ -56,13 +58,85 @@ function MemberChallengeStats({ userId }: { userId: string }) {
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  const challengesCount = userChallenges?.filter(c => !c.id.startsWith('att_')).length || 0;
-  const discussionsCount = userChallenges?.filter(c => c.id.startsWith('att_')).length || 0;
+  const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_')) || [];
+  const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
+
+  const challengesCount = completedChallenges.length;
+  const discussionsCount = attendedDiscussions.length;
+
+  const getCompletedChallengeTitle = (userChallenge: any) => {
+    const { id, challengeId } = userChallenge;
+    if (id.startsWith('refl_')) return "Reflection of the Day";
+    
+    const chall = allChallenges?.find(c => c.id === challengeId);
+    if (chall) return chall.title;
+    
+    return "Unknown Challenge";
+  }
+
+  const getAttendedDiscussionTopic = (userChallenge: any) => {
+    const { challengeId } = userChallenge;
+    const disc = allDiscussions?.find(d => d.id === challengeId);
+    return disc?.topic || "Unknown Discussion";
+  }
 
   return (
     <>
-      <TableCell className="font-mono text-xs text-center">{challengesCount}</TableCell>
-      <TableCell className="font-mono text-xs text-center">{discussionsCount}</TableCell>
+      <Dialog open={isChallengeDetailsOpen} onOpenChange={setIsChallengeDetailsOpen}>
+        <DialogTrigger asChild>
+          <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50">
+            {challengesCount}
+          </TableCell>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Completed Challenges</DialogTitle>
+            <CardDescription>List of all challenges this member has completed.</CardDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
+            {completedChallenges.length > 0 ? (
+              <ul className="list-disc list-inside space-y-2">
+                {completedChallenges.map(uc => (
+                  <li key={uc.id} className="text-sm">
+                    {getCompletedChallengeTitle(uc)}
+                    <span className="text-muted-foreground text-xs ml-2">({new Date(uc.completedAt).toLocaleDateString()})</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm italic text-center py-4">No challenges completed yet.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isDiscussionDetailsOpen} onOpenChange={setIsDiscussionDetailsOpen}>
+        <DialogTrigger asChild>
+           <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50">
+            {discussionsCount}
+          </TableCell>
+        </DialogTrigger>
+        <DialogContent>
+           <DialogHeader>
+            <DialogTitle>Attended Discussions</DialogTitle>
+            <CardDescription>List of all discussions this member has checked into.</CardDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
+            {attendedDiscussions.length > 0 ? (
+              <ul className="list-disc list-inside space-y-2">
+                {attendedDiscussions.map(uc => (
+                  <li key={uc.id} className="text-sm">
+                    {getAttendedDiscussionTopic(uc)}
+                    <span className="text-muted-foreground text-xs ml-2">({new Date(uc.completedAt).toLocaleDateString()})</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm italic text-center py-4">No discussions attended yet.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -319,7 +393,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
-                        <MemberChallengeStats userId={m.id} />
+                        <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
