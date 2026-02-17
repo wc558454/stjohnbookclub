@@ -222,23 +222,31 @@ export default function AdminDashboard() {
   const handleSaveChallenge = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      pointsReward: parseInt(formData.get("points") as string),
-      type: formData.get("type") as string,
-      completionCriteria: formData.get("criteria") as string,
-      isActive: true,
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-
+    
     if (editingChall) {
+      const data = {
+        title: formData.get("title") as string,
+        description: formData.get("description") as string,
+        pointsReward: parseInt(formData.get("points") as string),
+        type: formData.get("type") as string,
+        completionCriteria: formData.get("criteria") as string,
+      };
       updateDocumentNonBlocking(doc(db, "challenges", editingChall.id), data);
     } else {
+      const data = {
+        title: formData.get("title") as string,
+        description: formData.get("description") as string,
+        pointsReward: parseInt(formData.get("points") as string),
+        type: formData.get("type") as string,
+        completionCriteria: formData.get("criteria") as string,
+        isActive: true,
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      };
       const id = Math.random().toString(36).substring(7);
       setDoc(doc(db, "challenges", id), { ...data, id });
     }
+
     setIsChallOpen(false);
     setEditingChall(null);
     toast({ title: "Challenge Saved" });
@@ -444,6 +452,7 @@ export default function AdminDashboard() {
                     <TableHead>Type</TableHead>
                     <TableHead>Points</TableHead>
                     <TableHead>Criteria</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -454,7 +463,21 @@ export default function AdminDashboard() {
                       <TableCell><Badge variant="outline" className="text-[10px]">{c.type}</Badge></TableCell>
                       <TableCell className="text-accent font-bold">+{c.pointsReward}</TableCell>
                       <TableCell className="text-[10px] text-muted-foreground">{c.completionCriteria}</TableCell>
+                      <TableCell>
+                        <Badge variant={c.isActive ? 'default' : 'secondary'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
+                      </TableCell>
                       <TableCell className="text-right">
+                         <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[10px]"
+                          onClick={() => {
+                            updateDocumentNonBlocking(doc(db, "challenges", c.id), { isActive: !c.isActive });
+                            toast({ title: `Challenge ${c.title} ${c.isActive ? 'deactivated' : 'activated'}.` });
+                          }}
+                        >
+                          {c.isActive ? 'Deactivate' : 'Activate'}
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setEditingChall(c); setIsChallOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", c.id))}><Trash className="h-4 w-4"/></Button>
                       </TableCell>
