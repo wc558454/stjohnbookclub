@@ -63,5 +63,18 @@ service cloud.firestore {
         allow create: if isSignedIn();
       }
     }
+
+    match /forumPosts/{postId} {
+      allow get, list: if isSignedIn();
+      allow create: if isOwner(request.resource.data.authorId);
+      allow update: if isSignedIn(); // For liking posts
+      allow delete: if isOwner(resource.data.authorId);
+
+      match /comments/{commentId} {
+        allow get, list: if isSignedIn();
+        allow create: if isOwner(request.resource.data.authorId);
+        allow update, delete: if isOwner(resource.data.authorId);
+      }
+    }
   }
 }

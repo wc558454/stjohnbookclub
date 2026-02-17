@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 function CommentSection({ postId }: { postId: string }) {
   const db = useFirestore();
@@ -27,31 +29,40 @@ function CommentSection({ postId }: { postId: string }) {
 
   const { data: comments } = useCollection(commentsQuery);
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
+  const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !user || !profile || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       const commentId = Math.random().toString(36).substring(7);
-      await setDoc(doc(db, "forumPosts", postId, "comments", commentId), {
+      const commentRef = doc(db, "forumPosts", postId, "comments", commentId);
+      const commentData = {
         id: commentId,
         postId,
         authorId: user.uid,
         authorName: profile.name,
         content: newComment,
         createdAt: new Date().toISOString()
-      });
+      };
 
-      // Reward: +2 points for commenting
+      setDoc(commentRef, commentData)
+        .catch((e) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: commentRef.path,
+            operation: 'create',
+            requestResourceData: commentData,
+          }));
+          toast({ variant: "destructive", title: "Error", description: "Failed to post comment." });
+        });
+
+      // Optimistic updates
       updateDocumentNonBlocking(doc(db, "users", user.uid), {
         points: (profile.points || 0) + 2
       });
 
       setNewComment("");
       toast({ title: "Comment Added", description: "+2 points earned!" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to post comment." });
     } finally {
       setIsSubmitting(false);
     }
@@ -101,31 +112,40 @@ export default function Forum() {
 
   const { data: posts } = useCollection(postsQuery);
 
-  const handlePostSubmit = async (e: React.FormEvent) => {
+  const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPost.trim() || !user || !profile || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       const postId = Math.random().toString(36).substring(7);
-      await setDoc(doc(db, "forumPosts", postId), {
+      const postRef = doc(db, "forumPosts", postId);
+      const postData = {
         id: postId,
         authorId: user.uid,
         authorName: profile.name,
         content: newPost,
         likes: 0,
         createdAt: new Date().toISOString()
-      });
+      };
 
-      // Reward: +5 points for posting reflection
+      setDoc(postRef, postData)
+        .catch((e) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: postRef.path,
+            operation: 'create',
+            requestResourceData: postData,
+          }));
+          toast({ variant: "destructive", title: "Error", description: "Failed to post reflection." });
+        });
+
+      // Optimistic UI updates
       updateDocumentNonBlocking(doc(db, "users", user.uid), {
         points: (profile.points || 0) + 5
       });
 
       setNewPost("");
       toast({ title: "Reflection Shared", description: "Your reflection is live! +5 points earned." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to post reflection." });
     } finally {
       setIsSubmitting(false);
     }

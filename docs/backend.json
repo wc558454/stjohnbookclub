@@ -98,6 +98,34 @@
         "expiresAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "message", "isRead", "createdAt", "expiresAt"]
+    },
+    "ForumPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ForumPost",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "authorName", "content", "createdAt"]
+    },
+    "Comment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Comment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
     }
   },
   "auth": {
@@ -143,6 +171,22 @@
           "entityName": "Book",
           "schema": { "$ref": "#/backend/entities/Book" },
           "description": "Library books."
+        }
+      },
+      {
+        "path": "/forumPosts/{postId}",
+        "definition": {
+          "entityName": "ForumPost",
+          "schema": { "$ref": "#/backend/entities/ForumPost" },
+          "description": "Forum posts."
+        }
+      },
+      {
+        "path": "/forumPosts/{postId}/comments/{commentId}",
+        "definition": {
+          "entityName": "Comment",
+          "schema": { "$ref": "#/backend/entities/Comment" },
+          "description": "Comments on forum posts."
         }
       }
     ]
