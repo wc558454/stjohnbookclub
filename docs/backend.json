@@ -20,9 +20,11 @@
         "status": { "type": "string" },
         "role": { "type": "string" },
         "pagesPerDay": { "type": "number" },
-        "lastReadAt": { "type": "string", "format": "date-time" }
+        "lastReadAt": { "type": "string", "format": "date-time" },
+        "freezeCount": { "type": "number", "format": "int32", "description": "Number of available streak freezes." },
+        "lastFreezeRefill": { "type": "string", "format": "date-time", "description": "The last time streak freezes were refilled." }
       },
-      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role"]
+      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role", "freezeCount"]
     },
     "Book": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -233,5 +235,3 @@
     ]
   }
 }
-
-    

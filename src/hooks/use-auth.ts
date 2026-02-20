@@ -23,6 +23,9 @@ export type UserProfile = {
   profilePictureUrl?: string;
   pagesPerDay?: number;
   currentPagesRead?: number;
+  lastReadAt?: string;
+  freezeCount?: number;
+  lastFreezeRefill?: string;
 };
 
 export function useAuth() {

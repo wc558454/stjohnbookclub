@@ -21,7 +21,8 @@ import {
   Zap,
   CalendarDays,
   Settings2,
-  Loader2
+  Loader2,
+  Snowflake
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -75,6 +76,31 @@ export default function Dashboard() {
     }
     if (user?.uid) checkNudges();
   }, [db, user?.uid]);
+
+  useEffect(() => {
+    if (!user || !profile || !db) return;
+
+    const refillFreezes = async () => {
+        const today = new Date();
+        const lastRefill = profile.lastFreezeRefill ? new Date(profile.lastFreezeRefill) : null;
+        const currentFreezeCount = profile.freezeCount ?? 0;
+
+        const lastMonday = new Date(today);
+        lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
+
+        if ((!lastRefill || lastRefill < lastMonday) && currentFreezeCount < 2) {
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, {
+                freezeCount: 2,
+                lastFreezeRefill: new Date().toISOString()
+            });
+            toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
+        }
+    };
+
+    refillFreezes();
+  }, [db, user, profile, toast]);
 
   const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -144,29 +170,54 @@ export default function Dashboard() {
     const userRef = doc(db, "users", user.uid);
     const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
 
-    const lastRead = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
+    const lastReadDay = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
+    if (lastReadDay) {
+      lastReadDay.setHours(0, 0, 0, 0);
+    }
+
     let newStreak = profile.streak || 0;
-    if (!lastRead || new Date(lastRead).getTime() < yesterday.getTime()) {
+    let newFreezeCount = profile.freezeCount ?? 2;
+    let usedFreeze = false;
+
+    if (!lastReadDay) {
+      // First ever read
       newStreak = 1;
-    } else if (new Date(lastRead).getTime() === yesterday.getTime()) {
+    } else if (lastReadDay.getTime() < yesterday.getTime()) {
+      // Missed at least one day
+      if (newFreezeCount > 0) {
+        newFreezeCount -= 1;
+        usedFreeze = true;
+        // Streak is preserved
+      } else {
+        newStreak = 1; // Reset
+      }
+    } else if (lastReadDay.getTime() === yesterday.getTime()) {
+      // Consecutive day
       newStreak += 1;
     }
+    // If lastReadDay is today, streak does not change.
 
     const progressUpdate = {
       points: (profile.points || 0) + ptsToAdd,
       currentPagesRead: newPagesRead,
       streak: newStreak,
+      freezeCount: newFreezeCount,
       lastReadAt: new Date().toISOString()
     };
 
     try {
       await updateDoc(userRef, progressUpdate);
-      toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
+      if (usedFreeze) {
+        toast({ title: "Streak Frozen!", description: `You used a freeze. Your streak is safe! You have ${newFreezeCount} left.` });
+      } else {
+        toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
+      }
       setPagesReadToday(0);
     } catch (e) {
       console.error("Error marking complete:", e);
@@ -353,10 +404,17 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
-              <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted'}`} />
+              <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
               <div>
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Streak</p>
                 <p className="text-lg font-bold text-primary">{profile.streak || 0}d</p>
+              </div>
+            </div>
+             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
+              <Snowflake className={`h-4 w-4 ${(profile.freezeCount ?? 0) > 0 ? 'text-blue-400' : 'text-muted-foreground'}`} />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Freezes</p>
+                <p className="text-lg font-bold text-primary">{profile.freezeCount ?? 0}</p>
               </div>
             </div>
           </div>
@@ -577,5 +635,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    

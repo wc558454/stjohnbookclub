@@ -87,7 +87,9 @@ export default function Register() {
         streak: 0,
         status: "Active",
         role: "member",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        freezeCount: 2,
+        lastFreezeRefill: new Date().toISOString()
       });
 
       toast({
