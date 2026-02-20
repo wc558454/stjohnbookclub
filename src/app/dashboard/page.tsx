@@ -224,18 +224,19 @@ export default function Dashboard() {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const sentNudgesTodayToUserQuery = query(
+    const sentNudgesTodayQuery = query(
       collection(db, "users", user.uid, "sentNudges"),
-      where("receiverId", "==", selectedNudgeMember),
       where("sentAt", ">=", startOfDay.toISOString())
     );
 
-    const querySnapshot = await getDocs(sentNudgesTodayToUserQuery);
-    if (!querySnapshot.empty) {
+    const querySnapshot = await getDocs(sentNudgesTodayQuery);
+    const alreadyNudgedThisUser = querySnapshot.docs.some(doc => doc.data().receiverId === selectedNudgeMember);
+
+    if (alreadyNudgedThisUser) {
       toast({
         variant: "destructive",
         title: "Nudge Already Sent",
-        description: "You can only nudge a specific member once per day.",
+        description: "You can only nudge this member once per day.",
       });
       return;
     }
@@ -576,3 +577,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    

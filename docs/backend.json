@@ -146,10 +146,11 @@
       "properties": {
         "id": { "type": "string" },
         "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
         "message": { "type": "string" },
         "sentAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "senderId", "sentAt"]
+      "required": ["id", "senderId", "senderName", "sentAt"]
     }
   },
   "auth": {
@@ -232,3 +233,5 @@
     ]
   }
 }
+
+    
