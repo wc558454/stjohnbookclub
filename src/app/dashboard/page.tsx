@@ -231,9 +231,9 @@ export default function Dashboard() {
   };
   
   const handleReflectionSubmit = async () => {
-    const sentences = reflection.split(/[.!?]+/).filter(s => s.trim().length > 5);
-    if (sentences.length < 2 || sentences.length > 5) {
-      toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be between 2 and 5 sentences." });
+    const words = reflection.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 50) {
+      toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 50 words long." });
       return;
     }
 
@@ -504,7 +504,7 @@ export default function Dashboard() {
                       <span className="text-[10px] font-bold text-accent">+10 Pts</span>
                     </div>
                     <CardTitle className="text-sm font-headline">Reflection of the Day</CardTitle>
-                    <CardDescription className="text-[10px] line-clamp-2">Submit 2-5 sentences reflecting on today's reading.</CardDescription>
+                    <CardDescription className="text-[10px] line-clamp-2">Submit a reflection of at least 50 words on today's reading.</CardDescription>
                   </CardHeader>
                   <CardContent className="flex-1 pb-2">
                     <Textarea 
