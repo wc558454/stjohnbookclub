@@ -210,13 +210,33 @@ export default function Dashboard() {
     toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
   };
 
-  const handleSendNudge = () => {
+  const handleSendNudge = async () => {
     if (!selectedNudgeMember) {
       toast({ variant: "destructive", title: "No Member Selected", description: "Please select a member to nudge." });
       return;
     }
     if (todayNudgeCount >= 3) {
       toast({ variant: "destructive", title: "Limit Reached", description: "Maximum 3 nudges per day." });
+      return;
+    }
+
+    if (!user?.uid || !db) return;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const sentNudgesTodayToUserQuery = query(
+      collection(db, "users", user.uid, "sentNudges"),
+      where("receiverId", "==", selectedNudgeMember),
+      where("sentAt", ">=", startOfDay.toISOString())
+    );
+
+    const querySnapshot = await getDocs(sentNudgesTodayToUserQuery);
+    if (!querySnapshot.empty) {
+      toast({
+        variant: "destructive",
+        title: "Nudge Already Sent",
+        description: "You can only nudge a specific member once per day.",
+      });
       return;
     }
     
