@@ -57,13 +57,11 @@ service cloud.firestore {
       match /sentNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
         allow create: if isOwner(userId);
-        allow update: if isOwner(userId); // Allow updating for bonus
       }
 
       match /receivedNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
         allow create: if isSignedIn();
-        allow delete: if isOwner(userId); // Allow deleting after processing
       }
     }
 

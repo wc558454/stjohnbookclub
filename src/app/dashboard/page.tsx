@@ -28,7 +28,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc, updateDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -168,54 +168,6 @@ export default function Dashboard() {
       await updateDoc(userRef, progressUpdate);
       toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
       setPagesReadToday(0);
-
-      // --- Nudge Bonus Logic ---
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-      const receivedNudgesQuery = query(
-        collection(db, "users", user.uid, "receivedNudges"),
-        where("sentAt", ">=", fourHoursAgo.toISOString())
-      );
-      
-      const nudgesSnapshot = await getDocs(receivedNudgesQuery);
-      if (nudgesSnapshot.empty) return;
-
-      const batch = writeBatch(db);
-      const bonusPointsPerNudge = 2;
-      const senderBonusMap = new Map<string, number>();
-
-      nudgesSnapshot.forEach(nudgeDoc => {
-        const nudge = nudgeDoc.data();
-        const senderId = nudge.senderId;
-        if (!senderId) return;
-
-        senderBonusMap.set(senderId, (senderBonusMap.get(senderId) || 0) + bonusPointsPerNudge);
-        
-        const sentNudgeRef = doc(db, "users", senderId, "sentNudges", nudgeDoc.id);
-        batch.update(sentNudgeRef, { isBonusAwarded: true });
-        batch.delete(nudgeDoc.ref);
-      });
-
-      const senderIds = Array.from(senderBonusMap.keys());
-      const senderDocs = await Promise.all(senderIds.map(id => getDoc(doc(db, "users", id))));
-
-      let totalBonusPointsAwarded = 0;
-      senderDocs.forEach(senderDoc => {
-        if (senderDoc.exists()) {
-          const senderId = senderDoc.id;
-          const bonusForSender = senderBonusMap.get(senderId);
-          if (bonusForSender) {
-            const currentPoints = senderDoc.data().points || 0;
-            batch.update(senderDoc.ref, { points: currentPoints + bonusForSender });
-            totalBonusPointsAwarded += bonusForSender;
-          }
-        }
-      });
-
-      if (totalBonusPointsAwarded > 0) {
-        await batch.commit();
-        toast({ title: "Nudge Bonus!", description: `Your reading helped encouragers earn bonus points!` });
-      }
-
     } catch (e) {
       console.error("Error marking complete:", e);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -278,7 +230,6 @@ export default function Dashboard() {
       receiverId: selectedNudgeMember,
       message: nudgeMessage,
       sentAt: sentAt,
-      isBonusAwarded: false
     };
     setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
 
@@ -307,7 +258,7 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setTodayNudgeCount(prev => prev + 1);
-    toast({ title: "Nudge Sent", description: `+${reward} points earned! Bonus points if they read soon.` });
+    toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
     setSelectedNudgeMember("");
   };
 

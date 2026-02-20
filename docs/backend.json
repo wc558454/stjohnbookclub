@@ -135,10 +135,9 @@
         "id": { "type": "string" },
         "receiverId": { "type": "string" },
         "message": { "type": "string" },
-        "sentAt": { "type": "string", "format": "date-time" },
-        "isBonusAwarded": { "type": "boolean" }
+        "sentAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "receiverId", "sentAt", "isBonusAwarded"]
+      "required": ["id", "receiverId", "sentAt"]
     },
     "ReceivedNudge": {
       "title": "Received Nudge",
