@@ -126,6 +126,31 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "SentNudge": {
+      "title": "Sent Nudge",
+      "type": "object",
+      "description": "An outgoing encouragement nudge sent by a user.",
+      "properties": {
+        "id": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "message": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "isBonusAwarded": { "type": "boolean" }
+      },
+      "required": ["id", "receiverId", "sentAt", "isBonusAwarded"]
+    },
+    "ReceivedNudge": {
+      "title": "Received Nudge",
+      "type": "object",
+      "description": "An incoming encouragement nudge received by a user.",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "message": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "sentAt"]
     }
   },
   "auth": {
@@ -147,6 +172,22 @@
           "entityName": "Notification",
           "schema": { "$ref": "#/backend/entities/Notification" },
           "description": "User notifications."
+        }
+      },
+      {
+        "path": "/users/{userId}/sentNudges/{nudgeId}",
+        "definition": {
+          "entityName": "SentNudge",
+          "schema": { "$ref": "#/backend/entities/SentNudge" },
+          "description": "Nudges sent by the user."
+        }
+      },
+      {
+        "path": "/users/{userId}/receivedNudges/{nudgeId}",
+        "definition": {
+          "entityName": "ReceivedNudge",
+          "schema": { "$ref": "#/backend/entities/ReceivedNudge" },
+          "description": "Nudges received by the user."
         }
       },
       {

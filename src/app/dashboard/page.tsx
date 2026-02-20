@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -26,8 +27,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -126,31 +127,23 @@ export default function Dashboard() {
     toast({ title: "Goal Updated", description: `Your daily reading goal is now ${pagesGoal} pages.` });
   };
 
-  const handleMarkComplete = () => {
+  const handleMarkComplete = async () => {
     if (pagesReadToday <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Input",
-        description: "Please enter a positive number of pages.",
-      });
+      toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a positive number of pages." });
       return;
     }
 
     if (currentBook && (readingTotal + pagesReadToday) > currentBook.totalPages) {
-      toast({
-        variant: "destructive",
-        title: "Page Limit Exceeded",
-        description: `Cannot log more than ${currentBook.totalPages} pages for this book. You have already logged ${readingTotal} pages.`,
-      });
+      toast({ variant: "destructive", title: "Page Limit Exceeded", description: `Cannot log more than ${currentBook.totalPages} pages.` });
       return;
     }
 
     setIsSubmitting(true);
-    
+
     const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
     const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
-    
+
     const lastRead = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -158,34 +151,82 @@ export default function Dashboard() {
     yesterday.setDate(yesterday.getDate() - 1);
     
     let newStreak = profile.streak || 0;
-    
-    if (!lastRead) {
+    if (!lastRead || new Date(lastRead).getTime() < yesterday.getTime()) {
       newStreak = 1;
-    } else {
-      const lastReadDate = new Date(lastRead);
-      lastReadDate.setHours(0, 0, 0, 0);
-      
-      if (lastReadDate.getTime() === today.getTime()) {
-        // Already read today, add points but streak remains
-      } else if (lastReadDate.getTime() === yesterday.getTime()) {
-        newStreak += 1;
-      } else {
-        newStreak = 1;
-      }
+    } else if (new Date(lastRead).getTime() === yesterday.getTime()) {
+      newStreak += 1;
     }
 
-    updateDocumentNonBlocking(userRef, {
+    const progressUpdate = {
       points: (profile.points || 0) + ptsToAdd,
       currentPagesRead: newPagesRead,
       streak: newStreak,
       lastReadAt: new Date().toISOString()
-    });
+    };
 
-    toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
-    setPagesReadToday(0);
-    setIsSubmitting(false);
+    try {
+      await updateDoc(userRef, progressUpdate);
+      toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
+      setPagesReadToday(0);
+
+      // --- Nudge Bonus Logic ---
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const receivedNudgesQuery = query(
+        collection(db, "users", user.uid, "receivedNudges"),
+        where("sentAt", ">=", fourHoursAgo.toISOString())
+      );
+      
+      const nudgesSnapshot = await getDocs(receivedNudgesQuery);
+      if (nudgesSnapshot.empty) return;
+
+      const batch = writeBatch(db);
+      const bonusPointsPerNudge = 2;
+      const senderBonusMap = new Map<string, number>();
+
+      nudgesSnapshot.forEach(nudgeDoc => {
+        const nudge = nudgeDoc.data();
+        const senderId = nudge.senderId;
+        if (!senderId) return;
+
+        senderBonusMap.set(senderId, (senderBonusMap.get(senderId) || 0) + bonusPointsPerNudge);
+        
+        const sentNudgeRef = doc(db, "users", senderId, "sentNudges", nudgeDoc.id);
+        batch.update(sentNudgeRef, { isBonusAwarded: true });
+        batch.delete(nudgeDoc.ref);
+      });
+
+      const senderIds = Array.from(senderBonusMap.keys());
+      const senderDocs = await Promise.all(senderIds.map(id => getDoc(doc(db, "users", id))));
+
+      let totalBonusPointsAwarded = 0;
+      senderDocs.forEach(senderDoc => {
+        if (senderDoc.exists()) {
+          const senderId = senderDoc.id;
+          const bonusForSender = senderBonusMap.get(senderId);
+          if (bonusForSender) {
+            const currentPoints = senderDoc.data().points || 0;
+            batch.update(senderDoc.ref, { points: currentPoints + bonusForSender });
+            totalBonusPointsAwarded += bonusForSender;
+          }
+        }
+      });
+
+      if (totalBonusPointsAwarded > 0) {
+        await batch.commit();
+        toast({ title: "Nudge Bonus!", description: `Your reading helped encouragers earn bonus points!` });
+      }
+
+    } catch (e) {
+      console.error("Error marking complete:", e);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: userRef.path, operation: 'update', requestResourceData: progressUpdate
+      }));
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not save your progress." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
+  
   const handleReflectionSubmit = async () => {
     const sentences = reflection.split(/[.!?]+/).filter(s => s.trim().length > 5);
     if (sentences.length < 2 || sentences.length > 5) {
@@ -196,7 +237,6 @@ export default function Dashboard() {
     const reward = 10;
     const reflectionId = `refl_${new Date().toISOString().split('T')[0]}`;
     
-    // Check if already completed today
     const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
     const challSnap = await getDoc(challRef);
     if(challSnap.exists()) {
@@ -219,37 +259,56 @@ export default function Dashboard() {
   };
 
   const handleSendNudge = () => {
+    if (!selectedNudgeMember) {
+      toast({ variant: "destructive", title: "No Member Selected", description: "Please select a member to nudge." });
+      return;
+    }
     if (todayNudgeCount >= 3) {
       toast({ variant: "destructive", title: "Limit Reached", description: "Maximum 3 nudges per day." });
       return;
     }
     
-    const reward = 3;
+    const reward = 2;
     const nudgeId = Math.random().toString(36).substring(7);
+    const sentAt = new Date().toISOString();
 
-    setDoc(doc(db, "users", user.uid, "sentNudges", nudgeId), {
+    const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
+    const sentNudgeData = {
       id: nudgeId,
-      senderId: user.uid,
       receiverId: selectedNudgeMember,
       message: nudgeMessage,
-      sentAt: new Date().toISOString(),
+      sentAt: sentAt,
       isBonusAwarded: false
-    });
+    };
+    setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
+
+    const receivedNudgeRef = doc(db, "users", selectedNudgeMember, "receivedNudges", nudgeId);
+    const receivedNudgeData = {
+      id: nudgeId,
+      senderId: user.uid,
+      senderName: profile.name,
+      message: nudgeMessage,
+      sentAt: sentAt,
+    };
+    setDoc(receivedNudgeRef, receivedNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: receivedNudgeRef.path, operation: 'create', requestResourceData: receivedNudgeData })));
 
     const notifId = Math.random().toString(36).substring(7);
-    setDoc(doc(db, "users", selectedNudgeMember, "notifications", notifId), {
+    const notifRef = doc(db, "users", selectedNudgeMember, "notifications", notifId);
+    const notifData = {
       id: notifId,
       userId: selectedNudgeMember,
       type: "NudgeReceived",
-      message: `${profile.name} sent you an encouragement nudge!`,
+      message: `${profile.name} nudged you: "${nudgeMessage}"`,
       isRead: false,
-      createdAt: new Date().toISOString(),
+      createdAt: sentAt,
       expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-    });
+    };
+    setDoc(notifRef, notifData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: notifRef.path, operation: 'create', requestResourceData: notifData })));
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setTodayNudgeCount(prev => prev + 1);
-    toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
+    toast({ title: "Nudge Sent", description: `+${reward} points earned! Bonus points if they read soon.` });
+    setSelectedNudgeMember("");
   };
 
   const handleCheckIn = (discussion: any) => {
@@ -485,7 +544,7 @@ export default function Dashboard() {
                 </Select>
                 <Input value={nudgeMessage} onChange={(e) => setNudgeMessage(e.target.value)} className="bg-white/5 border-white/10 h-9 text-xs" />
                 <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs hover:bg-accent/90">
-                  <Send className="h-3 w-3 mr-1.5" /> Send Nudge (+3)
+                  <Send className="h-3 w-3 mr-1.5" /> Send Nudge (+2)
                 </Button>
               </CardContent>
             </Card>

@@ -50,17 +50,20 @@ service cloud.firestore {
 
       match /notifications/{notificationId} {
         allow get, list, update: if isOwner(userId);
-        allow create, delete: if isOwner(userId) || isAdmin();
+        allow create: if isSignedIn() || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
       }
 
       match /sentNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
         allow create: if isOwner(userId);
+        allow update: if isOwner(userId); // Allow updating for bonus
       }
 
       match /receivedNudges/{nudgeId} {
         allow get, list: if isOwner(userId);
         allow create: if isSignedIn();
+        allow delete: if isOwner(userId); // Allow deleting after processing
       }
     }
 
