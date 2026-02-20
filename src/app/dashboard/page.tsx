@@ -324,7 +324,7 @@ export default function Dashboard() {
       message: `${profile.name} nudged you: "${nudgeMessage}"`,
       isRead: false,
       createdAt: sentAt,
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
     };
     setDoc(notifRef, notifData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: notifRef.path, operation: 'create', requestResourceData: notifData })));
 

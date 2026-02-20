@@ -321,7 +321,7 @@ export default function AdminDashboard() {
         message: `New discussion announced: "${topic}" on ${new Date(dateTime).toLocaleString()}`,
         isRead: false,
         createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
       });
     });
 

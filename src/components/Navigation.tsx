@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,15 +30,23 @@ export function Navigation() {
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!user?.uid) return null;
+    // We can't do a range on a different field than the orderBy, so we'll filter client-side.
     return query(
       collection(db, "users", user.uid, "notifications"),
       orderBy("createdAt", "desc"),
-      limit(10)
+      limit(30) // Fetch more to account for client-side filtering
     );
   }, [db, user?.uid]);
 
-  const { data: notifications } = useCollection(notificationsQuery);
-  const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
+  const { data: allNotifications } = useCollection(notificationsQuery);
+
+  const notifications = useMemo(() => {
+    if (!allNotifications) return [];
+    const now = new Date();
+    return allNotifications.filter(n => new Date(n.expiresAt) > now).slice(0, 10);
+  }, [allNotifications]);
+  
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleMarkAsRead = (id: string) => {
     if (!user?.uid) return;
@@ -97,7 +105,7 @@ export function Navigation() {
                   {unreadCount > 0 && <span className="text-[10px] text-muted-foreground uppercase">{unreadCount} New</span>}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {notifications?.length ? notifications.map(n => (
+                  {notifications.length > 0 ? notifications.map(n => (
                     <div 
                       key={n.id} 
                       className={`p-4 border-b text-xs hover:bg-muted transition-colors cursor-pointer ${!n.isRead ? 'bg-accent/5' : ''}`}
