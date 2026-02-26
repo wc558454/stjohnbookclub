@@ -173,9 +173,6 @@ export default function Dashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
     const lastReadDay = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
     if (lastReadDay) {
       lastReadDay.setHours(0, 0, 0, 0);
@@ -183,25 +180,32 @@ export default function Dashboard() {
 
     let newStreak = profile.streak || 0;
     let newFreezeCount = profile.freezeCount ?? 2;
-    let usedFreeze = false;
+    let usedFreezesCount = 0;
 
     if (!lastReadDay) {
       // First ever read
       newStreak = 1;
-    } else if (lastReadDay.getTime() < yesterday.getTime()) {
-      // Missed at least one day
-      if (newFreezeCount > 0) {
-        newFreezeCount -= 1;
-        usedFreeze = true;
-        // Streak is preserved
-      } else {
-        newStreak = 1; // Reset
+    } else {
+      const diffTime = today.getTime() - lastReadDay.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        // Consecutive day
+        newStreak += 1;
+      } else if (diffDays > 1) {
+        // Missed one or more days
+        const missedDays = diffDays - 1;
+        if (missedDays <= newFreezeCount) {
+          usedFreezesCount = missedDays;
+          newFreezeCount -= missedDays;
+          // Streak is preserved
+        } else {
+          // Missed more days than freezes available
+          newStreak = 1; // Reset
+          newFreezeCount = 0;
+        }
       }
-    } else if (lastReadDay.getTime() === yesterday.getTime()) {
-      // Consecutive day
-      newStreak += 1;
     }
-    // If lastReadDay is today, streak does not change.
 
     const progressUpdate = {
       points: (profile.points || 0) + ptsToAdd,
@@ -213,8 +217,8 @@ export default function Dashboard() {
 
     try {
       await updateDoc(userRef, progressUpdate);
-      if (usedFreeze) {
-        toast({ title: "Streak Frozen!", description: `You used a freeze. Your streak is safe! You have ${newFreezeCount} left.` });
+      if (usedFreezesCount > 0) {
+        toast({ title: "Streak Frozen!", description: `You used ${usedFreezesCount} freeze(s). Your streak is safe! You have ${newFreezeCount} left.` });
       } else {
         toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
       }
