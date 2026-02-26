@@ -63,22 +63,11 @@ service cloud.firestore {
         allow get, list: if isOwner(userId);
         allow create: if isSignedIn();
       }
-<<<<<<< HEAD
-    }
 
-    match /forumPosts/{postId} {
-      allow get, list: if isSignedIn();
-      allow create: if isOwner(request.resource.data.authorId);
-      allow update: if isSignedIn(); // For liking posts
-      allow delete: if isOwner(resource.data.authorId);
-
-      match /comments/{commentId} {
-        allow get, list: if isSignedIn();
-        allow create: if isOwner(request.resource.data.authorId);
-        allow update, delete: if isOwner(resource.data.authorId);
+      match /readingProgress/{userReadingProgressId} {
+        allow get, list, create, update: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
       }
-=======
->>>>>>> origin/main
     }
   }
 }

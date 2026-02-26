@@ -7,58 +7,103 @@
       "type": "object",
       "description": "Represents a member of the St. John Chrysostom Bookclub, including their personal details, progress metrics, and administrative attributes.",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "profilePictureUrl": { "type": "string", "format": "uri" },
-        "batchYear": { "type": "string" },
-        "readingLevel": { "type": "string" },
-        "points": { "type": "number", "format": "int32" },
-<<<<<<< HEAD
-        "currentPagesRead": { "type": "number" },
-=======
->>>>>>> origin/main
-        "level": { "type": "number", "format": "int32" },
-        "streak": { "type": "number", "format": "int32" },
-        "status": { "type": "string" },
-        "role": { "type": "string" },
-        "pagesPerDay": { "type": "number" },
-<<<<<<< HEAD
-        "lastReadAt": { "type": "string", "format": "date-time" },
-        "freezeCount": { "type": "number", "format": "int32", "description": "Number of available streak freezes." },
-        "lastFreezeRefill": { "type": "string", "format": "date-time", "description": "The last time streak freezes were refilled." }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for contact and display purposes. (Not for authentication credentials)",
+          "format": "email"
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL to the user's uploaded profile picture.",
+          "format": "uri"
+        },
+        "batchYear": {
+          "type": "string",
+          "description": "The year or batch identifier when the user joined the bookclub."
+        },
+        "readingLevel": {
+          "type": "string",
+          "description": "A descriptive level indicating the user's reading proficiency or engagement (e.g., 'Beginner', 'Intermediate', 'Advanced')."
+        },
+        "points": {
+          "type": "number",
+          "description": "The total cumulative points earned by the user.",
+          "format": "int32"
+        },
+        "level": {
+          "type": "number",
+          "description": "The current achievement level of the user based on points or engagement.",
+          "format": "int32"
+        },
+        "streak": {
+          "type": "number",
+          "description": "The current consecutive daily reading streak of the user.",
+          "format": "int32"
+        },
+        "status": {
+          "type": "string",
+          "description": "The active status of the user (e.g., 'Active', 'Inactive')."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the bookclub (e.g., 'member', 'admin')."
+        }
       },
-      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role", "freezeCount"]
-=======
-        "lastReadAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role"]
->>>>>>> origin/main
+      "required": [
+        "id",
+        "name",
+        "email",
+        "batchYear",
+        "readingLevel",
+        "points",
+        "level",
+        "streak",
+        "status",
+        "role"
+      ]
     },
     "Book": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Book",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "totalPages": { "type": "number" },
-<<<<<<< HEAD
-        "status": {
+        "id": {
           "type": "string",
-          "description": "The current status of the book in the reading cycle.",
-          "enum": ["current", "finished", "pending", "archived"]
+          "description": "Unique identifier for the Book entity."
         },
-        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "title": {
+          "type": "string",
+          "description": "The title of the book."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief summary or description of the book."
+        },
+        "totalPages": {
+          "type": "number",
+          "description": "The total number of pages in the book.",
+          "format": "int32"
+        },
+        "currentReadingPlanDueDate": {
+          "type": "string",
+          "description": "The due date for completing this book within the current bookclub reading plan. (Optional)",
+          "format": "date-time"
+        }
       },
-      "required": ["id", "title", "description", "totalPages", "status"]
-=======
-        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "title", "description", "totalPages"]
->>>>>>> origin/main
+      "required": [
+        "id",
+        "title",
+        "description",
+        "totalPages"
+      ]
     },
     "Challenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -114,63 +159,7 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "expiresAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "message", "isRead", "createdAt", "expiresAt"]
-<<<<<<< HEAD
-    },
-    "ForumPost": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ForumPost",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "likes": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "authorId", "authorName", "content", "createdAt"]
-    },
-    "Comment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Comment",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "postId": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
-    },
-    "SentNudge": {
-      "title": "Sent Nudge",
-      "type": "object",
-      "description": "An outgoing encouragement nudge sent by a user.",
-      "properties": {
-        "id": { "type": "string" },
-        "receiverId": { "type": "string" },
-        "message": { "type": "string" },
-        "sentAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "receiverId", "sentAt"]
-    },
-    "ReceivedNudge": {
-      "title": "Received Nudge",
-      "type": "object",
-      "description": "An incoming encouragement nudge received by a user.",
-      "properties": {
-        "id": { "type": "string" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "message": { "type": "string" },
-        "sentAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "senderId", "senderName", "sentAt"]
-=======
->>>>>>> origin/main
+      "required": ["id", "userId", "type", "message", "isRead", "createdAt", "expiresAt"]
     }
   },
   "auth": {
@@ -187,30 +176,19 @@
         }
       },
       {
-        "path": "/users/{userId}/notifications/{notifId}",
+        "path": "/forumPosts/{postId}",
         "definition": {
-          "entityName": "Notification",
-          "schema": { "$ref": "#/backend/entities/Notification" },
-          "description": "User notifications."
-<<<<<<< HEAD
+          "entityName": "ForumPost",
+          "schema": { "$ref": "#/backend/entities/ForumPost" },
+          "description": "Global collection for forum posts."
         }
       },
       {
-        "path": "/users/{userId}/sentNudges/{nudgeId}",
+        "path": "/forumPosts/{postId}/comments/{commentId}",
         "definition": {
-          "entityName": "SentNudge",
-          "schema": { "$ref": "#/backend/entities/SentNudge" },
-          "description": "Nudges sent by the user."
-        }
-      },
-      {
-        "path": "/users/{userId}/receivedNudges/{nudgeId}",
-        "definition": {
-          "entityName": "ReceivedNudge",
-          "schema": { "$ref": "#/backend/entities/ReceivedNudge" },
-          "description": "Nudges received by the user."
-=======
->>>>>>> origin/main
+          "entityName": "ForumComment",
+          "schema": { "$ref": "#/backend/entities/ForumComment" },
+          "description": "Comments on a forum post."
         }
       },
       {
@@ -228,33 +206,6 @@
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
         }
-      },
-      {
-        "path": "/books/{bookId}",
-        "definition": {
-          "entityName": "Book",
-          "schema": { "$ref": "#/backend/entities/Book" },
-          "description": "Library books."
-        }
-<<<<<<< HEAD
-      },
-      {
-        "path": "/forumPosts/{postId}",
-        "definition": {
-          "entityName": "ForumPost",
-          "schema": { "$ref": "#/backend/entities/ForumPost" },
-          "description": "Forum posts."
-        }
-      },
-      {
-        "path": "/forumPosts/{postId}/comments/{commentId}",
-        "definition": {
-          "entityName": "Comment",
-          "schema": { "$ref": "#/backend/entities/Comment" },
-          "description": "Comments on forum posts."
-        }
-=======
->>>>>>> origin/main
       }
     ]
   }
