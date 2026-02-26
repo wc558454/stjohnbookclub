@@ -14,17 +14,26 @@
         "batchYear": { "type": "string" },
         "readingLevel": { "type": "string" },
         "points": { "type": "number", "format": "int32" },
+<<<<<<< HEAD
         "currentPagesRead": { "type": "number" },
+=======
+>>>>>>> origin/main
         "level": { "type": "number", "format": "int32" },
         "streak": { "type": "number", "format": "int32" },
         "status": { "type": "string" },
         "role": { "type": "string" },
         "pagesPerDay": { "type": "number" },
+<<<<<<< HEAD
         "lastReadAt": { "type": "string", "format": "date-time" },
         "freezeCount": { "type": "number", "format": "int32", "description": "Number of available streak freezes." },
         "lastFreezeRefill": { "type": "string", "format": "date-time", "description": "The last time streak freezes were refilled." }
       },
       "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role", "freezeCount"]
+=======
+        "lastReadAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "batchYear", "readingLevel", "points", "level", "streak", "status", "role"]
+>>>>>>> origin/main
     },
     "Book": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -35,6 +44,7 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "totalPages": { "type": "number" },
+<<<<<<< HEAD
         "status": {
           "type": "string",
           "description": "The current status of the book in the reading cycle.",
@@ -44,6 +54,11 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "description", "totalPages", "status"]
+=======
+        "currentReadingPlanDueDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "totalPages"]
+>>>>>>> origin/main
     },
     "Challenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -100,6 +115,7 @@
         "expiresAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "message", "isRead", "createdAt", "expiresAt"]
+<<<<<<< HEAD
     },
     "ForumPost": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -153,6 +169,8 @@
         "sentAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "senderId", "senderName", "sentAt"]
+=======
+>>>>>>> origin/main
     }
   },
   "auth": {
@@ -174,6 +192,7 @@
           "entityName": "Notification",
           "schema": { "$ref": "#/backend/entities/Notification" },
           "description": "User notifications."
+<<<<<<< HEAD
         }
       },
       {
@@ -190,6 +209,8 @@
           "entityName": "ReceivedNudge",
           "schema": { "$ref": "#/backend/entities/ReceivedNudge" },
           "description": "Nudges received by the user."
+=======
+>>>>>>> origin/main
         }
       },
       {
@@ -215,6 +236,7 @@
           "schema": { "$ref": "#/backend/entities/Book" },
           "description": "Library books."
         }
+<<<<<<< HEAD
       },
       {
         "path": "/forumPosts/{postId}",
@@ -231,6 +253,8 @@
           "schema": { "$ref": "#/backend/entities/Comment" },
           "description": "Comments on forum posts."
         }
+=======
+>>>>>>> origin/main
       }
     ]
   }

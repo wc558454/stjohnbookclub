@@ -63,6 +63,7 @@ service cloud.firestore {
         allow get, list: if isOwner(userId);
         allow create: if isSignedIn();
       }
+<<<<<<< HEAD
     }
 
     match /forumPosts/{postId} {
@@ -76,6 +77,8 @@ service cloud.firestore {
         allow create: if isOwner(request.resource.data.authorId);
         allow update, delete: if isOwner(resource.data.authorId);
       }
+=======
+>>>>>>> origin/main
     }
   }
 }
