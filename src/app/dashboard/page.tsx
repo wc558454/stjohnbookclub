@@ -22,7 +22,8 @@ import {
   CalendarDays,
   Settings2,
   Loader2,
-  Snowflake
+  Snowflake,
+  MessageSquare
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const [hasMounted, setHasMounted] = useState(false);
   const [todayNudgeCount, setTodayNudgeCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNudging, setIsNudging] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -133,6 +135,18 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
 
+  const nudgeableMembersQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), limit(50));
+  }, [db, user]);
+  const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
+
+  const receivedNudgesQuery = useMemoFirebase(() => {
+    if (!user?.uid) return null;
+    return query(collection(db, "users", user.uid, "receivedNudges"), orderBy("sentAt", "desc"), limit(5));
+  }, [db, user?.uid]);
+  const { data: receivedNudges } = useCollection(receivedNudgesQuery);
+
   if (loading || !user || !profile) return null;
 
   const getRank = (pts: number) => {
@@ -183,25 +197,20 @@ export default function Dashboard() {
     let usedFreezesCount = 0;
 
     if (!lastReadDay) {
-      // First ever read
       newStreak = 1;
     } else {
       const diffTime = today.getTime() - lastReadDay.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
-        // Consecutive day
         newStreak += 1;
       } else if (diffDays > 1) {
-        // Missed one or more days
         const missedDays = diffDays - 1;
         if (missedDays <= newFreezeCount) {
           usedFreezesCount = missedDays;
           newFreezeCount -= missedDays;
-          // Streak is preserved
         } else {
-          // Missed more days than freezes available
-          newStreak = 1; // Reset
+          newStreak = 1; 
           newFreezeCount = 0;
         }
       }
@@ -275,67 +284,77 @@ export default function Dashboard() {
       return;
     }
 
-    if (!user?.uid || !db) return;
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    if (!user?.uid || !db || isNudging) return;
+    setIsNudging(true);
 
-    const sentNudgesTodayQuery = query(
-      collection(db, "users", user.uid, "sentNudges"),
-      where("sentAt", ">=", startOfDay.toISOString())
-    );
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
 
-    const querySnapshot = await getDocs(sentNudgesTodayQuery);
-    const alreadyNudgedThisUser = querySnapshot.docs.some(doc => doc.data().receiverId === selectedNudgeMember);
+      const sentNudgesTodayQuery = query(
+        collection(db, "users", user.uid, "sentNudges"),
+        where("sentAt", ">=", startOfDay.toISOString())
+      );
 
-    if (alreadyNudgedThisUser) {
-      toast({
-        variant: "destructive",
-        title: "Nudge Already Sent",
-        description: "You can only nudge this member once per day.",
-      });
-      return;
+      const querySnapshot = await getDocs(sentNudgesTodayQuery);
+      const alreadyNudgedThisUser = querySnapshot.docs.some(doc => doc.data().receiverId === selectedNudgeMember);
+
+      if (alreadyNudgedThisUser) {
+        toast({
+          variant: "destructive",
+          title: "Nudge Already Sent",
+          description: "You can only nudge this member once per day.",
+        });
+        return;
+      }
+      
+      const reward = 2;
+      const nudgeId = Math.random().toString(36).substring(7);
+      const sentAt = new Date().toISOString();
+
+      const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
+      const sentNudgeData = {
+        id: nudgeId,
+        receiverId: selectedNudgeMember,
+        message: nudgeMessage,
+        sentAt: sentAt,
+      };
+      setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
+
+      const receivedNudgeRef = doc(db, "users", selectedNudgeMember, "receivedNudges", nudgeId);
+      const receivedNudgeData = {
+        id: nudgeId,
+        senderId: user.uid,
+        senderName: profile.name,
+        message: nudgeMessage,
+        sentAt: sentAt,
+      };
+      setDoc(receivedNudgeRef, receivedNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: receivedNudgeRef.path, operation: 'create', requestResourceData: receivedNudgeData })));
+
+      const notifId = Math.random().toString(36).substring(7);
+      const notifRef = doc(db, "users", selectedNudgeMember, "notifications", notifId);
+      const notifData = {
+        id: notifId,
+        userId: selectedNudgeMember,
+        type: "NudgeReceived",
+        message: `${profile.name} nudged you: "${nudgeMessage}"`,
+        isRead: false,
+        createdAt: sentAt,
+        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      };
+      setDoc(notifRef, notifData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: notifRef.path, operation: 'create', requestResourceData: notifData })));
+
+      updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
+      setTodayNudgeCount(prev => prev + 1);
+      toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
+      setSelectedNudgeMember("");
+      setNudgeMessage("Keep up the great reading today!");
+    } catch (error) {
+      console.error("Error sending nudge:", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to send nudge. Please try again." });
+    } finally {
+      setIsNudging(false);
     }
-    
-    const reward = 2;
-    const nudgeId = Math.random().toString(36).substring(7);
-    const sentAt = new Date().toISOString();
-
-    const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
-    const sentNudgeData = {
-      id: nudgeId,
-      receiverId: selectedNudgeMember,
-      message: nudgeMessage,
-      sentAt: sentAt,
-    };
-    setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
-
-    const receivedNudgeRef = doc(db, "users", selectedNudgeMember, "receivedNudges", nudgeId);
-    const receivedNudgeData = {
-      id: nudgeId,
-      senderId: user.uid,
-      senderName: profile.name,
-      message: nudgeMessage,
-      sentAt: sentAt,
-    };
-    setDoc(receivedNudgeRef, receivedNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: receivedNudgeRef.path, operation: 'create', requestResourceData: receivedNudgeData })));
-
-    const notifId = Math.random().toString(36).substring(7);
-    const notifRef = doc(db, "users", selectedNudgeMember, "notifications", notifId);
-    const notifData = {
-      id: notifId,
-      userId: selectedNudgeMember,
-      type: "NudgeReceived",
-      message: `${profile.name} nudged you: "${nudgeMessage}"`,
-      isRead: false,
-      createdAt: sentAt,
-      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-    };
-    setDoc(notifRef, notifData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: notifRef.path, operation: 'create', requestResourceData: notifData })));
-
-    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
-    setTodayNudgeCount(prev => prev + 1);
-    toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
-    setSelectedNudgeMember("");
   };
 
   const handleCheckIn = (discussion: any) => {
@@ -571,15 +590,35 @@ export default function Dashboard() {
                     <SelectValue placeholder="Select member..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {leaderboardMembers?.filter(m => m.id !== user.uid).map(m => (
+                    {nudgeableMembers?.filter(m => m.id !== user.uid).map(m => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
+                    )) || <SelectItem value="none" disabled>No members found</SelectItem>}
                   </SelectContent>
                 </Select>
                 <Input value={nudgeMessage} onChange={(e) => setNudgeMessage(e.target.value)} className="bg-white/5 border-white/10 h-9 text-xs" />
-                <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs hover:bg-accent/90">
-                  <Send className="h-3 w-3 mr-1.5" /> Send Nudge (+2)
+                <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3 || isNudging} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs hover:bg-accent/90">
+                  {isNudging ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Send className="h-3 w-3 mr-1.5" />}
+                  Send Nudge (+2)
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-secondary/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-accent" /> Recent Nudges
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 space-y-3">
+                {receivedNudges?.length ? receivedNudges.map(nudge => (
+                  <div key={nudge.id} className="p-3 bg-white rounded-md border border-accent/5">
+                    <p className="text-[10px] font-bold text-accent uppercase">{nudge.senderName} says:</p>
+                    <p className="text-xs text-primary mt-0.5 font-medium leading-relaxed">"{nudge.message}"</p>
+                    <p className="text-[9px] text-muted-foreground mt-2 text-right italic">
+                      {hasMounted ? new Date(nudge.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                    </p>
+                  </div>
+                )) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No nudges received yet.</p>}
               </CardContent>
             </Card>
 
