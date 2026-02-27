@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -36,7 +35,7 @@ import { useState } from "react";
 const formSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters."),
   email: z.string().email("Invalid email address."),
-  pin: z.string().length(4, "PIN must be exactly 4 digits.").regex(/^\d+$/, "PIN must contain only numbers."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
   batchYear: z.string().min(1, "Please select your batch year."),
   readingLevel: z.string().min(1, "Please select your reading level."),
   pagesPerDay: z.coerce.number().min(1, "Plan at least 1 page per day.").max(100, "That's a lot! Maybe start smaller."),
@@ -57,7 +56,7 @@ export default function Register() {
     defaultValues: {
       fullName: "",
       email: "",
-      pin: "",
+      password: "",
       batchYear: "",
       readingLevel: "",
       pagesPerDay: 5,
@@ -69,8 +68,7 @@ export default function Register() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      // Standard password suffix to meet Firebase 6-char requirement
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.pin + "000000"); 
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password); 
       const user = userCredential.user;
 
       await setDoc(doc(db, "users", user.uid), {
@@ -158,14 +156,14 @@ export default function Register() {
 
                   <FormField
                     control={form.control}
-                    name="pin"
+                    name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>4-Digit PIN</FormLabel>
+                        <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input placeholder="0000" maxLength={4} type="password" {...field} />
+                          <Input placeholder="******" type="password" {...field} />
                         </FormControl>
-                        <FormDescription>Your secure access code.</FormDescription>
+                        <FormDescription>Must be at least 6 characters.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -14,7 +13,7 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -27,8 +26,7 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     try {
       const trimmedEmail = email.trim().toLowerCase();
-      // Consistent with registration logic: append a standard suffix to meet 6-char requirement
-      await signInWithEmailAndPassword(auth, trimmedEmail, pin + "000000"); 
+      await signInWithEmailAndPassword(auth, trimmedEmail, password); 
       toast({ title: "Welcome Back" });
       router.push("/dashboard");
     } catch (error: any) {
@@ -36,7 +34,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or PIN. Please try again.",
+        description: "Invalid email or password. Please try again.",
       });
     } finally {
       setIsLoggingIn(false);
@@ -69,14 +67,13 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pin">4-Digit PIN</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input 
-                  id="pin" 
+                  id="password" 
                   type="password" 
-                  maxLength={4} 
-                  placeholder="****" 
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="******" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
