@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   Zap,
   CalendarDays,
-  Settings2,
   Loader2,
   Snowflake,
   MessageSquare,
@@ -28,7 +27,9 @@ import {
   Milestone,
   Mountain,
   Sunrise,
-  Send
+  Send,
+  BookUp,
+  GaugeCircle
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -47,7 +48,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
-  const [pagesGoal, setPagesGoal] = useState<number>(0);
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,9 +64,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
-    }
-    if (profile) {
-      setPagesGoal(profile.pagesPerDay || 5);
     }
   }, [user, loading, router, profile]);
 
@@ -153,11 +150,27 @@ export default function Dashboard() {
   const rank = getRank(profile.points || 0);
   const readingTotal = profile.currentPagesRead || 0;
   const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
+  
+  const pagesPerDayToFinish = useMemo(() => {
+    if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
+    
+    const remainingPages = currentBook.totalPages - (profile.currentPagesRead || 0);
+    if (remainingPages <= 0) return 0;
 
-  const handleUpdateGoal = () => {
-    updateDocumentNonBlocking(doc(db, "users", user.uid), { pagesPerDay: pagesGoal });
-    toast({ title: "Goal Updated", description: `Your daily reading goal is now ${pagesGoal} pages.` });
-  };
+    const dueDate = new Date(currentBook.currentReadingPlanDueDate);
+    dueDate.setHours(23, 59, 59, 999); // End of due day
+    const today = new Date();
+    
+    if (dueDate < today) return remainingPages; // If due date is past, they need to read all remaining pages today.
+
+    const diffTime = dueDate.getTime() - today.getTime();
+    const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (remainingDays <= 0) return remainingPages;
+
+    return Math.ceil(remainingPages / remainingDays);
+  }, [currentBook, profile]);
+
 
   const handleMarkComplete = async () => {
     if (pagesReadToday <= 0) {
@@ -463,31 +476,16 @@ export default function Dashboard() {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-white/5 p-3 rounded-md text-center">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase">Due</p>
-                      <p className="text-sm font-bold">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
+                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><BookUp className="h-3 w-3" /> Current Page</p>
+                      <p className="text-sm font-bold">{readingTotal} <span className="text-primary-foreground/60">of {currentBook.totalPages}</span></p>
                     </div>
                     <div className="bg-white/5 p-3 rounded-md text-center">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase">Total Pages</p>
-                      <p className="text-sm font-bold">{currentBook.totalPages}</p>
+                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><GaugeCircle className="h-3 w-3" /> Pace to Finish</p>
+                      <p className="text-sm font-bold">{pagesPerDayToFinish} pgs/day</p>
                     </div>
-                    <div className="bg-white/5 p-3 rounded-md text-center group cursor-pointer hover:bg-white/10 transition-colors">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase">Daily Goal</p>
-                      <div className="flex items-center justify-center gap-1">
-                        <p className="text-sm font-bold">{profile.pagesPerDay || 5}</p>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Settings2 className="h-3 w-3 text-accent opacity-50 hover:opacity-100" />
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader><DialogTitle>Edit Daily Goal</DialogTitle></DialogHeader>
-                            <div className="py-4 space-y-2">
-                              <Label>Pages per Day</Label>
-                              <Input type="number" value={pagesGoal} onChange={(e) => setPagesGoal(parseInt(e.target.value) || 0)} />
-                            </div>
-                            <DialogFooter><Button onClick={handleUpdateGoal} className="w-full">Update Goal</Button></DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
+                    <div className="bg-white/5 p-3 rounded-md text-center">
+                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><CalendarDays className="h-3 w-3" /> Due Date</p>
+                      <p className="text-sm font-bold">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
                 </CardContent>
