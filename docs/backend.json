@@ -200,19 +200,6 @@
         "sentAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "receiverId", "message", "sentAt"]
-    },
-    "ReceivedNudge": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ReceivedNudge",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "message": { "type": "string" },
-        "sentAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "senderId", "senderName", "message", "sentAt"]
     }
   },
   "auth": {
@@ -266,14 +253,6 @@
           "entityName": "SentNudge",
           "schema": { "$ref": "#/backend/entities/SentNudge" },
           "description": "Nudges sent by the user."
-        }
-      },
-      {
-        "path": "/users/{userId}/receivedNudges/{nudgeId}",
-        "definition": {
-          "entityName": "ReceivedNudge",
-          "schema": { "$ref": "#/backend/entities/ReceivedNudge" },
-          "description": "Nudges received by the user."
         }
       }
     ]

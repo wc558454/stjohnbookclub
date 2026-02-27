@@ -141,12 +141,6 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
 
-  const receivedNudgesQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return query(collection(db, "users", user.uid, "receivedNudges"), orderBy("sentAt", "desc"), limit(5));
-  }, [db, user?.uid]);
-  const { data: receivedNudges } = useCollection(receivedNudgesQuery);
-
   if (loading || !user || !profile) return null;
 
   const getRank = (pts: number) => {
@@ -305,6 +299,7 @@ export default function Dashboard() {
           title: "Nudge Already Sent",
           description: "You can only nudge this member once per day.",
         });
+        setIsNudging(false);
         return;
       }
       
@@ -320,16 +315,6 @@ export default function Dashboard() {
         sentAt: sentAt,
       };
       setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
-
-      const receivedNudgeRef = doc(db, "users", selectedNudgeMember, "receivedNudges", nudgeId);
-      const receivedNudgeData = {
-        id: nudgeId,
-        senderId: user.uid,
-        senderName: profile.name,
-        message: nudgeMessage,
-        sentAt: sentAt,
-      };
-      setDoc(receivedNudgeRef, receivedNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: receivedNudgeRef.path, operation: 'create', requestResourceData: receivedNudgeData })));
 
       const notifId = Math.random().toString(36).substring(7);
       const notifRef = doc(db, "users", selectedNudgeMember, "notifications", notifId);
@@ -600,25 +585,6 @@ export default function Dashboard() {
                   {isNudging ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Send className="h-3 w-3 mr-1.5" />}
                   Send Nudge (+2)
                 </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-secondary/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-accent" /> Recent Nudges
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                {receivedNudges?.length ? receivedNudges.map(nudge => (
-                  <div key={nudge.id} className="p-3 bg-white rounded-md border border-accent/5">
-                    <p className="text-[10px] font-bold text-accent uppercase">{nudge.senderName} says:</p>
-                    <p className="text-xs text-primary mt-0.5 font-medium leading-relaxed">"{nudge.message}"</p>
-                    <p className="text-[9px] text-muted-foreground mt-2 text-right italic">
-                      {hasMounted ? new Date(nudge.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
-                    </p>
-                  </div>
-                )) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No nudges received yet.</p>}
               </CardContent>
             </Card>
 
