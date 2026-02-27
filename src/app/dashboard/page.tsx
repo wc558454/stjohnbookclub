@@ -22,7 +22,12 @@ import {
   Settings2,
   Loader2,
   Snowflake,
-  MessageSquare
+  MessageSquare,
+  Search,
+  Footprints,
+  Milestone,
+  Mountain,
+  Sunrise
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -118,12 +123,12 @@ export default function Dashboard() {
   if (loading || !user || !profile) return null;
 
   const getRank = (pts: number) => {
-    if (pts <= 1000) return { title: "Seeker", level: 1 };
-    if (pts <= 3000) return { title: "Golden Seeker", level: 2 };
-    if (pts <= 5000) return { title: "Pilgrim", level: 3 };
-    if (pts <= 7000) return { title: "Golden Pilgrim", level: 4 };
-    if (pts <= 10000) return { title: "Beacon", level: 5 };
-    return { title: "Golden Beacon", level: 6 };
+    if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-muted-foreground" };
+    if (pts <= 3000) return { title: "Golden Seeker", level: 2, icon: Footprints, color: "text-accent" };
+    if (pts <= 5000) return { title: "Pilgrim", level: 3, icon: Milestone, color: "text-primary" };
+    if (pts <= 7000) return { title: "Golden Pilgrim", level: 4, icon: Mountain, color: "text-accent" };
+    if (pts <= 10000) return { title: "Beacon", level: 5, icon: Sunrise, color: "text-primary" };
+    return { title: "Golden Beacon", level: 6, icon: Award, color: "text-accent" };
   };
 
   const rank = getRank(profile.points || 0);
@@ -297,9 +302,16 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge className="bg-accent text-primary uppercase text-[10px] tracking-tighter">{rank.title}</Badge>
-                <span className="text-xs text-muted-foreground">Level {rank.level}</span>
+              <div className="mt-2 flex items-center">
+                <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
+                   <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
+                        <rank.icon className="h-5 w-5" />
+                   </div>
+                   <div>
+                       <p className={`font-bold text-lg leading-tight ${rank.color}`}>{rank.title}</p>
+                       <p className="text-xs font-medium text-muted-foreground">Level {rank.level}</p>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
@@ -517,5 +529,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
