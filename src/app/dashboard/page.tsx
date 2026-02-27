@@ -344,7 +344,7 @@ export default function Dashboard() {
              return;
         }
 
-        const nudgePoints = 3;
+        const nudgePoints = 2;
         const nudgeId = Math.random().toString(36).substring(7);
         const notificationId = Math.random().toString(36).substring(7);
         
@@ -543,7 +543,7 @@ export default function Dashboard() {
                     <CardHeader className="pb-2">
                         <div className="flex justify-between items-center mb-1">
                             <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
-                            <span className="text-[10px] font-bold text-accent">+3 Pts</span>
+                            <span className="text-[10px] font-bold text-accent">+2 Pts</span>
                         </div>
                         <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
                         <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
@@ -667,3 +667,6 @@ export default function Dashboard() {
   );
 }
 
+
+
+    
