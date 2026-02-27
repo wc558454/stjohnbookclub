@@ -188,6 +188,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "SentNudge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sent Nudge",
+      "type": "object",
+      "description": "Represents a record of a user sending a nudge to another member to encourage them.",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "recipientId", "recipientName", "createdAt", "message"]
     }
   },
   "auth": {
@@ -201,6 +216,14 @@
           "entityName": "User",
           "schema": { "$ref": "#/backend/entities/User" },
           "description": "User profiles."
+        }
+      },
+      {
+        "path": "/users/{userId}/sentNudges/{nudgeId}",
+        "definition": {
+          "entityName": "SentNudge",
+          "schema": { "$ref": "#/backend/entities/SentNudge" },
+          "description": "A log of nudges sent by this user."
         }
       },
       {
@@ -238,5 +261,3 @@
     ]
   }
 }
-
-    

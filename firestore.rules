@@ -53,6 +53,11 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
 
+      match /sentNudges/{nudgeId} {
+        allow read, create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+
       match /userChallenges/{userChallengeId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId);
@@ -72,5 +77,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
