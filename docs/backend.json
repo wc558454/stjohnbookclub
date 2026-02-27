@@ -188,18 +188,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
-    },
-    "SentNudge": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SentNudge",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "receiverId": { "type": "string" },
-        "message": { "type": "string" },
-        "sentAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "receiverId", "message", "sentAt"]
     }
   },
   "auth": {
@@ -246,15 +234,9 @@
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
         }
-      },
-      {
-        "path": "/users/{userId}/sentNudges/{nudgeId}",
-        "definition": {
-          "entityName": "SentNudge",
-          "schema": { "$ref": "#/backend/entities/SentNudge" },
-          "description": "Nudges sent by the user."
-        }
       }
     ]
   }
 }
+
+    

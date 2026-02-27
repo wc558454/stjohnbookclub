@@ -16,7 +16,6 @@ import {
   Target, 
   Star, 
   Award,
-  Send,
   CheckCircle2,
   Zap,
   CalendarDays,
@@ -30,7 +29,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDocs, getDoc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -44,12 +43,8 @@ export default function Dashboard() {
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
   const [pagesGoal, setPagesGoal] = useState<number>(0);
   const [reflection, setReflection] = useState("");
-  const [selectedNudgeMember, setSelectedNudgeMember] = useState<string>("");
-  const [nudgeMessage, setNudgeMessage] = useState<string>("Keep up the great reading today!");
   const [hasMounted, setHasMounted] = useState(false);
-  const [todayNudgeCount, setTodayNudgeCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNudging, setIsNudging] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -63,21 +58,6 @@ export default function Dashboard() {
       setPagesGoal(profile.pagesPerDay || 5);
     }
   }, [user, loading, router, profile]);
-
-  useEffect(() => {
-    async function checkNudges() {
-      if (!user?.uid || !db) return;
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const q = query(
-        collection(db, "users", user.uid, "sentNudges"),
-        where("sentAt", ">=", startOfDay.toISOString())
-      );
-      const snap = await getDocs(q);
-      setTodayNudgeCount(snap.size);
-    }
-    if (user?.uid) checkNudges();
-  }, [db, user?.uid]);
 
   useEffect(() => {
     if (!user || !profile || !db) return;
@@ -134,12 +114,6 @@ export default function Dashboard() {
     return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
-
-  const nudgeableMembersQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(db, "users"), limit(50));
-  }, [db, user]);
-  const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
 
   if (loading || !user || !profile) return null;
 
@@ -266,80 +240,6 @@ export default function Dashboard() {
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setReflection("");
     toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
-  };
-
-  const handleSendNudge = async () => {
-    if (!selectedNudgeMember) {
-      toast({ variant: "destructive", title: "No Member Selected", description: "Please select a member to nudge." });
-      return;
-    }
-    if (todayNudgeCount >= 3) {
-      toast({ variant: "destructive", title: "Limit Reached", description: "Maximum 3 nudges per day." });
-      return;
-    }
-
-    if (!user?.uid || !db || isNudging) return;
-    setIsNudging(true);
-
-    try {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const sentNudgesTodayQuery = query(
-        collection(db, "users", user.uid, "sentNudges"),
-        where("sentAt", ">=", startOfDay.toISOString())
-      );
-
-      const querySnapshot = await getDocs(sentNudgesTodayQuery);
-      const alreadyNudgedThisUser = querySnapshot.docs.some(doc => doc.data().receiverId === selectedNudgeMember);
-
-      if (alreadyNudgedThisUser) {
-        toast({
-          variant: "destructive",
-          title: "Nudge Already Sent",
-          description: "You can only nudge this member once per day.",
-        });
-        setIsNudging(false);
-        return;
-      }
-      
-      const reward = 2;
-      const nudgeId = Math.random().toString(36).substring(7);
-      const sentAt = new Date().toISOString();
-
-      const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
-      const sentNudgeData = {
-        id: nudgeId,
-        receiverId: selectedNudgeMember,
-        message: nudgeMessage,
-        sentAt: sentAt,
-      };
-      setDoc(sentNudgeRef, sentNudgeData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sentNudgeRef.path, operation: 'create', requestResourceData: sentNudgeData })));
-
-      const notifId = Math.random().toString(36).substring(7);
-      const notifRef = doc(db, "users", selectedNudgeMember, "notifications", notifId);
-      const notifData = {
-        id: notifId,
-        userId: selectedNudgeMember,
-        type: "NudgeReceived",
-        message: `${profile.name} nudged you: "${nudgeMessage}"`,
-        isRead: false,
-        createdAt: sentAt,
-        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-      };
-      setDoc(notifRef, notifData).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: notifRef.path, operation: 'create', requestResourceData: notifData })));
-
-      updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
-      setTodayNudgeCount(prev => prev + 1);
-      toast({ title: "Nudge Sent", description: `+${reward} points earned!` });
-      setSelectedNudgeMember("");
-      setNudgeMessage("Keep up the great reading today!");
-    } catch (error) {
-      console.error("Error sending nudge:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to send nudge. Please try again." });
-    } finally {
-      setIsNudging(false);
-    }
   };
 
   const handleCheckIn = (discussion: any) => {
@@ -561,33 +461,6 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-6">
-            <Card className="border-none shadow-sm bg-primary text-white">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm">Fellowship Nudge</CardTitle>
-                  <Badge className="bg-white/10 text-accent">{todayNudgeCount}/3 Sent</Badge>
-                </div>
-                <CardDescription className="text-[10px] text-primary-foreground/60 italic">Encourage a brother or sister today.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Select value={selectedNudgeMember} onValueChange={setSelectedNudgeMember}>
-                  <SelectTrigger className="bg-white/5 border-white/10 h-9 text-xs">
-                    <SelectValue placeholder="Select member..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {nudgeableMembers?.filter(m => m.id !== user.uid).map(m => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    )) || <SelectItem value="none" disabled>No members found</SelectItem>}
-                  </SelectContent>
-                </Select>
-                <Input value={nudgeMessage} onChange={(e) => setNudgeMessage(e.target.value)} className="bg-white/5 border-white/10 h-9 text-xs" />
-                <Button onClick={handleSendNudge} disabled={!selectedNudgeMember || todayNudgeCount >= 3 || isNudging} className="w-full bg-accent text-primary h-9 rounded-full font-bold text-xs hover:bg-accent/90">
-                  {isNudging ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Send className="h-3 w-3 mr-1.5" />}
-                  Send Nudge (+2)
-                </Button>
-              </CardContent>
-            </Card>
-
             <Card className="border-none shadow-sm bg-secondary/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -644,3 +517,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
