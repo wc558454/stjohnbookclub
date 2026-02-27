@@ -65,7 +65,7 @@ export default function Dashboard() {
     if (!loading && !user) {
       router.push("/login");
     }
-  }, [user, loading, router, profile]);
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!user || !profile || !db) return;
@@ -129,6 +129,26 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: allMembers } = useCollection(allMembersQuery);
 
+  const pagesPerDayToFinish = useMemo(() => {
+    if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
+    
+    const remainingPages = currentBook.totalPages - (profile.currentPagesRead || 0);
+    if (remainingPages <= 0) return 0;
+
+    const dueDate = new Date(currentBook.currentReadingPlanDueDate);
+    dueDate.setHours(23, 59, 59, 999); // End of due day
+    const today = new Date();
+    
+    if (dueDate < today) return remainingPages; // If due date is past, they need to read all remaining pages today.
+
+    const diffTime = dueDate.getTime() - today.getTime();
+    const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (remainingDays <= 0) return remainingPages;
+
+    return Math.ceil(remainingPages / remainingDays);
+  }, [currentBook, profile]);
+
   useEffect(() => {
     if (allMembers && user) {
         setNudgeableMembers(allMembers.filter(m => m.id !== user.uid));
@@ -151,27 +171,6 @@ export default function Dashboard() {
   const readingTotal = profile.currentPagesRead || 0;
   const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
   
-  const pagesPerDayToFinish = useMemo(() => {
-    if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
-    
-    const remainingPages = currentBook.totalPages - (profile.currentPagesRead || 0);
-    if (remainingPages <= 0) return 0;
-
-    const dueDate = new Date(currentBook.currentReadingPlanDueDate);
-    dueDate.setHours(23, 59, 59, 999); // End of due day
-    const today = new Date();
-    
-    if (dueDate < today) return remainingPages; // If due date is past, they need to read all remaining pages today.
-
-    const diffTime = dueDate.getTime() - today.getTime();
-    const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (remainingDays <= 0) return remainingPages;
-
-    return Math.ceil(remainingPages / remainingDays);
-  }, [currentBook, profile]);
-
-
   const handleMarkComplete = async () => {
     if (pagesReadToday <= 0) {
       toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a positive number of pages." });
@@ -666,5 +665,7 @@ export default function Dashboard() {
 }
 
 
+
+    
 
     
