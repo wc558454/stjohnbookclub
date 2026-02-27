@@ -54,7 +54,7 @@ export default function Dashboard() {
 
   const [nudgeableMembers, setNudgeableMembers] = useState<any[]>([]);
   const [nudgeRecipientId, setNudgeRecipientId] = useState("");
-  const [nudgeMessage, setNudgeMessage] = useState("Keep up the great work! Your commitment is inspiring.");
+  const [nudgeMessage, setNudgeMessage] = useState("When we pray we speak to God; but when we read, God speaks to us.");
   const [isNudging, setIsNudging] = useState(false);
 
   useEffect(() => {
@@ -331,9 +331,7 @@ export default function Dashboard() {
             return;
         }
         
-        const alreadyNudgedQuery = query(q, where("recipientId", "==", nudgeRecipientId));
-        const alreadyNudgedSnap = await getDocs(alreadyNudgedQuery);
-        if (!alreadyNudgedSnap.empty) {
+        if (sentNudgesSnap.docs.some(doc => doc.data().recipientId === nudgeRecipientId)) {
             toast({ variant: "destructive", title: "Already Nudged", description: "You have already nudged this member today." });
             setIsNudging(false);
             return;
@@ -357,7 +355,6 @@ export default function Dashboard() {
             id: nudgeId,
             senderId: user.uid,
             recipientId: nudgeRecipientId,
-            recipientName: recipient.name,
             message: nudgeMessage,
             createdAt: new Date().toISOString()
         });
@@ -382,7 +379,7 @@ export default function Dashboard() {
 
         toast({ title: "Nudge Sent!", description: `You earned ${nudgePoints} points.` });
         setNudgeRecipientId("");
-        setNudgeMessage("Keep up the great work! Your commitment is inspiring.");
+        setNudgeMessage("When we pray we speak to God; but when we read, God speaks to us.");
 
     } catch (e: any) {
         console.error("Error sending nudge:", e);
@@ -669,3 +666,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

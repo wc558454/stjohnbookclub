@@ -198,11 +198,10 @@
         "id": { "type": "string" },
         "senderId": { "type": "string" },
         "recipientId": { "type": "string" },
-        "recipientName": { "type": "string" },
         "message": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "senderId", "recipientId", "recipientName", "createdAt", "message"]
+      "required": ["id", "senderId", "recipientId", "createdAt", "message"]
     }
   },
   "auth": {
@@ -261,3 +260,4 @@
     ]
   }
 }
+
