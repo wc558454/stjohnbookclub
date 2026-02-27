@@ -226,6 +226,14 @@
         }
       },
       {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": { "$ref": "#/backend/entities/Notification" },
+          "description": "User-specific notifications, like nudges or announcements."
+        }
+      },
+      {
         "path": "/forumPosts/{postId}",
         "definition": {
           "entityName": "ForumPost",
@@ -260,4 +268,3 @@
     ]
   }
 }
-

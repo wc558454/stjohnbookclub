@@ -66,7 +66,7 @@ service cloud.firestore {
 
       match /notifications/{notificationId} {
         allow get, list, update: if isOwner(userId);
-        allow create: if isSignedIn() || isAdmin();
+        allow create: if isOwner(userId) || isAdmin() || (isSignedIn() && request.resource.data.type == 'Nudge');
         allow delete: if isOwner(userId) || isAdmin();
       }
 
