@@ -29,6 +29,17 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
+    
+    match /forumPosts/{postId} {
+      allow read, create: if isSignedIn();
+      allow update(likes): if isSignedIn();
+      allow update, delete: if isOwner(resource.data.authorId) || isAdmin();
+
+      match /comments/{commentId} {
+        allow read, create: if isSignedIn();
+        allow update, delete: if isOwner(resource.data.authorId) || isAdmin();
+      }
+    }
 
     match /roles_admin/{adminId} {
       allow get: if isSignedIn();

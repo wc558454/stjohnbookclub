@@ -160,6 +160,59 @@
         "expiresAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "type", "message", "isRead", "createdAt", "expiresAt"]
+    },
+    "ForumPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ForumPost",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "authorName", "content", "createdAt"]
+    },
+    "ForumComment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ForumComment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "SentNudge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SentNudge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "message": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "receiverId", "message", "sentAt"]
+    },
+    "ReceivedNudge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ReceivedNudge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "message": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "senderName", "message", "sentAt"]
     }
   },
   "auth": {
@@ -205,6 +258,22 @@
           "entityName": "Discussion",
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
+        }
+      },
+      {
+        "path": "/users/{userId}/sentNudges/{nudgeId}",
+        "definition": {
+          "entityName": "SentNudge",
+          "schema": { "$ref": "#/backend/entities/SentNudge" },
+          "description": "Nudges sent by the user."
+        }
+      },
+      {
+        "path": "/users/{userId}/receivedNudges/{nudgeId}",
+        "definition": {
+          "entityName": "ReceivedNudge",
+          "schema": { "$ref": "#/backend/entities/ReceivedNudge" },
+          "description": "Nudges received by the user."
         }
       }
     ]
