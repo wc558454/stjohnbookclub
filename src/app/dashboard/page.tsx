@@ -29,8 +29,7 @@ import {
   Sunrise,
   BookUp,
   GaugeCircle,
-  Users,
-  Send
+  Users
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -39,7 +38,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -51,18 +49,6 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const nudgeMessages = [
-    '"የእግዚአብሔር ሰው ፍጹምና ለበጎ ሥራ ሁሉ የተዘጋጀ ይሆን ዘንድ፥ የእግዚአብሔር መንፈስ ያለበት መጽሐፍ ሁሉ ለትምህርትና ለተግሣጽ ልብንም ለማቅናት በጽድቅም ላለው ምክር ደግሞ ይጠቅማል።" 2ኛ ጢሞ 3፤ 16-17',
-    '"ሁልጊዜም ቢሆን እለምናችኋለሁ... እዚህ ብቻ ሳይሆን ቤት ስትሆኑም ማንበብን አታቋርጡ።" ቅዱስ ዮሐንስ አፈወርቅ',
-    '"ስንጸልይ እግዚአብሔርን እናናግረዋለን፤ ስናነብ ግን እግዚአብሔር እኛን ያናግረናል።" ቅዱስ ጀሮም',
-    '"ቅዱሳት መጻሕፍትን ማንበብ ከኃጢአት የሚጠብቅ ታላቅ ጋሻ ነው።" ቅዱስ ዮሐንስ አፈወርቅ',
-    '"The purpose of spiritual reading is to keep the intellect from distraction and restlessness." St. Peter of Damaskos'
-  ];
-
-  const [nudgeRecipient, setNudgeRecipient] = useState("");
-  const [nudgeMessage, setNudgeMessage] = useState(nudgeMessages[0]);
-  const [isSendingNudge, setIsSendingNudge] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -105,12 +91,6 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
 
-  const nudgeableMembersQuery = useMemoFirebase(() => {
-      if (!user) return null;
-      return query(collection(db, "users"), where("status", "==", "Active"), limit(50));
-  }, [db, user]);
-  const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
-  
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
     
@@ -324,79 +304,6 @@ export default function Dashboard() {
     toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
   };
 
-  const handleSendNudge = async () => {
-    if (!nudgeRecipient || isSendingNudge) {
-      toast({ variant: 'destructive', title: 'Please select a member to nudge.'});
-      return;
-    }
-
-    setIsSendingNudge(true);
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const sentNudgesTodayQuery = query(
-      collection(db, "users", user.uid, "sentNudges"),
-      where("date", "==", todayStr)
-    );
-    
-    try {
-        const querySnapshot = await getDocs(sentNudgesTodayQuery);
-        const sentNudgesToday = querySnapshot.docs.length;
-
-        if (sentNudgesToday >= 3) {
-            toast({ variant: 'destructive', title: 'Daily Nudge Limit Reached', description: 'You can only send 3 nudges per day.' });
-            setIsSendingNudge(false);
-            return;
-        }
-        
-        const alreadyNudgedQuery = query(
-            collection(db, "users", user.uid, "sentNudges"),
-            where("date", "==", todayStr),
-            where("recipientId", "==", nudgeRecipient)
-        );
-        const alreadyNudgedSnapshot = await getDocs(alreadyNudgedQuery);
-        if (!alreadyNudgedSnapshot.empty) {
-            toast({ variant: 'destructive', title: 'Already Nudged Today', description: 'You can only nudge each member once per day.' });
-            setIsSendingNudge(false);
-            return;
-        }
-        
-        const batch = writeBatch(db);
-        const nudgeId = `nudge_${Date.now()}`;
-        const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
-        batch.set(sentNudgeRef, {
-            id: nudgeId,
-            recipientId: nudgeRecipient,
-            date: todayStr,
-            message: nudgeMessage,
-        });
-
-        const senderRef = doc(db, "users", user.uid);
-        batch.update(senderRef, { points: (profile.points || 0) + 2 });
-        
-        const notifId = `notif_${Date.now()}`;
-        const notificationRef = doc(db, "users", nudgeRecipient, "notifications", notifId);
-        batch.set(notificationRef, {
-            id: notifId,
-            userId: nudgeRecipient,
-            type: "Nudge",
-            message: `${profile.name} sent you a nudge: "${nudgeMessage}"`,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-        });
-
-        await batch.commit();
-
-        toast({ title: 'Nudge Sent!', description: 'You earned +2 points for encouraging a fellow member.' });
-        setNudgeRecipient("");
-    } catch (error) {
-        console.error("Error sending nudge: ", error);
-        toast({ variant: 'destructive', title: 'Error Sending Nudge', description: 'Failed to send nudge. Please try again later.'});
-    } finally {
-        setIsSendingNudge(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -531,47 +438,6 @@ export default function Dashboard() {
                     <Button onClick={handleReflectionSubmit} disabled={!reflection.trim()} className="w-full h-8 text-xs rounded-full">Share Reflection</Button>
                   </CardFooter>
                 </Card>
-                
-                <Card className="border-none shadow-sm flex flex-col">
-                  <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center mb-1">
-                          <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
-                          <span className="text-[10px] font-bold text-accent">+2 Pts</span>
-                      </div>
-                      <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
-                      <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-1 space-y-3 pb-2">
-                      <Select value={nudgeRecipient} onValueChange={setNudgeRecipient}>
-                          <SelectTrigger className="text-xs bg-white h-9">
-                              <SelectValue placeholder="Select a member to encourage..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {nudgeableMembers?.filter(m => m.id !== user.uid).map(member => (
-                                  <SelectItem key={member.id} value={member.id} className="text-xs">{member.name}</SelectItem>
-                              ))}
-                          </SelectContent>
-                      </Select>
-                      <Select value={nudgeMessage} onValueChange={setNudgeMessage}>
-                          <SelectTrigger className="text-xs bg-white h-auto min-h-9 py-2 whitespace-normal text-left [&>span]:line-clamp-none">
-                              <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {nudgeMessages.map((msg, index) => (
-                                  <SelectItem key={index} value={msg} className="text-xs whitespace-normal">
-                                      {msg}
-                                  </SelectItem>
-                              ))}
-                          </SelectContent>
-                      </Select>
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                      <Button onClick={handleSendNudge} disabled={isSendingNudge || !nudgeRecipient} className="w-full h-8 text-xs rounded-full">
-                          {isSendingNudge ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
-                          Send Nudge
-                      </Button>
-                  </CardFooter>
-                </Card>
 
                 {challenges?.map(chall => {
                   const completed = userChallenges?.some(uc => uc.challengeId === chall.id && uc.status === "Completed");
@@ -663,7 +529,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
-
-    
