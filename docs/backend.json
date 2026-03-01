@@ -202,10 +202,9 @@
         "id": { "type": "string" },
         "nudgerId": { "type": "string" },
         "nudgedId": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["pending", "responded", "completed", "expired"] }
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "nudgerId", "nudgedId", "createdAt", "status"]
+      "required": ["id", "nudgerId", "nudgedId", "createdAt"]
     }
   },
   "auth": {

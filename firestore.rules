@@ -50,8 +50,6 @@ service cloud.firestore {
     match /nudges/{nudgeId} {
       allow read: if isSignedIn() && (request.auth.uid == resource.data.nudgerId || request.auth.uid == resource.data.nudgedId);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.nudgerId;
-      allow update: if (isSignedIn() && request.auth.uid == resource.data.nudgedId && request.resource.data.status == 'responded') ||
-                     (isSignedIn() && request.auth.uid == resource.data.nudgerId && (request.resource.data.status == 'completed' || request.resource.data.status == 'expired'));
     }
 
     match /users/{userId} {

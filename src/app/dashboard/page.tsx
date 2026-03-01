@@ -87,45 +87,6 @@ export default function Dashboard() {
   }, [nudgesCollectionQuery, user?.uid]);
   const { data: sentNudges } = useCollection(sentNudgesQuery);
 
-  const receivedNudgesQuery = useMemoFirebase(() => {
-    if (!user?.uid || !nudgesCollectionQuery) return null;
-    return query(nudgesCollectionQuery, where("nudgedId", "==", user.uid));
-  }, [nudgesCollectionQuery, user?.uid]);
-  const { data: receivedNudges } = useCollection(receivedNudgesQuery);
-
-  useEffect(() => {
-    if (!sentNudges || !user || !db) return;
-  
-    const batch = writeBatch(db);
-    let changesMade = false;
-  
-    sentNudges.forEach(nudge => {
-      // Award bonus points for responded nudges
-      if (nudge.status === 'responded') {
-        const nudgeRef = doc(db, "nudges", nudge.id);
-        const userRef = doc(db, "users", user.uid);
-        
-        batch.update(userRef, { points: increment(2) });
-        batch.update(nudgeRef, { status: 'completed' });
-        changesMade = true;
-        toast({ title: "Nudge Bonus!", description: "+2 points for an answered nudge!" });
-      }
-      
-      // Expire old pending nudges
-      const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (nudge.status === 'pending' && new Date(nudge.createdAt).getTime() < fourHoursAgo) {
-        const nudgeRef = doc(db, "nudges", nudge.id);
-        batch.update(nudgeRef, { status: 'expired' });
-        changesMade = true;
-      }
-    });
-  
-    if (changesMade) {
-      batch.commit().catch(e => console.error("Failed to process nudges", e));
-    }
-  
-  }, [sentNudges, user, db, toast]);
-
   const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "books"), where("status", "==", "current"), limit(1));
@@ -285,18 +246,6 @@ export default function Dashboard() {
       await updateDoc(userRef, progressUpdate);
       toast({ title: toastTitle, description: toastDescription });
       setPagesReadToday(0);
-
-      // Check for and respond to any recent nudges
-      const pendingNudges = receivedNudges?.filter(n => n.status === 'pending');
-      if (pendingNudges && pendingNudges.length > 0) {
-        const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-        const recentNudge = pendingNudges.find(n => new Date(n.createdAt).getTime() > fourHoursAgo);
-
-        if (recentNudge) {
-          await updateDoc(doc(db, "nudges", recentNudge.id), { status: 'responded' });
-        }
-      }
-
     } catch (e) {
       console.error("Error marking complete:", e);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -373,7 +322,6 @@ export default function Dashboard() {
             nudgerId: user.uid,
             nudgedId: selectedNudgee,
             createdAt: new Date().toISOString(),
-            status: 'pending'
         });
 
         batch.update(doc(db, "users", user.uid), { points: increment(1) });
@@ -610,7 +558,7 @@ export default function Dashboard() {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-center mb-1">
                       <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
-                      <span className="text-[10px] font-bold text-accent">+1 Pt (+2 Bonus)</span>
+                      <span className="text-[10px] font-bold text-accent">+1 Pt</span>
                     </div>
                     <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
                     <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
