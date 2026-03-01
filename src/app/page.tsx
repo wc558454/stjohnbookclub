@@ -11,7 +11,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function Home() {
   const heroImg = PlaceHolderImages.find(img => img.id === 'hero-spiritual');
-  const iconImg = PlaceHolderImages.find(img => img.id === 'st-john');
+  const iconImg = PlaceHolderImages.find(img => img.id === 'book-on-table');
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -12,7 +12,7 @@ export const contentType = 'image/png'
 
 // Image generation
 export default function Icon() {
-  const iconUrl = "https://images.unsplash.com/photo-1766524791322-8753e582e652?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzcGlyaXR1YWwlMjBpY29ufGVufDB8fHx8MTc3MTE2OTY4NXww&ixlib=rb-4.1.0&q=80&w=1080";
+  const iconUrl = "https://images.unsplash.com/photo-1495640388908-05fa85288e61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxvcGVuJTIwYm9va3xlbnwwfHx8fDE3NzEwOTQ4MjN8MA&ixlib=rb-4.1.0&q=80&w=1080";
   
   return new ImageResponse(
     (
