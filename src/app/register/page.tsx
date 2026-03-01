@@ -90,7 +90,8 @@ export default function Register() {
         role: "member",
         createdAt: new Date().toISOString(),
         freezeCount: 2,
-        lastFreezeRefill: new Date().toISOString()
+        lastFreezeRefill: new Date().toISOString(),
+        personalBestPages: 0,
       });
 
       toast({

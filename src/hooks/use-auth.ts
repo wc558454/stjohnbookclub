@@ -29,6 +29,7 @@ export type UserProfile = {
   spiritualGoal?: string;
   monthlyPoints?: number;
   currentMonth?: string;
+  personalBestPages?: number;
 };
 
 export function useAuth() {

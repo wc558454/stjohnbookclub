@@ -241,6 +241,8 @@ export default function Dashboard() {
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
+        const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, pagesReadToday);
+
         const progressUpdate: any = {
           points: (currentProfile.points || 0) + ptsToAdd,
           currentPagesRead: (currentProfile.currentPagesRead || 0) + pagesReadToday,
@@ -248,7 +250,8 @@ export default function Dashboard() {
           currentMonth: currentMonthStr,
           streak: newStreak,
           freezeCount: finalFreezeCount,
-          lastReadAt: new Date().toISOString()
+          lastReadAt: new Date().toISOString(),
+          personalBestPages: newPersonalBest,
         };
         if (needsRefill) {
             progressUpdate.lastFreezeRefill = new Date().toISOString();
@@ -258,6 +261,9 @@ export default function Dashboard() {
         transaction.update(userRef, progressUpdate);
       });
       toast({ title: toastTitle, description: toastDescription });
+      if (pagesReadToday > (profile.personalBestPages || 0)) {
+        toast({ title: "New Personal Best!", description: `You read ${pagesReadToday} pages today, setting a new record!` });
+      }
       setPagesReadToday(0);
     } catch (e) {
       console.error("Error marking complete:", e);
@@ -461,7 +467,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className="md:col-span-2 flex justify-end gap-3">
+          <div className="md:col-span-2 grid grid-cols-2 gap-3">
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
               <Star className="h-4 w-4 text-accent fill-accent" />
               <div>
@@ -481,6 +487,13 @@ export default function Dashboard() {
               <div>
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Freezes</p>
                 <p className="text-lg font-bold text-primary">{profile.freezeCount ?? 0}</p>
+              </div>
+            </div>
+            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best</p>
+                <p className="text-lg font-bold text-primary">{profile.personalBestPages || 0} pgs</p>
               </div>
             </div>
           </div>

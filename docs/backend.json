@@ -69,6 +69,11 @@
         "currentMonth": {
           "type": "string",
           "description": "The current month for which monthly points are being tracked, in YYYY-MM format."
+        },
+        "personalBestPages": {
+          "type": "number",
+          "description": "The highest number of pages read by the user in a single day.",
+          "format": "int32"
         }
       },
       "required": [
