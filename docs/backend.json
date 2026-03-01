@@ -188,6 +188,36 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "SentNudge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sent Nudge",
+      "description": "Records a nudge sent by a user to another member to track daily limits.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sent nudge record."
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "The UID of the user who received the nudge."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the nudge was sent, in YYYY-MM-DD format."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the message sent."
+        }
+      },
+      "required": [
+        "id",
+        "recipientId",
+        "date",
+        "message"
+      ]
     }
   },
   "auth": {
@@ -241,6 +271,16 @@
           "entityName": "Discussion",
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
+        }
+      },
+      {
+        "path": "/users/{userId}/sentNudges/{nudgeId}",
+        "definition": {
+          "entityName": "SentNudge",
+          "schema": {
+            "$ref": "#/backend/entities/SentNudge"
+          },
+          "description": "A record of nudges sent by this user to enforce daily limits."
         }
       }
     ]
