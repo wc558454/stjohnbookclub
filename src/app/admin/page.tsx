@@ -93,13 +93,18 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
             <DialogTitle>Completed Challenges</DialogTitle>
             <CardDescription>List of all challenges this member has completed.</CardDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
+          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
             {completedChallenges.length > 0 ? (
-              <ul className="list-disc list-inside space-y-2">
+              <ul className="space-y-4">
                 {completedChallenges.map(uc => (
-                  <li key={uc.id} className="text-sm">
-                    {getCompletedChallengeTitle(uc)}
-                    <span className="text-muted-foreground text-xs ml-2">({new Date(uc.completedAt).toLocaleDateString()})</span>
+                  <li key={uc.id} className="text-sm border-b pb-4 last:border-0 last:pb-0">
+                    <div className="font-medium text-primary">{getCompletedChallengeTitle(uc)}</div>
+                    <div className="text-muted-foreground text-xs mb-2">({new Date(uc.completedAt).toLocaleString()})</div>
+                    {uc.submissionText && (
+                      <blockquote className="mt-1 pl-2 text-xs italic border-l-2 text-muted-foreground bg-muted/20 p-2 rounded-r-md">
+                        {uc.submissionText}
+                      </blockquote>
+                    )}
                   </li>
                 ))}
               </ul>

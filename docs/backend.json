@@ -55,6 +55,11 @@
         "role": {
           "type": "string",
           "description": "The role of the user within the bookclub (e.g., 'member', 'admin')."
+        },
+        "spiritualGoal": {
+          "type": "string",
+          "description": "A short, personal spiritual goal set by the user during registration.",
+          "maxLength": 500
         }
       },
       "required": [
@@ -130,7 +135,8 @@
         "challengeId": { "type": "string" },
         "status": { "type": "string" },
         "completedAt": { "type": "string", "format": "date-time" },
-        "pointsEarned": { "type": "number" }
+        "pointsEarned": { "type": "number" },
+        "submissionText": { "type": "string", "description": "Text submitted by the user to complete the challenge." }
       },
       "required": ["id", "userId", "challengeId", "status"]
     },
@@ -209,6 +215,16 @@
           "entityName": "Notification",
           "schema": { "$ref": "#/backend/entities/Notification" },
           "description": "User-specific notifications, like announcements."
+        }
+      },
+      {
+        "path": "/users/{userId}/userChallenges/{userChallengeId}",
+        "definition": {
+          "entityName": "UserChallenge",
+          "schema": {
+            "$ref": "#/backend/entities/UserChallenge"
+          },
+          "description": "Records of challenges a user has completed."
         }
       },
       {

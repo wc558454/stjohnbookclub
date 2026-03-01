@@ -10,6 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { 
   Trophy, 
   BookOpen, 
   Flame, 
@@ -28,8 +37,7 @@ import {
   Mountain,
   Sunrise,
   BookUp,
-  GaugeCircle,
-  Users
+  GaugeCircle
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -49,6 +57,9 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [completingChallenge, setCompletingChallenge] = useState<any>(null);
+  const [submissionText, setSubmissionText] = useState("");
 
   useEffect(() => {
     setHasMounted(true);
@@ -254,7 +265,8 @@ export default function Dashboard() {
       userId: user.uid,
       status: "Completed",
       completedAt: new Date().toISOString(),
-      pointsEarned: reward
+      pointsEarned: reward,
+      submissionText: reflection
     });
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
@@ -287,21 +299,40 @@ export default function Dashboard() {
     toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
   };
 
-  const handleCompleteDynamicChallenge = (challenge: any) => {
-    const reward = challenge.pointsReward;
-    const userChallengeId = `dynamic_${challenge.id}`;
+  const handleSubmissionForChallenge = () => {
+    if (!completingChallenge || !submissionText.trim() || !user) return;
+
+    const reward = completingChallenge.pointsReward;
+    const userChallengeId = `dynamic_${completingChallenge.id}`;
     
-    setDoc(doc(db, "users", user.uid, "userChallenges", userChallengeId), {
+    const userChallengeData = {
       id: userChallengeId,
-      challengeId: challenge.id,
+      challengeId: completingChallenge.id,
       userId: user.uid,
       status: "Completed",
       completedAt: new Date().toISOString(),
-      pointsEarned: reward
-    });
+      pointsEarned: reward,
+      submissionText: submissionText
+    };
+
+    const challengeDocRef = doc(db, "users", user.uid, "userChallenges", userChallengeId);
+
+    setDoc(challengeDocRef, userChallengeData)
+      .catch((e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: challengeDocRef.path,
+          operation: 'create',
+          requestResourceData: userChallengeData
+        }));
+        toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your submission." });
+      });
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
+    
     toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
+
+    setCompletingChallenge(null);
+    setSubmissionText("");
   };
 
   return (
@@ -465,7 +496,7 @@ export default function Dashboard() {
                             <CheckCircle2 className="h-3.3" /> COMPLETED
                           </div>
                         ) : (
-                          <Button onClick={() => handleCompleteDynamicChallenge(chall)} variant="outline" className="w-full h-8 text-xs rounded-full border-accent text-accent hover:bg-accent hover:text-white transition-colors">
+                          <Button onClick={() => setCompletingChallenge(chall)} variant="outline" className="w-full h-8 text-xs rounded-full border-accent text-accent hover:bg-accent hover:text-white transition-colors">
                             Complete Challenge
                           </Button>
                         )}
@@ -530,6 +561,31 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+
+        <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Complete: {completingChallenge?.title}</DialogTitle>
+              <DialogDescription>{completingChallenge?.description}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="submission-text" className="font-medium">Your Submission</Label>
+              <Textarea
+                id="submission-text"
+                placeholder="Share your thoughts or evidence of completion..."
+                value={submissionText}
+                onChange={(e) => setSubmissionText(e.target.value)}
+                className="min-h-[100px] bg-white"
+              />
+              <p className="text-xs text-muted-foreground">Criteria: {completingChallenge?.completionCriteria}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCompletingChallenge(null); setSubmissionText(""); }}>Cancel</Button>
+              <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim()}>Submit and Complete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );
