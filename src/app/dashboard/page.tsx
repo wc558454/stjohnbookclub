@@ -18,6 +18,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Trophy, 
   BookOpen, 
@@ -101,6 +102,12 @@ export default function Dashboard() {
     return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(20));
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
+
+  const allTimeLeaderboardQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), orderBy("points", "desc"), limit(20));
+  }, [db, user]);
+  const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
 
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
@@ -627,25 +634,52 @@ export default function Dashboard() {
             </Card>
 
             <Card className="border-none shadow-sm overflow-hidden">
-              <CardHeader className="bg-accent/5 pb-3">
-                <CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-accent" /> Monthly Leaderboard</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {leaderboardMembers?.map((m, i) => (
-                  <div key={m.id} className={`flex items-center gap-3 p-3 border-b last:border-0 ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                    <span className="font-headline font-bold text-muted-foreground text-xs">#{i + 1}</span>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold">{m.name}</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">{m.monthlyPoints || 0} PTS</p>
-                    </div>
-                    {m.streak > 0 && (
-                      <div className="flex items-center gap-0.5 text-orange-500 font-bold text-[10px]">
-                        <Flame className="h-3 w-3 fill-orange-500" /> {m.streak}
+              <Tabs defaultValue="monthly" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 h-auto p-0 rounded-none bg-accent/5">
+                  <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-inner font-semibold">
+                    <Award className="h-4 w-4 mr-2" /> Monthly Leaderboard
+                  </TabsTrigger>
+                  <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-inner font-semibold">
+                    <Trophy className="h-4 w-4 mr-2" /> All-Time Rank
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="monthly" className="mt-0">
+                  {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => (
+                    <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                      <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">{m.name}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
+                      {m.streak > 0 && (
+                        <div className="flex items-center gap-1 text-orange-500 font-bold text-sm">
+                          <Flame className="h-4 w-4 fill-orange-500" /> {m.streak}
+                        </div>
+                      )}
+                    </div>
+                  )) : (
+                    <p className="text-sm text-center text-muted-foreground italic p-6 border-t">No rankings yet this month.</p>
+                  )}
+                </TabsContent>
+                <TabsContent value="all-time" className="mt-0">
+                  {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => (
+                    <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                      <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold">{m.name}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
+                      </div>
+                      {m.streak > 0 && (
+                        <div className="flex items-center gap-1 text-orange-500 font-bold text-sm">
+                          <Flame className="h-4 w-4 fill-orange-500" /> {m.streak}
+                        </div>
+                      )}
+                    </div>
+                  )) : (
+                     <p className="text-sm text-center text-muted-foreground italic p-6 border-t">No rankings yet.</p>
+                  )}
+                </TabsContent>
+              </Tabs>
             </Card>
           </div>
         </div>
