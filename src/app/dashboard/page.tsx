@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Dialog, 
   DialogContent, 
@@ -39,14 +38,13 @@ import {
   Sunrise,
   BookUp,
   GaugeCircle,
-  Send
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs, addDoc, increment } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs, increment } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
@@ -62,9 +60,6 @@ export default function Dashboard() {
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
-  
-  const [selectedNudgee, setSelectedNudgee] = useState<string>("");
-  const [isNudging, setIsNudging] = useState<boolean>(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -75,17 +70,6 @@ export default function Dashboard() {
       router.push("/login");
     }
   }, [user, loading, router]);
-
-  const membersQuery = useMemoFirebase(() => collection(db, "users"), [db]);
-  const { data: members } = useCollection(membersQuery);
-
-  const nudgesCollectionQuery = useMemoFirebase(() => collection(db, "nudges"), [db]);
-
-  const sentNudgesQuery = useMemoFirebase(() => {
-    if (!user?.uid || !nudgesCollectionQuery) return null;
-    return query(nudgesCollectionQuery, where("nudgerId", "==", user.uid));
-  }, [nudgesCollectionQuery, user?.uid]);
-  const { data: sentNudges } = useCollection(sentNudgesQuery);
 
   const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -291,63 +275,6 @@ export default function Dashboard() {
     toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
   };
 
-  const handleSendNudge = async () => {
-    if (!selectedNudgee || !user || !profile || !sentNudges) return;
-    setIsNudging(true);
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const todaysNudges = sentNudges.filter(n => new Date(n.createdAt) >= today);
-
-    if (todaysNudges.length >= 3) {
-      toast({ variant: "destructive", title: "Daily Limit Reached", description: "You can only send 3 nudges per day." });
-      setIsNudging(false);
-      return;
-    }
-
-    if (todaysNudges.some(n => n.nudgedId === selectedNudgee)) {
-      toast({ variant: "destructive", title: "Already Nudged", description: "You can only nudge this member once per day." });
-      setIsNudging(false);
-      return;
-    }
-    
-    try {
-        const nudgedUser = members?.find(m => m.id === selectedNudgee);
-        const batch = writeBatch(db);
-        
-        const newNudgeRef = doc(collection(db, "nudges"));
-        batch.set(newNudgeRef, {
-            id: newNudgeRef.id,
-            nudgerId: user.uid,
-            nudgedId: selectedNudgee,
-            createdAt: new Date().toISOString(),
-        });
-
-        batch.update(doc(db, "users", user.uid), { points: increment(1) });
-
-        const newNotifRef = doc(collection(db, "users", selectedNudgee, "notifications"));
-        batch.set(newNotifRef, {
-            id: newNotifRef.id,
-            userId: selectedNudgee,
-            type: "Nudge",
-            message: `${profile.name} sent you a spiritual nudge!`,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        });
-
-        await batch.commit();
-        toast({ title: "Nudge Sent!", description: `You encouraged ${nudgedUser?.name}. +1 point!` });
-    } catch (e) {
-        console.error(e);
-        toast({ variant: "destructive", title: "Nudge Failed", description: "Could not send nudge." });
-    } finally {
-        setIsNudging(false);
-        setSelectedNudgee("");
-    }
-  };
-
   const handleCheckIn = async (discussion: any) => {
     const discDate = new Date(discussion.scheduledDateTime);
     const now = new Date();
@@ -551,36 +478,6 @@ export default function Dashboard() {
                   </CardContent>
                   <CardFooter className="pt-0">
                     <Button onClick={handleReflectionSubmit} disabled={!reflection.trim()} className="w-full h-8 text-xs rounded-full">Share Reflection</Button>
-                  </CardFooter>
-                </Card>
-
-                <Card className="border-none shadow-sm flex flex-col">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center mb-1">
-                      <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
-                      <span className="text-[10px] font-bold text-accent">+1 Pt</span>
-                    </div>
-                    <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
-                    <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-1 pb-4">
-                    <Select onValueChange={setSelectedNudgee} value={selectedNudgee}>
-                        <SelectTrigger disabled={isNudging}>
-                            <SelectValue placeholder="Select a member to nudge" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {members?.filter(m => m.id !== user.uid && m.status === 'Active').map(member => (
-                                <SelectItem key={member.id} value={member.id}>
-                                    {member.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                    <Button onClick={handleSendNudge} disabled={!selectedNudgee || isNudging} className="w-full h-8 text-xs rounded-full">
-                      {isNudging ? <Loader2 className="animate-spin h-4 w-4" /> : <><Send className="h-3 w-3 mr-1" />Send Nudge</>}
-                    </Button>
                   </CardFooter>
                 </Card>
 

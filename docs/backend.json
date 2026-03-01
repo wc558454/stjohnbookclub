@@ -194,17 +194,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
-    },
-    "Nudge": {
-      "title": "Nudge",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "nudgerId": { "type": "string" },
-        "nudgedId": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "nudgerId", "nudgedId", "createdAt"]
     }
   },
   "auth": {
@@ -268,14 +257,6 @@
           "entityName": "Discussion",
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
-        }
-      },
-      {
-        "path": "/nudges/{nudgeId}",
-        "definition": {
-          "entityName": "Nudge",
-          "schema": { "$ref": "#/backend/entities/Nudge" },
-          "description": "Records of nudges sent between members."
         }
       }
     ]

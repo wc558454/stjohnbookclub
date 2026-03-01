@@ -47,11 +47,6 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    match /nudges/{nudgeId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.nudgerId || request.auth.uid == resource.data.nudgedId);
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.nudgerId;
-    }
-
     match /users/{userId} {
       allow get, list: if isSignedIn();
       allow create: if isOwner(userId);
