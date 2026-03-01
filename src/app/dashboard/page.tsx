@@ -37,7 +37,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -51,8 +51,17 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const nudgeMessages = [
+    '"የእግዚአብሔር ሰው ፍጹምና ለበጎ ሥራ ሁሉ የተዘጋጀ ይሆን ዘንድ፥ የእግዚአብሔር መንፈስ ያለበት መጽሐፍ ሁሉ ለትምህርትና ለተግሣጽ ልብንም ለማቅናት በጽድቅም ላለው ምክር ደግሞ ይጠቅማል።" 2ኛ ጢሞ 3፤ 16-17',
+    '"ሁልጊዜም ቢሆን እለምናችኋለሁ... እዚህ ብቻ ሳይሆን ቤት ስትሆኑም ማንበብን አታቋርጡ።" ቅዱስ ዮሐንስ አፈወርቅ',
+    '"ስንጸልይ እግዚአብሔርን እናናግረዋለን፤ ስናነብ ግን እግዚአብሔር እኛን ያናግረናል።" ቅዱስ ጀሮም',
+    '"ቅዱሳት መጻሕፍትን ማንበብ ከኃጢአት የሚጠብቅ ታላቅ ጋሻ ነው።" ቅዱስ ዮሐንስ አፈወርቅ',
+    '"The purpose of spiritual reading is to keep the intellect from distraction and restlessness." St. Peter of Damaskos'
+  ];
+
   const [nudgeRecipient, setNudgeRecipient] = useState("");
-  const [nudgeMessage, setNudgeMessage] = useState("When we pray we speak to God; but when we read, God speaks to us.");
+  const [nudgeMessage, setNudgeMessage] = useState(nudgeMessages[0]);
   const [isSendingNudge, setIsSendingNudge] = useState(false);
 
   useEffect(() => {
@@ -64,31 +73,6 @@ export default function Dashboard() {
       router.push("/login");
     }
   }, [user, loading, router]);
-
-  useEffect(() => {
-    if (!user || !profile || !db) return;
-
-    const refillFreezes = async () => {
-        const today = new Date();
-        const lastRefill = profile.lastFreezeRefill ? new Date(profile.lastFreezeRefill) : null;
-        const currentFreezeCount = profile.freezeCount ?? 0;
-
-        const lastMonday = new Date(today);
-        lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-        lastMonday.setHours(0, 0, 0, 0);
-
-        if ((!lastRefill || lastRefill < lastMonday) && currentFreezeCount < 2) {
-            const userRef = doc(db, "users", user.uid);
-            await updateDoc(userRef, {
-                freezeCount: 2,
-                lastFreezeRefill: new Date().toISOString()
-            });
-            toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
-        }
-    };
-
-    refillFreezes();
-  }, [db, user, profile, toast]);
 
   const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -115,18 +99,18 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
-  const membersQuery = useMemoFirebase(() => {
+  const leaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
   }, [db, user]);
-  const { data: leaderboardMembers } = useCollection(membersQuery);
+  const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
 
   const nudgeableMembersQuery = useMemoFirebase(() => {
       if (!user) return null;
       return query(collection(db, "users"), where("status", "==", "Active"), limit(50));
   }, [db, user]);
   const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
-
+  
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
     
@@ -177,7 +161,6 @@ export default function Dashboard() {
 
     const userRef = doc(db, "users", user.uid);
     
-    // Get today's date, ignoring time, using the client's timezone.
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -187,7 +170,6 @@ export default function Dashboard() {
         lastReadDayStart = new Date(lastReadDay.getFullYear(), lastReadDay.getMonth(), lastReadDay.getDate());
     }
 
-    // Block duplicate submissions on the same calendar day.
     if (lastReadDayStart && lastReadDayStart.getTime() === todayStart.getTime()) {
       toast({
         variant: "destructive",
@@ -207,49 +189,53 @@ export default function Dashboard() {
     let toastDescription = `+${ptsToAdd} points earned!`;
 
     if (!lastReadDayStart) {
-        // This is the very first submission.
         newStreak = 1;
         toastDescription += ` Your streak starts at 1 day!`;
     } else {
         const diffTime = todayStart.getTime() - lastReadDayStart.getTime();
-        // Get difference in days.
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
-            // Consecutive day, increment streak.
             newStreak += 1;
             toastDescription += ` Streak extended to ${newStreak} days!`;
-        } else if (diffDays === 2) {
-            // Exactly one day was missed.
-            if (newFreezeCount > 0) {
-                // Consume one freeze to preserve streak.
-                newFreezeCount -= 1;
-                // Streak is preserved, not incremented.
+        } else if (diffDays > 1) {
+            const daysToCover = diffDays - 1;
+            if (newFreezeCount >= daysToCover) {
+                newFreezeCount -= daysToCover;
                 toastTitle = "Streak Preserved!";
-                toastDescription = `You missed a day, but a freeze was used. You have ${newFreezeCount} freeze(s) left.`;
+                toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used. You have ${newFreezeCount} freeze(s) left.`;
             } else {
-                // No freezes left, reset streak.
                 newStreak = 1;
                 toastTitle = "Streak Reset";
-                toastDescription = "You missed a day with no freezes left. Your streak resets to 1.";
+                toastDescription = `You missed ${diffDays-1} day(s) with only ${newFreezeCount} freeze(s) left. Your streak resets to 1.`;
             }
-        } else if (diffDays > 2) {
-            // More than one day missed, reset streak.
-            newStreak = 1;
-            toastTitle = "Streak Reset";
-            toastDescription = "Welcome back! Your new streak starts at 1 day.";
         }
-        // If diffDays is 0, it's handled by the duplicate check above.
     }
-    
-    const progressUpdate = {
+
+    const lastRefillDate = profile.lastFreezeRefill ? new Date(profile.lastFreezeRefill) : new Date(0);
+    const lastMonday = new Date(today);
+    lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    lastMonday.setHours(0, 0, 0, 0);
+
+    let needsRefill = false;
+    let finalFreezeCount = newFreezeCount;
+    if (lastRefillDate < lastMonday) {
+        finalFreezeCount = 2 - ( (profile.freezeCount ?? 2) - newFreezeCount);
+        needsRefill = true;
+    }
+
+    const progressUpdate: any = {
       points: (profile.points || 0) + ptsToAdd,
       currentPagesRead: newPagesRead,
       streak: newStreak,
-      freezeCount: newFreezeCount,
+      freezeCount: finalFreezeCount,
       lastReadAt: new Date().toISOString()
     };
-
+    if (needsRefill) {
+        progressUpdate.lastFreezeRefill = new Date().toISOString();
+        toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
+    }
+    
     try {
       await updateDoc(userRef, progressUpdate);
       toast({ title: toastTitle, description: toastDescription });
@@ -353,8 +339,8 @@ export default function Dashboard() {
     );
     
     try {
-        const querySnapshot = await getDoc(sentNudgesTodayQuery as any);
-        const sentNudgesToday = querySnapshot.docs?.length || 0;
+        const querySnapshot = await getDocs(sentNudgesTodayQuery);
+        const sentNudgesToday = querySnapshot.docs.length;
 
         if (sentNudgesToday >= 3) {
             toast({ variant: 'destructive', title: 'Daily Nudge Limit Reached', description: 'You can only send 3 nudges per day.' });
@@ -367,8 +353,8 @@ export default function Dashboard() {
             where("date", "==", todayStr),
             where("recipientId", "==", nudgeRecipient)
         );
-        const alreadyNudgedSnapshot = await getDoc(alreadyNudgedQuery as any);
-        if (!alreadyNudgedSnapshot.docs?.empty) {
+        const alreadyNudgedSnapshot = await getDocs(alreadyNudgedQuery);
+        if (!alreadyNudgedSnapshot.empty) {
             toast({ variant: 'destructive', title: 'Already Nudged Today', description: 'You can only nudge each member once per day.' });
             setIsSendingNudge(false);
             return;
@@ -566,12 +552,18 @@ export default function Dashboard() {
                               ))}
                           </SelectContent>
                       </Select>
-                      <Textarea 
-                          value={nudgeMessage}
-                          onChange={e => setNudgeMessage(e.target.value)}
-                          placeholder="Write a short, motivating note..."
-                          className="text-xs min-h-[50px] bg-white resize-none"
-                      />
+                      <Select value={nudgeMessage} onValueChange={setNudgeMessage}>
+                          <SelectTrigger className="text-xs bg-white h-auto min-h-9 py-2 whitespace-normal text-left">
+                              <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {nudgeMessages.map((msg, index) => (
+                                  <SelectItem key={index} value={msg} className="text-xs whitespace-normal">
+                                      {msg.length > 60 ? msg.substring(0, 60) + '...' : msg}
+                                  </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
                   </CardContent>
                   <CardFooter className="pt-0">
                       <Button onClick={handleSendNudge} disabled={isSendingNudge || !nudgeRecipient} className="w-full h-8 text-xs rounded-full">
@@ -671,3 +663,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
