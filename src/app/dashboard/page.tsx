@@ -553,13 +553,13 @@ export default function Dashboard() {
                           </SelectContent>
                       </Select>
                       <Select value={nudgeMessage} onValueChange={setNudgeMessage}>
-                          <SelectTrigger className="text-xs bg-white h-auto min-h-9 py-2 whitespace-normal text-left">
+                          <SelectTrigger className="text-xs bg-white h-auto min-h-9 py-2 whitespace-normal text-left [&>span]:line-clamp-none">
                               <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                               {nudgeMessages.map((msg, index) => (
                                   <SelectItem key={index} value={msg} className="text-xs whitespace-normal">
-                                      {msg.length > 60 ? msg.substring(0, 60) + '...' : msg}
+                                      {msg}
                                   </SelectItem>
                               ))}
                           </SelectContent>
@@ -663,5 +663,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
 
     
