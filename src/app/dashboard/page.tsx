@@ -28,15 +28,18 @@ import {
   Mountain,
   Sunrise,
   BookUp,
-  GaugeCircle
+  GaugeCircle,
+  Users,
+  Send
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -48,6 +51,9 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nudgeRecipient, setNudgeRecipient] = useState("");
+  const [nudgeMessage, setNudgeMessage] = useState("When we pray we speak to God; but when we read, God speaks to us.");
+  const [isSendingNudge, setIsSendingNudge] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -115,6 +121,12 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(membersQuery);
 
+  const nudgeableMembersQuery = useMemoFirebase(() => {
+      if (!user) return null;
+      return query(collection(db, "users"), where("status", "==", "Active"), limit(50));
+  }, [db, user]);
+  const { data: nudgeableMembers } = useCollection(nudgeableMembersQuery);
+
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
     
@@ -134,7 +146,7 @@ export default function Dashboard() {
 
     return Math.ceil(remainingPages / remainingDays);
   }, [currentBook, profile]);
-
+  
   if (loading || !user || !profile) return null;
 
   const getRank = (pts: number) => {
@@ -163,41 +175,73 @@ export default function Dashboard() {
 
     setIsSubmitting(true);
 
-    const ptsToAdd = pagesReadToday * 2;
     const userRef = doc(db, "users", user.uid);
-    const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
-
+    
+    // Get today's date, ignoring time, using the client's timezone.
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     const lastReadDay = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
-    if (lastReadDay) {
-      lastReadDay.setHours(0, 0, 0, 0);
+    let lastReadDayStart: Date | null = null;
+    if(lastReadDay) {
+        lastReadDayStart = new Date(lastReadDay.getFullYear(), lastReadDay.getMonth(), lastReadDay.getDate());
     }
+
+    // Block duplicate submissions on the same calendar day.
+    if (lastReadDayStart && lastReadDayStart.getTime() === todayStart.getTime()) {
+      toast({
+        variant: "destructive",
+        title: "Already Submitted",
+        description: "You have already recorded your reading for today.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const ptsToAdd = pagesReadToday * 2;
+    const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
 
     let newStreak = profile.streak || 0;
     let newFreezeCount = profile.freezeCount ?? 2;
-    let usedFreezesCount = 0;
+    let toastTitle = "Progress Recorded";
+    let toastDescription = `+${ptsToAdd} points earned!`;
 
-    if (!lastReadDay) {
-      newStreak = 1;
+    if (!lastReadDayStart) {
+        // This is the very first submission.
+        newStreak = 1;
+        toastDescription += ` Your streak starts at 1 day!`;
     } else {
-      const diffTime = today.getTime() - lastReadDay.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffTime = todayStart.getTime() - lastReadDayStart.getTime();
+        // Get difference in days.
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      if (diffDays === 1) {
-        newStreak += 1;
-      } else if (diffDays > 1) {
-        const missedDays = diffDays - 1;
-        if (missedDays <= newFreezeCount) {
-          usedFreezesCount = missedDays;
-          newFreezeCount -= missedDays;
-        } else {
-          newStreak = 1; 
+        if (diffDays === 1) {
+            // Consecutive day, increment streak.
+            newStreak += 1;
+            toastDescription += ` Streak extended to ${newStreak} days!`;
+        } else if (diffDays === 2) {
+            // Exactly one day was missed.
+            if (newFreezeCount > 0) {
+                // Consume one freeze to preserve streak.
+                newFreezeCount -= 1;
+                // Streak is preserved, not incremented.
+                toastTitle = "Streak Preserved!";
+                toastDescription = `You missed a day, but a freeze was used. You have ${newFreezeCount} freeze(s) left.`;
+            } else {
+                // No freezes left, reset streak.
+                newStreak = 1;
+                toastTitle = "Streak Reset";
+                toastDescription = "You missed a day with no freezes left. Your streak resets to 1.";
+            }
+        } else if (diffDays > 2) {
+            // More than one day missed, reset streak.
+            newStreak = 1;
+            toastTitle = "Streak Reset";
+            toastDescription = "Welcome back! Your new streak starts at 1 day.";
         }
-      }
+        // If diffDays is 0, it's handled by the duplicate check above.
     }
-
+    
     const progressUpdate = {
       points: (profile.points || 0) + ptsToAdd,
       currentPagesRead: newPagesRead,
@@ -208,11 +252,7 @@ export default function Dashboard() {
 
     try {
       await updateDoc(userRef, progressUpdate);
-      if (usedFreezesCount > 0) {
-        toast({ title: "Streak Frozen!", description: `You used ${usedFreezesCount} freeze(s). Your streak is safe! You have ${newFreezeCount} left.` });
-      } else {
-        toast({ title: "Progress Recorded", description: `+${ptsToAdd} points! Streak: ${newStreak} days.` });
-      }
+      toast({ title: toastTitle, description: toastDescription });
       setPagesReadToday(0);
     } catch (e) {
       console.error("Error marking complete:", e);
@@ -296,6 +336,79 @@ export default function Dashboard() {
 
     updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
+  };
+
+  const handleSendNudge = async () => {
+    if (!nudgeRecipient || isSendingNudge) {
+      toast({ variant: 'destructive', title: 'Please select a member to nudge.'});
+      return;
+    }
+
+    setIsSendingNudge(true);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sentNudgesTodayQuery = query(
+      collection(db, "users", user.uid, "sentNudges"),
+      where("date", "==", todayStr)
+    );
+    
+    try {
+        const querySnapshot = await getDoc(sentNudgesTodayQuery as any);
+        const sentNudgesToday = querySnapshot.docs?.length || 0;
+
+        if (sentNudgesToday >= 3) {
+            toast({ variant: 'destructive', title: 'Daily Nudge Limit Reached', description: 'You can only send 3 nudges per day.' });
+            setIsSendingNudge(false);
+            return;
+        }
+        
+        const alreadyNudgedQuery = query(
+            collection(db, "users", user.uid, "sentNudges"),
+            where("date", "==", todayStr),
+            where("recipientId", "==", nudgeRecipient)
+        );
+        const alreadyNudgedSnapshot = await getDoc(alreadyNudgedQuery as any);
+        if (!alreadyNudgedSnapshot.docs?.empty) {
+            toast({ variant: 'destructive', title: 'Already Nudged Today', description: 'You can only nudge each member once per day.' });
+            setIsSendingNudge(false);
+            return;
+        }
+        
+        const batch = writeBatch(db);
+        const nudgeId = `nudge_${Date.now()}`;
+        const sentNudgeRef = doc(db, "users", user.uid, "sentNudges", nudgeId);
+        batch.set(sentNudgeRef, {
+            id: nudgeId,
+            recipientId: nudgeRecipient,
+            date: todayStr,
+            message: nudgeMessage,
+        });
+
+        const senderRef = doc(db, "users", user.uid);
+        batch.update(senderRef, { points: (profile.points || 0) + 2 });
+        
+        const notifId = `notif_${Date.now()}`;
+        const notificationRef = doc(db, "users", nudgeRecipient, "notifications", notifId);
+        batch.set(notificationRef, {
+            id: notifId,
+            userId: nudgeRecipient,
+            type: "Nudge",
+            message: `${profile.name} sent you a nudge: "${nudgeMessage}"`,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        });
+
+        await batch.commit();
+
+        toast({ title: 'Nudge Sent!', description: 'You earned +2 points for encouraging a fellow member.' });
+        setNudgeRecipient("");
+    } catch (error) {
+        console.error("Error sending nudge: ", error);
+        toast({ variant: 'destructive', title: 'Error Sending Nudge', description: 'Failed to send nudge. Please try again later.'});
+    } finally {
+        setIsSendingNudge(false);
+    }
   };
 
   return (
@@ -430,6 +543,41 @@ export default function Dashboard() {
                   </CardContent>
                   <CardFooter className="pt-0">
                     <Button onClick={handleReflectionSubmit} disabled={!reflection.trim()} className="w-full h-8 text-xs rounded-full">Share Reflection</Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card className="border-none shadow-sm flex flex-col">
+                  <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center mb-1">
+                          <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
+                          <span className="text-[10px] font-bold text-accent">+2 Pts</span>
+                      </div>
+                      <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
+                      <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1 space-y-3 pb-2">
+                      <Select value={nudgeRecipient} onValueChange={setNudgeRecipient}>
+                          <SelectTrigger className="text-xs bg-white h-9">
+                              <SelectValue placeholder="Select a member to encourage..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {nudgeableMembers?.filter(m => m.id !== user.uid).map(member => (
+                                  <SelectItem key={member.id} value={member.id} className="text-xs">{member.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      <Textarea 
+                          value={nudgeMessage}
+                          onChange={e => setNudgeMessage(e.target.value)}
+                          placeholder="Write a short, motivating note..."
+                          className="text-xs min-h-[50px] bg-white resize-none"
+                      />
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                      <Button onClick={handleSendNudge} disabled={isSendingNudge || !nudgeRecipient} className="w-full h-8 text-xs rounded-full">
+                          {isSendingNudge ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                          Send Nudge
+                      </Button>
                   </CardFooter>
                 </Card>
 
