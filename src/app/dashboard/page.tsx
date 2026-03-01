@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Dialog, 
   DialogContent, 
@@ -37,14 +38,15 @@ import {
   Mountain,
   Sunrise,
   BookUp,
-  GaugeCircle
+  GaugeCircle,
+  Send
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs, addDoc, increment } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
@@ -60,6 +62,9 @@ export default function Dashboard() {
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
+  
+  const [selectedNudgee, setSelectedNudgee] = useState<string>("");
+  const [isNudging, setIsNudging] = useState<boolean>(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -70,6 +75,56 @@ export default function Dashboard() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  const membersQuery = useMemoFirebase(() => collection(db, "users"), [db]);
+  const { data: members } = useCollection(membersQuery);
+
+  const nudgesCollectionQuery = useMemoFirebase(() => collection(db, "nudges"), [db]);
+
+  const sentNudgesQuery = useMemoFirebase(() => {
+    if (!user?.uid || !nudgesCollectionQuery) return null;
+    return query(nudgesCollectionQuery, where("nudgerId", "==", user.uid));
+  }, [nudgesCollectionQuery, user?.uid]);
+  const { data: sentNudges } = useCollection(sentNudgesQuery);
+
+  const receivedNudgesQuery = useMemoFirebase(() => {
+    if (!user?.uid || !nudgesCollectionQuery) return null;
+    return query(nudgesCollectionQuery, where("nudgedId", "==", user.uid));
+  }, [nudgesCollectionQuery, user?.uid]);
+  const { data: receivedNudges } = useCollection(receivedNudgesQuery);
+
+  useEffect(() => {
+    if (!sentNudges || !user || !db) return;
+  
+    const batch = writeBatch(db);
+    let changesMade = false;
+  
+    sentNudges.forEach(nudge => {
+      // Award bonus points for responded nudges
+      if (nudge.status === 'responded') {
+        const nudgeRef = doc(db, "nudges", nudge.id);
+        const userRef = doc(db, "users", user.uid);
+        
+        batch.update(userRef, { points: increment(2) });
+        batch.update(nudgeRef, { status: 'completed' });
+        changesMade = true;
+        toast({ title: "Nudge Bonus!", description: "+2 points for an answered nudge!" });
+      }
+      
+      // Expire old pending nudges
+      const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+      if (nudge.status === 'pending' && new Date(nudge.createdAt).getTime() < fourHoursAgo) {
+        const nudgeRef = doc(db, "nudges", nudge.id);
+        batch.update(nudgeRef, { status: 'expired' });
+        changesMade = true;
+      }
+    });
+  
+    if (changesMade) {
+      batch.commit().catch(e => console.error("Failed to process nudges", e));
+    }
+  
+  }, [sentNudges, user, db, toast]);
 
   const currentBookQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -172,7 +227,6 @@ export default function Dashboard() {
     }
 
     const ptsToAdd = pagesReadToday * 2;
-    const newPagesRead = (profile.currentPagesRead || 0) + pagesReadToday;
 
     let newStreak = profile.streak || 0;
     let newFreezeCount = profile.freezeCount ?? 2;
@@ -216,8 +270,8 @@ export default function Dashboard() {
     }
 
     const progressUpdate: any = {
-      points: (profile.points || 0) + ptsToAdd,
-      currentPagesRead: newPagesRead,
+      points: increment(ptsToAdd),
+      currentPagesRead: increment(pagesReadToday),
       streak: newStreak,
       freezeCount: finalFreezeCount,
       lastReadAt: new Date().toISOString()
@@ -231,6 +285,18 @@ export default function Dashboard() {
       await updateDoc(userRef, progressUpdate);
       toast({ title: toastTitle, description: toastDescription });
       setPagesReadToday(0);
+
+      // Check for and respond to any recent nudges
+      const pendingNudges = receivedNudges?.filter(n => n.status === 'pending');
+      if (pendingNudges && pendingNudges.length > 0) {
+        const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+        const recentNudge = pendingNudges.find(n => new Date(n.createdAt).getTime() > fourHoursAgo);
+
+        if (recentNudge) {
+          await updateDoc(doc(db, "nudges", recentNudge.id), { status: 'responded' });
+        }
+      }
+
     } catch (e) {
       console.error("Error marking complete:", e);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -259,7 +325,8 @@ export default function Dashboard() {
       return;
     }
 
-    setDoc(challRef, {
+    const batch = writeBatch(db);
+    batch.set(challRef, {
       id: reflectionId,
       challengeId: "reflection_daily",
       userId: user.uid,
@@ -268,13 +335,72 @@ export default function Dashboard() {
       pointsEarned: reward,
       submissionText: reflection
     });
+    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
+    await batch.commit();
 
-    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     setReflection("");
     toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
   };
 
-  const handleCheckIn = (discussion: any) => {
+  const handleSendNudge = async () => {
+    if (!selectedNudgee || !user || !profile || !sentNudges) return;
+    setIsNudging(true);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todaysNudges = sentNudges.filter(n => new Date(n.createdAt) >= today);
+
+    if (todaysNudges.length >= 3) {
+      toast({ variant: "destructive", title: "Daily Limit Reached", description: "You can only send 3 nudges per day." });
+      setIsNudging(false);
+      return;
+    }
+
+    if (todaysNudges.some(n => n.nudgedId === selectedNudgee)) {
+      toast({ variant: "destructive", title: "Already Nudged", description: "You can only nudge this member once per day." });
+      setIsNudging(false);
+      return;
+    }
+    
+    try {
+        const nudgedUser = members?.find(m => m.id === selectedNudgee);
+        const batch = writeBatch(db);
+        
+        const newNudgeRef = doc(collection(db, "nudges"));
+        batch.set(newNudgeRef, {
+            id: newNudgeRef.id,
+            nudgerId: user.uid,
+            nudgedId: selectedNudgee,
+            createdAt: new Date().toISOString(),
+            status: 'pending'
+        });
+
+        batch.update(doc(db, "users", user.uid), { points: increment(1) });
+
+        const newNotifRef = doc(collection(db, "users", selectedNudgee, "notifications"));
+        batch.set(newNotifRef, {
+            id: newNotifRef.id,
+            userId: selectedNudgee,
+            type: "Nudge",
+            message: `${profile.name} sent you a spiritual nudge!`,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+
+        await batch.commit();
+        toast({ title: "Nudge Sent!", description: `You encouraged ${nudgedUser?.name}. +1 point!` });
+    } catch (e) {
+        console.error(e);
+        toast({ variant: "destructive", title: "Nudge Failed", description: "Could not send nudge." });
+    } finally {
+        setIsNudging(false);
+        setSelectedNudgee("");
+    }
+  };
+
+  const handleCheckIn = async (discussion: any) => {
     const discDate = new Date(discussion.scheduledDateTime);
     const now = new Date();
     const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
@@ -286,7 +412,9 @@ export default function Dashboard() {
 
     const reward = 20;
     const checkInId = `att_${discussion.id}`;
-    setDoc(doc(db, "users", user.uid, "userChallenges", checkInId), {
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users", user.uid, "userChallenges", checkInId), {
       id: checkInId,
       challengeId: discussion.id,
       userId: user.uid,
@@ -294,12 +422,13 @@ export default function Dashboard() {
       completedAt: new Date().toISOString(),
       pointsEarned: reward
     });
+    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
+    await batch.commit();
 
-    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
     toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
   };
 
-  const handleSubmissionForChallenge = () => {
+  const handleSubmissionForChallenge = async () => {
     if (!completingChallenge || !submissionText.trim() || !user) return;
 
     const reward = completingChallenge.pointsReward;
@@ -317,20 +446,22 @@ export default function Dashboard() {
 
     const challengeDocRef = doc(db, "users", user.uid, "userChallenges", userChallengeId);
 
-    setDoc(challengeDocRef, userChallengeData)
-      .catch((e) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: challengeDocRef.path,
-          operation: 'create',
-          requestResourceData: userChallengeData
-        }));
-        toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your submission." });
-      });
+    const batch = writeBatch(db);
+    batch.set(challengeDocRef, userChallengeData);
+    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
 
-    updateDocumentNonBlocking(doc(db, "users", user.uid), { points: (profile.points || 0) + reward });
+    try {
+      await batch.commit();
+      toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
+    } catch (e) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: challengeDocRef.path,
+        operation: 'create',
+        requestResourceData: userChallengeData
+      }));
+      toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your submission." });
+    }
     
-    toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
-
     setCompletingChallenge(null);
     setSubmissionText("");
   };
@@ -339,7 +470,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-        <div className="grid md:grid-cols-4 gap-6 items-center">
+        <div className="grid md:grid-cols-4 gap-6 items-start">
           <div className="md:col-span-2 flex items-start gap-6">
             <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold shrink-0">
               {profile.profilePictureUrl ? (
@@ -472,6 +603,36 @@ export default function Dashboard() {
                   </CardContent>
                   <CardFooter className="pt-0">
                     <Button onClick={handleReflectionSubmit} disabled={!reflection.trim()} className="w-full h-8 text-xs rounded-full">Share Reflection</Button>
+                  </CardFooter>
+                </Card>
+
+                <Card className="border-none shadow-sm flex flex-col">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
+                      <span className="text-[10px] font-bold text-accent">+1 Pt (+2 Bonus)</span>
+                    </div>
+                    <CardTitle className="text-sm font-headline">Fellowship Nudge</CardTitle>
+                    <CardDescription className="text-[10px] line-clamp-2">Encourage a fellow member on their journey. (Max 3/day)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1 pb-4">
+                    <Select onValueChange={setSelectedNudgee} value={selectedNudgee}>
+                        <SelectTrigger disabled={isNudging}>
+                            <SelectValue placeholder="Select a member to nudge" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {members?.filter(m => m.id !== user.uid && m.status === 'Active').map(member => (
+                                <SelectItem key={member.id} value={member.id}>
+                                    {member.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <Button onClick={handleSendNudge} disabled={!selectedNudgee || isNudging} className="w-full h-8 text-xs rounded-full">
+                      {isNudging ? <Loader2 className="animate-spin h-4 w-4" /> : <><Send className="h-3 w-3 mr-1" />Send Nudge</>}
+                    </Button>
                   </CardFooter>
                 </Card>
 
