@@ -81,6 +81,8 @@ export default function Register() {
         pagesPerDay: values.pagesPerDay,
         spiritualGoal: values.spiritualGoal,
         points: 0,
+        monthlyPoints: 0,
+        currentMonth: new Date().toISOString().slice(0, 7),
         currentPagesRead: 0,
         level: 1,
         streak: 0,

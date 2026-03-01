@@ -41,10 +41,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, UserProfile } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, updateDoc, writeBatch, getDocs, increment } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   const leaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
+    return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(20));
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
 
@@ -172,68 +172,94 @@ export default function Dashboard() {
     }
 
     const ptsToAdd = pagesReadToday * 2;
-
-    let newStreak = profile.streak || 0;
-    let newFreezeCount = profile.freezeCount ?? 2;
     let toastTitle = "Progress Recorded";
     let toastDescription = `+${ptsToAdd} points earned!`;
 
-    if (!lastReadDayStart) {
-        newStreak = 1;
-        toastDescription += ` Your streak starts at 1 day!`;
-    } else {
-        const diffTime = todayStart.getTime() - lastReadDayStart.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) {
+          throw "Document does not exist!";
+        }
+        const currentProfile = userSnap.data() as UserProfile;
 
-        if (diffDays === 1) {
-            newStreak += 1;
-            toastDescription += ` Streak extended to ${newStreak} days!`;
-        } else if (diffDays > 1) {
-            const daysToCover = diffDays - 1;
-            if (newFreezeCount >= daysToCover) {
-                newFreezeCount -= daysToCover;
-                toastTitle = "Streak Preserved!";
-                toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used. You have ${newFreezeCount} freeze(s) left.`;
-            } else {
-                newStreak = 1;
-                toastTitle = "Streak Reset";
-                toastDescription = `You missed ${diffDays-1} day(s) with only ${newFreezeCount} freeze(s) left. Your streak resets to 1.`;
+        const transactionLastReadDay = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
+        let transactionLastReadDayStart: Date | null = null;
+        if(transactionLastReadDay) {
+            transactionLastReadDayStart = new Date(transactionLastReadDay.getFullYear(), transactionLastReadDay.getMonth(), transactionLastReadDay.getDate());
+        }
+
+        let newStreak = currentProfile.streak || 0;
+        let newFreezeCount = currentProfile.freezeCount ?? 2;
+
+        if (!transactionLastReadDayStart) {
+            newStreak = 1;
+            toastDescription += ` Your streak starts at 1 day!`;
+        } else {
+            const diffTime = todayStart.getTime() - transactionLastReadDayStart.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+                newStreak += 1;
+                toastDescription += ` Streak extended to ${newStreak} days!`;
+            } else if (diffDays > 1) {
+                const daysToCover = diffDays - 1;
+                if (newFreezeCount >= daysToCover) {
+                    newFreezeCount -= daysToCover;
+                    toastTitle = "Streak Preserved!";
+                    toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used. You have ${newFreezeCount} freeze(s) left.`;
+                } else {
+                    newStreak = 1;
+                    toastTitle = "Streak Reset";
+                    toastDescription = `You missed ${diffDays-1} day(s) with only ${newFreezeCount} freeze(s) left. Your streak resets to 1.`;
+                }
             }
         }
-    }
 
-    const lastRefillDate = profile.lastFreezeRefill ? new Date(profile.lastFreezeRefill) : new Date(0);
-    const lastMonday = new Date(today);
-    lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    lastMonday.setHours(0, 0, 0, 0);
+        const lastRefillDate = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
+        const lastMonday = new Date(today);
+        lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
 
-    let needsRefill = false;
-    let finalFreezeCount = newFreezeCount;
-    if (lastRefillDate < lastMonday) {
-        finalFreezeCount = 2 - ( (profile.freezeCount ?? 2) - newFreezeCount);
-        needsRefill = true;
-    }
+        let needsRefill = false;
+        let finalFreezeCount = newFreezeCount;
+        if (lastRefillDate < lastMonday) {
+            finalFreezeCount = 2 - ( (currentProfile.freezeCount ?? 2) - newFreezeCount);
+            needsRefill = true;
+        }
 
-    const progressUpdate: any = {
-      points: increment(ptsToAdd),
-      currentPagesRead: increment(pagesReadToday),
-      streak: newStreak,
-      freezeCount: finalFreezeCount,
-      lastReadAt: new Date().toISOString()
-    };
-    if (needsRefill) {
-        progressUpdate.lastFreezeRefill = new Date().toISOString();
-        toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
-    }
-    
-    try {
-      await updateDoc(userRef, progressUpdate);
+        const currentMonthStr = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + ptsToAdd
+            : ptsToAdd;
+
+        const progressUpdate: any = {
+          points: (currentProfile.points || 0) + ptsToAdd,
+          currentPagesRead: (currentProfile.currentPagesRead || 0) + pagesReadToday,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+          streak: newStreak,
+          freezeCount: finalFreezeCount,
+          lastReadAt: new Date().toISOString()
+        };
+        if (needsRefill) {
+            progressUpdate.lastFreezeRefill = new Date().toISOString();
+            toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
+        }
+        
+        transaction.update(userRef, progressUpdate);
+      });
       toast({ title: toastTitle, description: toastDescription });
       setPagesReadToday(0);
     } catch (e) {
       console.error("Error marking complete:", e);
+      const errorData: any = {
+        pagesRead: pagesReadToday,
+        pointsToAdd: ptsToAdd
+      };
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userRef.path, operation: 'update', requestResourceData: progressUpdate
+          path: userRef.path, operation: 'update', requestResourceData: errorData
       }));
       toast({ variant: "destructive", title: "Update Failed", description: "Could not save your progress." });
     } finally {
@@ -258,21 +284,42 @@ export default function Dashboard() {
       return;
     }
 
-    const batch = writeBatch(db);
-    batch.set(challRef, {
-      id: reflectionId,
-      challengeId: "reflection_daily",
-      userId: user.uid,
-      status: "Completed",
-      completedAt: new Date().toISOString(),
-      pointsEarned: reward,
-      submissionText: reflection
-    });
-    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
-    await batch.commit();
+    const userRef = doc(db, "users", user.uid);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw "User does not exist";
+        const currentProfile = userSnap.data();
 
-    setReflection("");
-    toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
+        transaction.set(challRef, {
+          id: reflectionId,
+          challengeId: "reflection_daily",
+          userId: user.uid,
+          status: "Completed",
+          completedAt: new Date().toISOString(),
+          pointsEarned: reward,
+          submissionText: reflection
+        });
+
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        transaction.update(userRef, {
+          points: (currentProfile.points || 0) + reward,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+        });
+      });
+
+      setReflection("");
+      toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
+    } catch(e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your reflection." });
+    }
   };
 
   const handleCheckIn = async (discussion: any) => {
@@ -287,20 +334,40 @@ export default function Dashboard() {
 
     const reward = 20;
     const checkInId = `att_${discussion.id}`;
+    const userRef = doc(db, "users", user.uid);
 
-    const batch = writeBatch(db);
-    batch.set(doc(db, "users", user.uid, "userChallenges", checkInId), {
-      id: checkInId,
-      challengeId: discussion.id,
-      userId: user.uid,
-      status: "Completed",
-      completedAt: new Date().toISOString(),
-      pointsEarned: reward
-    });
-    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
-    await batch.commit();
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw "User does not exist";
+        const currentProfile = userSnap.data();
 
-    toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
+        transaction.set(doc(db, "users", user.uid, "userChallenges", checkInId), {
+          id: checkInId,
+          challengeId: discussion.id,
+          userId: user.uid,
+          status: "Completed",
+          completedAt: new Date().toISOString(),
+          pointsEarned: reward
+        });
+
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+        
+        transaction.update(userRef, {
+          points: (currentProfile.points || 0) + reward,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+        });
+      });
+      toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
+    } catch(e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Check-in Failed", description: "Could not save your check-in." });
+    }
   };
 
   const handleSubmissionForChallenge = async () => {
@@ -320,13 +387,28 @@ export default function Dashboard() {
     };
 
     const challengeDocRef = doc(db, "users", user.uid, "userChallenges", userChallengeId);
-
-    const batch = writeBatch(db);
-    batch.set(challengeDocRef, userChallengeData);
-    batch.update(doc(db, "users", user.uid), { points: increment(reward) });
+    const userRef = doc(db, "users", user.uid);
 
     try {
-      await batch.commit();
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw "User does not exist";
+        const currentProfile = userSnap.data();
+
+        transaction.set(challengeDocRef, userChallengeData);
+
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        transaction.update(userRef, {
+          points: (currentProfile.points || 0) + reward,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+        });
+      });
       toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
     } catch (e) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -376,7 +458,7 @@ export default function Dashboard() {
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
               <Star className="h-4 w-4 text-accent fill-accent" />
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Points</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Total Points</p>
                 <p className="text-lg font-bold text-primary">{profile.points?.toLocaleString() || 0}</p>
               </div>
             </div>
@@ -546,7 +628,7 @@ export default function Dashboard() {
 
             <Card className="border-none shadow-sm overflow-hidden">
               <CardHeader className="bg-accent/5 pb-3">
-                <CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-accent" /> Fellowship Rank</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-accent" /> Monthly Leaderboard</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {leaderboardMembers?.map((m, i) => (
@@ -554,7 +636,7 @@ export default function Dashboard() {
                     <span className="font-headline font-bold text-muted-foreground text-xs">#{i + 1}</span>
                     <div className="flex-1">
                       <p className="text-xs font-bold">{m.name}</p>
-                      <p className="text-[9px] text-muted-foreground uppercase">{m.points || 0} PTS</p>
+                      <p className="text-[9px] text-muted-foreground uppercase">{m.monthlyPoints || 0} PTS</p>
                     </div>
                     {m.streak > 0 && (
                       <div className="flex items-center gap-0.5 text-orange-500 font-bold text-[10px]">

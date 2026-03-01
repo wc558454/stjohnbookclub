@@ -11,7 +11,7 @@ import { MessageCircle, Heart, Share2, CornerDownRight, Loader2 } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -29,40 +29,54 @@ function CommentSection({ postId }: { postId: string }) {
 
   const { data: comments } = useCollection(commentsQuery);
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !user || !profile || isSubmitting) return;
 
     setIsSubmitting(true);
+    const reward = 2;
+    const commentId = Math.random().toString(36).substring(7);
+    const commentRef = doc(db, "forumPosts", postId, "comments", commentId);
+    const userRef = doc(db, "users", user.uid);
+    const commentData = {
+      id: commentId,
+      postId,
+      authorId: user.uid,
+      authorName: profile.name,
+      content: newComment,
+      createdAt: new Date().toISOString()
+    };
+
     try {
-      const commentId = Math.random().toString(36).substring(7);
-      const commentRef = doc(db, "forumPosts", postId, "comments", commentId);
-      const commentData = {
-        id: commentId,
-        postId,
-        authorId: user.uid,
-        authorName: profile.name,
-        content: newComment,
-        createdAt: new Date().toISOString()
-      };
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw "User does not exist";
+        const currentProfile = userSnap.data();
 
-      setDoc(commentRef, commentData)
-        .catch((e) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: commentRef.path,
-            operation: 'create',
-            requestResourceData: commentData,
-          }));
-          toast({ variant: "destructive", title: "Error", description: "Failed to post comment." });
+        transaction.set(commentRef, commentData);
+        
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        transaction.update(userRef, {
+          points: (currentProfile.points || 0) + reward,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
         });
-
-      // Optimistic updates
-      updateDocumentNonBlocking(doc(db, "users", user.uid), {
-        points: (profile.points || 0) + 2
       });
 
       setNewComment("");
-      toast({ title: "Comment Added", description: "+2 points earned!" });
+      toast({ title: "Comment Added", description: `+${reward} points earned!` });
+    } catch(error) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: commentRef.path,
+        operation: 'create',
+        requestResourceData: commentData,
+      }));
+      toast({ variant: "destructive", title: "Error", description: "Failed to post comment." });
     } finally {
       setIsSubmitting(false);
     }
@@ -112,40 +126,53 @@ export default function Forum() {
 
   const { data: posts } = useCollection(postsQuery);
 
-  const handlePostSubmit = (e: React.FormEvent) => {
+  const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPost.trim() || !user || !profile || isSubmitting) return;
 
     setIsSubmitting(true);
+    const reward = 5;
+    const postId = Math.random().toString(36).substring(7);
+    const postRef = doc(db, "forumPosts", postId);
+    const userRef = doc(db, "users", user.uid);
+    const postData = {
+      id: postId,
+      authorId: user.uid,
+      authorName: profile.name,
+      content: newPost,
+      likes: 0,
+      createdAt: new Date().toISOString()
+    };
+    
     try {
-      const postId = Math.random().toString(36).substring(7);
-      const postRef = doc(db, "forumPosts", postId);
-      const postData = {
-        id: postId,
-        authorId: user.uid,
-        authorName: profile.name,
-        content: newPost,
-        likes: 0,
-        createdAt: new Date().toISOString()
-      };
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw "User does not exist";
+        const currentProfile = userSnap.data();
 
-      setDoc(postRef, postData)
-        .catch((e) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: postRef.path,
-            operation: 'create',
-            requestResourceData: postData,
-          }));
-          toast({ variant: "destructive", title: "Error", description: "Failed to post reflection." });
+        transaction.set(postRef, postData);
+        
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        transaction.update(userRef, {
+          points: (currentProfile.points || 0) + reward,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
         });
-
-      // Optimistic UI updates
-      updateDocumentNonBlocking(doc(db, "users", user.uid), {
-        points: (profile.points || 0) + 5
       });
-
       setNewPost("");
-      toast({ title: "Reflection Shared", description: "Your reflection is live! +5 points earned." });
+      toast({ title: "Reflection Shared", description: `Your reflection is live! +${reward} points earned.` });
+    } catch (error) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: postRef.path,
+        operation: 'create',
+        requestResourceData: postData,
+      }));
+      toast({ variant: "destructive", title: "Error", description: "Failed to post reflection." });
     } finally {
       setIsSubmitting(false);
     }

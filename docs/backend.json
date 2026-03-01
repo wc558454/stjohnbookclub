@@ -60,6 +60,15 @@
           "type": "string",
           "description": "A short, personal spiritual goal set by the user during registration.",
           "maxLength": 500
+        },
+        "monthlyPoints": {
+          "type": "number",
+          "description": "The total points earned by the user in the current month.",
+          "format": "int32"
+        },
+        "currentMonth": {
+          "type": "string",
+          "description": "The current month for which monthly points are being tracked, in YYYY-MM format."
         }
       },
       "required": [

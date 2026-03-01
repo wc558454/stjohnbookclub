@@ -26,6 +26,9 @@ export type UserProfile = {
   lastReadAt?: string;
   freezeCount?: number;
   lastFreezeRefill?: string;
+  spiritualGoal?: string;
+  monthlyPoints?: number;
+  currentMonth?: string;
 };
 
 export function useAuth() {
