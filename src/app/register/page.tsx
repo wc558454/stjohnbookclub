@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -235,14 +236,6 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-4 pt-4 border-t">
-                  <FormItem>
-                    <FormLabel>Profile Picture</FormLabel>
-                    <FormControl>
-                      <Input type="file" accept="image/*" className="cursor-pointer" />
-                    </FormControl>
-                    <FormDescription>Optional: Upload a portrait for your membership card.</FormDescription>
-                  </FormItem>
-
                   <FormField
                     control={form.control}
                     name="spiritualGoal"

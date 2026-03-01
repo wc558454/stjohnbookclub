@@ -309,8 +309,8 @@ export default function Dashboard() {
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
         <div className="grid md:grid-cols-4 gap-6 items-center">
-          <div className="md:col-span-2 flex items-center gap-6">
-            <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold">
+          <div className="md:col-span-2 flex items-start gap-6">
+            <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold shrink-0">
               {profile.profilePictureUrl ? (
                 <Image src={profile.profilePictureUrl} alt={profile.name} fill className="object-cover" />
               ) : profile.name?.charAt(0)}
@@ -328,6 +328,11 @@ export default function Dashboard() {
                    </div>
                 </div>
               </div>
+              {profile.spiritualGoal && (
+                <blockquote className="mt-4 border-l-2 pl-4 italic text-muted-foreground text-sm max-w-md">
+                  {profile.spiritualGoal}
+                </blockquote>
+              )}
             </div>
           </div>
           <div className="md:col-span-2 flex justify-end gap-3">
