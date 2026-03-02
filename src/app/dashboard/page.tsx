@@ -39,7 +39,6 @@ import {
   BookUp,
   GaugeCircle,
   PartyPopper,
-  Library,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -80,12 +79,6 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: currentBooks } = useCollection(currentBookQuery);
   const currentBook = currentBooks?.[0];
-
-  const finishedBooksQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(db, "books"), where("status", "in", ["finished", "archived"]), orderBy("createdAt", "desc"));
-  }, [db, user]);
-  const { data: finishedBooks } = useCollection(finishedBooksQuery);
 
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -551,35 +544,6 @@ export default function Dashboard() {
                 </Button>
               </CardContent>
             </Card>
-
-            <div className="space-y-4">
-              <h3 className="font-headline text-lg font-bold text-primary flex items-center gap-2">
-                <Library className="h-4 w-4 text-accent" /> Completed Library
-              </h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                {finishedBooks?.map(book => (
-                  <Card key={book.id} className="border-none shadow-sm flex flex-col bg-muted/20">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center mb-1">
-                        <Badge variant="outline" className="text-[9px] uppercase">{book.status}</Badge>
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Fellowship Success</Badge>
-                      </div>
-                      <CardTitle className="text-sm font-headline">{book.title}</CardTitle>
-                      <CardDescription className="text-[10px] line-clamp-2">{book.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-0 flex items-center gap-2">
-                       <BookOpen className="h-3 w-3 text-muted-foreground" />
-                       <span className="text-[10px] font-bold text-muted-foreground">{book.totalPages} pages total</span>
-                    </CardContent>
-                  </Card>
-                ))}
-                {finishedBooks?.length === 0 && (
-                   <div className="col-span-2 py-10 text-center border border-dashed rounded-xl">
-                      <p className="text-xs text-muted-foreground italic">The fellowship's completed library will grow as we advance.</p>
-                   </div>
-                )}
-              </div>
-            </div>
           </div>
 
           <div className="space-y-6">
