@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, getDocs, writeBatch, runTransaction } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -334,17 +334,49 @@ export default function AdminDashboard() {
     toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
   };
 
-  const handleConfirmAdjustPoints = () => {
-    if (!adjustingMember) return;
+  const handleConfirmAdjustPoints = async () => {
+    if (!adjustingMember || !db) return;
     
-    const currentPoints = adjustingMember.points || 0;
-    const newPoints = currentPoints + (pointsAdjustment || 0);
+    const userRef = doc(db, "users", adjustingMember.id);
+    const adjustment = pointsAdjustment || 0;
 
-    updateDocumentNonBlocking(doc(db, "users", adjustingMember.id), { points: newPoints });
-    
-    toast({ title: "Points Adjusted", description: `${adjustingMember.name}'s points updated to ${newPoints}.` });
-    setAdjustingMember(null);
-    setPointsAdjustment(0);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) {
+          throw new Error("User not found");
+        }
+        const currentProfile = userSnap.data();
+        
+        const newPoints = (currentProfile.points || 0) + adjustment;
+
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const newMonthlyPoints =
+          currentProfile.currentMonth === currentMonthStr
+            ? (currentProfile.monthlyPoints || 0) + adjustment
+            : adjustment;
+
+        transaction.update(userRef, { 
+          points: newPoints,
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+        });
+      });
+
+      toast({ 
+        title: "Points Adjusted", 
+        description: `${adjustingMember.name}'s points have been updated.` 
+      });
+      setAdjustingMember(null);
+      setPointsAdjustment(0);
+    } catch (error: any) {
+      console.error("Failed to adjust points:", error);
+      toast({
+        variant: "destructive",
+        title: "Adjustment Failed",
+        description: error.message || "Could not update points.",
+      });
+    }
   };
 
   const totalMembers = members?.length || 0;
