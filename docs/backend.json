@@ -74,6 +74,13 @@
           "type": "number",
           "description": "The highest number of pages read by the user in a single day.",
           "format": "int32"
+        },
+        "currentPagesRead": {
+          "type": "number",
+          "description": "Pages read in the current active book."
+        },
+        "freezeCount": {
+          "type": "number"
         }
       },
       "required": [
@@ -111,11 +118,16 @@
           "description": "The total number of pages in the book.",
           "format": "int32"
         },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "current", "finished", "archived"]
+        },
         "currentReadingPlanDueDate": {
           "type": "string",
           "description": "The due date for completing this book within the current bookclub reading plan. (Optional)",
           "format": "date-time"
-        }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": [
         "id",
@@ -123,6 +135,19 @@
         "description",
         "totalPages"
       ]
+    },
+    "ReadingProgress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ReadingProgress",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Equal to the bookId." },
+        "bookId": { "type": "string" },
+        "pagesRead": { "type": "number" },
+        "isFinished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "bookId", "pagesRead"]
     },
     "Challenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -228,7 +253,7 @@
         "definition": {
           "entityName": "Notification",
           "schema": { "$ref": "#/backend/entities/Notification" },
-          "description": "User-specific notifications, like announcements."
+          "description": "User-specific notifications."
         }
       },
       {
@@ -239,6 +264,14 @@
             "$ref": "#/backend/entities/UserChallenge"
           },
           "description": "Records of challenges a user has completed."
+        }
+      },
+      {
+        "path": "/users/{userId}/readingProgress/{bookId}",
+        "definition": {
+          "entityName": "ReadingProgress",
+          "schema": { "$ref": "#/backend/entities/ReadingProgress" },
+          "description": "Per-book reading progress for a user."
         }
       },
       {
@@ -271,6 +304,14 @@
           "entityName": "Discussion",
           "schema": { "$ref": "#/backend/entities/Discussion" },
           "description": "Scheduled discussions."
+        }
+      },
+      {
+        "path": "/books/{bookId}",
+        "definition": {
+          "entityName": "Book",
+          "schema": { "$ref": "#/backend/entities/Book" },
+          "description": "Global library of books."
         }
       }
     ]

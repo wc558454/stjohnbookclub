@@ -31,7 +31,6 @@ import {
   CalendarDays,
   Loader2,
   Snowflake,
-  MessageSquare,
   Search,
   Footprints,
   Milestone,
@@ -39,6 +38,8 @@ import {
   Sunrise,
   BookUp,
   GaugeCircle,
+  PartyPopper,
+  Library,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -58,6 +59,7 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
@@ -78,6 +80,18 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: currentBooks } = useCollection(currentBookQuery);
   const currentBook = currentBooks?.[0];
+
+  const finishedBooksQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "books"), where("status", "in", ["finished", "archived"]), orderBy("createdAt", "desc"));
+  }, [db, user]);
+  const { data: finishedBooks } = useCollection(finishedBooksQuery);
+
+  const readingProgressQuery = useMemoFirebase(() => {
+    if (!user?.uid) return null;
+    return collection(db, "users", user.uid, "readingProgress");
+  }, [db, user?.uid]);
+  const { data: readingProgressData } = useCollection(readingProgressQuery);
 
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -116,10 +130,10 @@ export default function Dashboard() {
     if (remainingPages <= 0) return 0;
 
     const dueDate = new Date(currentBook.currentReadingPlanDueDate);
-    dueDate.setHours(23, 59, 59, 999); // End of due day
+    dueDate.setHours(23, 59, 59, 999);
     const today = new Date();
     
-    if (dueDate < today) return remainingPages; // If due date is past, they need to read all remaining pages today.
+    if (dueDate < today) return remainingPages;
 
     const diffTime = dueDate.getTime() - today.getTime();
     const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -145,12 +159,13 @@ export default function Dashboard() {
   const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
   
   const handleMarkComplete = async () => {
+    if (!currentBook) return;
     if (pagesReadToday <= 0) {
       toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a positive number of pages." });
       return;
     }
 
-    if (currentBook && (readingTotal + pagesReadToday) > currentBook.totalPages) {
+    if ((readingTotal + pagesReadToday) > currentBook.totalPages) {
       toast({ variant: "destructive", title: "Page Limit Exceeded", description: `Cannot log more than ${currentBook.totalPages} pages.` });
       return;
     }
@@ -158,6 +173,7 @@ export default function Dashboard() {
     setIsSubmitting(true);
 
     const userRef = doc(db, "users", user.uid);
+    const progressRef = doc(db, "users", user.uid, "readingProgress", currentBook.id);
     
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -185,9 +201,7 @@ export default function Dashboard() {
     try {
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) {
-          throw "Document does not exist!";
-        }
+        if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
 
         const transactionLastReadDay = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
@@ -201,7 +215,6 @@ export default function Dashboard() {
 
         if (!transactionLastReadDayStart) {
             newStreak = 1;
-            toastDescription += ` Your streak starts at 1 day!`;
         } else {
             const diffTime = todayStart.getTime() - transactionLastReadDayStart.getTime();
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -214,11 +227,10 @@ export default function Dashboard() {
                 if (newFreezeCount >= daysToCover) {
                     newFreezeCount -= daysToCover;
                     toastTitle = "Streak Preserved!";
-                    toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used. You have ${newFreezeCount} freeze(s) left.`;
+                    toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used.`;
                 } else {
                     newStreak = 1;
                     toastTitle = "Streak Reset";
-                    toastDescription = `You missed ${diffDays-1} day(s) with only ${newFreezeCount} freeze(s) left. Your streak resets to 1.`;
                 }
             }
         }
@@ -231,21 +243,22 @@ export default function Dashboard() {
         let needsRefill = false;
         let finalFreezeCount = newFreezeCount;
         if (lastRefillDate < lastMonday) {
-            finalFreezeCount = 2 - ( (currentProfile.freezeCount ?? 2) - newFreezeCount);
+            finalFreezeCount = 2 - ((currentProfile.freezeCount ?? 2) - newFreezeCount);
             needsRefill = true;
         }
 
-        const currentMonthStr = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
         const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, pagesReadToday);
+        const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
 
         const progressUpdate: any = {
           points: (currentProfile.points || 0) + ptsToAdd,
-          currentPagesRead: (currentProfile.currentPagesRead || 0) + pagesReadToday,
+          currentPagesRead: newPagesReadTotal,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           streak: newStreak,
@@ -255,26 +268,37 @@ export default function Dashboard() {
         };
         if (needsRefill) {
             progressUpdate.lastFreezeRefill = new Date().toISOString();
-            toast({ title: "Streak Freezes Refilled!", description: "You have 2 freezes for the week." });
         }
         
         transaction.update(userRef, progressUpdate);
+
+        // Update detailed reading progress history
+        transaction.set(progressRef, {
+          id: currentBook.id,
+          bookId: currentBook.id,
+          pagesRead: newPagesReadTotal,
+          isFinished: newPagesReadTotal >= currentBook.totalPages,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        if (newPagesReadTotal >= currentBook.totalPages) {
+           // Celebration logic after commit
+        }
       });
+      
       toast({ title: toastTitle, description: toastDescription });
+      
+      if (readingTotal + pagesReadToday >= currentBook.totalPages) {
+        setShowCompletionCelebration(true);
+      }
+
       if (pagesReadToday > (profile.personalBestPages || 0)) {
-        toast({ title: "New Personal Best!", description: `You read ${pagesReadToday} pages today, setting a new record!` });
+        toast({ title: "New Personal Best!", description: `You read ${pagesReadToday} pages today!` });
       }
       setPagesReadToday(0);
     } catch (e) {
-      console.error("Error marking complete:", e);
-      const errorData: any = {
-        pagesRead: pagesReadToday,
-        pointsToAdd: ptsToAdd
-      };
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userRef.path, operation: 'update', requestResourceData: errorData
-      }));
-      toast({ variant: "destructive", title: "Update Failed", description: "Could not save your progress." });
+      console.error(e);
+      toast({ variant: "destructive", title: "Update Failed" });
     } finally {
       setIsSubmitting(false);
     }
@@ -293,7 +317,7 @@ export default function Dashboard() {
     const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
     const challSnap = await getDoc(challRef);
     if(challSnap.exists()) {
-      toast({ variant: "destructive", title: "Already Reflected", description: "You can only submit one reflection per day."});
+      toast({ variant: "destructive", title: "Already Reflected", description: "One reflection per day."});
       return;
     }
 
@@ -330,8 +354,7 @@ export default function Dashboard() {
       setReflection("");
       toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
     } catch(e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your reflection." });
+      toast({ variant: "destructive", title: "Submission Failed" });
     }
   };
 
@@ -341,7 +364,7 @@ export default function Dashboard() {
     const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
 
     if (diffHours < 0 || diffHours > 24) {
-      toast({ variant: "destructive", title: "Check-in Not Available", description: "You can only check-in within 24 hours of the discussion start time." });
+      toast({ variant: "destructive", title: "Check-in Not Available", description: "Check-in within 24 hours of start." });
       return;
     }
 
@@ -376,10 +399,9 @@ export default function Dashboard() {
           currentMonth: currentMonthStr,
         });
       });
-      toast({ title: "Checked In", description: `+${reward} points for attending discussion!` });
+      toast({ title: "Checked In", description: `+${reward} points earned!` });
     } catch(e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Check-in Failed", description: "Could not save your check-in." });
+      toast({ variant: "destructive", title: "Check-in Failed" });
     }
   };
 
@@ -399,7 +421,6 @@ export default function Dashboard() {
       submissionText: submissionText
     };
 
-    const challengeDocRef = doc(db, "users", user.uid, "userChallenges", userChallengeId);
     const userRef = doc(db, "users", user.uid);
 
     try {
@@ -408,7 +429,7 @@ export default function Dashboard() {
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data();
 
-        transaction.set(challengeDocRef, userChallengeData);
+        transaction.set(doc(db, "users", user.uid, "userChallenges", userChallengeId), userChallengeData);
 
         const currentMonthStr = new Date().toISOString().slice(0, 7);
         const newMonthlyPoints =
@@ -424,12 +445,7 @@ export default function Dashboard() {
       });
       toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
     } catch (e) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: challengeDocRef.path,
-        operation: 'create',
-        requestResourceData: userChallengeData
-      }));
-      toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your submission." });
+      toast({ variant: "destructive", title: "Submission Failed" });
     }
     
     setCompletingChallenge(null);
@@ -550,7 +566,7 @@ export default function Dashboard() {
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Today</Label>
                   <Input type="number" value={pagesReadToday} onChange={(e) => setPagesReadToday(parseInt(e.target.value) || 0)} className="h-10 bg-white" />
                 </div>
-                <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting} className="h-10 px-8 rounded-full font-bold">
+                <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting || !currentBook} className="h-10 px-8 rounded-full font-bold">
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
                 </Button>
               </CardContent>
@@ -558,60 +574,38 @@ export default function Dashboard() {
 
             <div className="space-y-4">
               <h3 className="font-headline text-lg font-bold text-primary flex items-center gap-2">
-                <Zap className="h-4 w-4 text-accent" /> Spiritual Challenges
+                <Library className="h-4 w-4 text-accent" /> Completed Library
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                <Card className="border-none shadow-sm flex flex-col bg-secondary/20">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center mb-1">
-                      <Badge variant="outline" className="text-[9px] uppercase border-accent/30">Daily</Badge>
-                      <span className="text-[10px] font-bold text-accent">+10 Pts</span>
-                    </div>
-                    <CardTitle className="text-sm font-headline">Reflection of the Day</CardTitle>
-                    <CardDescription className="text-[10px] line-clamp-2">Submit a reflection of at least 50 words on today's reading.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-1 pb-2">
-                    <Textarea 
-                      placeholder="Today's meditation..." 
-                      className="text-xs min-h-[80px] bg-white resize-none"
-                      value={reflection}
-                      onChange={(e) => setReflection(e.target.value)}
-                    />
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                    <Button onClick={handleReflectionSubmit} disabled={!reflection.trim()} className="w-full h-8 text-xs rounded-full">Share Reflection</Button>
-                  </CardFooter>
-                </Card>
-
-                {challenges?.map(chall => {
-                  const completed = userChallenges?.some(uc => uc.challengeId === chall.id && uc.status === "Completed");
+                {finishedBooks?.map(book => {
+                  const progress = readingProgressData?.find(p => p.bookId === book.id);
+                  const pagesRead = progress?.pagesRead || 0;
+                  const isFinished = progress?.isFinished || pagesRead >= book.totalPages;
                   return (
-                    <Card key={chall.id} className="border-none shadow-sm flex flex-col">
+                    <Card key={book.id} className="border-none shadow-sm flex flex-col bg-muted/20">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-center mb-1">
-                          <Badge variant="outline" className="text-[9px] uppercase border-accent/30">{chall.type}</Badge>
-                          <span className="text-[10px] font-bold text-accent">+{chall.pointsReward} Pts</span>
+                          <Badge variant="outline" className="text-[9px] uppercase">{book.status}</Badge>
+                          {isFinished ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Finished</Badge>
+                          ) : (
+                            <span className="text-[10px] font-bold text-muted-foreground">{pagesRead} / {book.totalPages} pgs</span>
+                          )}
                         </div>
-                        <CardTitle className="text-sm font-headline">{chall.title}</CardTitle>
-                        <CardDescription className="text-[10px] line-clamp-2">{chall.description}</CardDescription>
+                        <CardTitle className="text-sm font-headline">{book.title}</CardTitle>
+                        <CardDescription className="text-[10px] line-clamp-2">{book.description}</CardDescription>
                       </CardHeader>
-                      <CardContent className="flex-1 text-[10px] italic text-muted-foreground pb-2">
-                        Criteria: {chall.completionCriteria}
+                      <CardContent className="pt-0">
+                        <Progress value={(pagesRead / book.totalPages) * 100} className="h-1.5" />
                       </CardContent>
-                      <CardFooter className="pt-0">
-                        {completed ? (
-                          <div className="w-full flex items-center justify-center gap-1.5 text-green-600 font-bold text-[10px] h-8 bg-green-50 rounded-full">
-                            <CheckCircle2 className="h-3.3" /> COMPLETED
-                          </div>
-                        ) : (
-                          <Button onClick={() => setCompletingChallenge(chall)} variant="outline" className="w-full h-8 text-xs rounded-full border-accent text-accent hover:bg-accent hover:text-white transition-colors">
-                            Complete Challenge
-                          </Button>
-                        )}
-                      </CardFooter>
                     </Card>
                   );
                 })}
+                {finishedBooks?.length === 0 && (
+                   <div className="col-span-2 py-10 text-center border border-dashed rounded-xl">
+                      <p className="text-xs text-muted-foreground italic">Your completed library will grow as the fellowship advances.</p>
+                   </div>
+                )}
               </div>
             </div>
           </div>
@@ -649,11 +643,11 @@ export default function Dashboard() {
             <Card className="border-none shadow-sm overflow-hidden">
               <Tabs defaultValue="monthly" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 h-auto p-0 rounded-none bg-accent/5">
-                  <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-inner font-semibold">
-                    <Award className="h-4 w-4 mr-2" /> Monthly Leaderboard
+                  <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                    <Award className="h-4 w-4 mr-2" /> Monthly
                   </TabsTrigger>
-                  <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-inner font-semibold">
-                    <Trophy className="h-4 w-4 mr-2" /> All-Time Rank
+                  <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                    <Trophy className="h-4 w-4 mr-2" /> All-Time
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="monthly" className="mt-0">
@@ -664,15 +658,8 @@ export default function Dashboard() {
                         <p className="text-sm font-bold">{m.name}</p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
                       </div>
-                      {m.streak > 0 && (
-                        <div className="flex items-center gap-1 text-orange-500 font-bold text-sm">
-                          <Flame className="h-4 w-4 fill-orange-500" /> {m.streak}
-                        </div>
-                      )}
                     </div>
-                  )) : (
-                    <p className="text-sm text-center text-muted-foreground italic p-6 border-t">No rankings yet this month.</p>
-                  )}
+                  )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                 </TabsContent>
                 <TabsContent value="all-time" className="mt-0">
                   {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => (
@@ -682,21 +669,15 @@ export default function Dashboard() {
                         <p className="text-sm font-bold">{m.name}</p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
                       </div>
-                      {m.streak > 0 && (
-                        <div className="flex items-center gap-1 text-orange-500 font-bold text-sm">
-                          <Flame className="h-4 w-4 fill-orange-500" /> {m.streak}
-                        </div>
-                      )}
                     </div>
-                  )) : (
-                     <p className="text-sm text-center text-muted-foreground italic p-6 border-t">No rankings yet.</p>
-                  )}
+                  )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                 </TabsContent>
               </Tabs>
             </Card>
           </div>
         </div>
 
+        {/* Challenge Completion Dialog */}
         <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
           <DialogContent>
             <DialogHeader>
@@ -707,16 +688,47 @@ export default function Dashboard() {
               <Label htmlFor="submission-text" className="font-medium">Your Submission</Label>
               <Textarea
                 id="submission-text"
-                placeholder="Share your thoughts or evidence of completion..."
+                placeholder="Share your thoughts..."
                 value={submissionText}
                 onChange={(e) => setSubmissionText(e.target.value)}
                 className="min-h-[100px] bg-white"
               />
-              <p className="text-xs text-muted-foreground">Criteria: {completingChallenge?.completionCriteria}</p>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setCompletingChallenge(null); setSubmissionText(""); }}>Cancel</Button>
               <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim()}>Submit and Complete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Book Completion Celebration Dialog */}
+        <Dialog open={showCompletionCelebration} onOpenChange={setShowCompletionCelebration}>
+          <DialogContent className="max-w-md text-center py-10">
+            <div className="flex justify-center mb-6">
+              <div className="bg-accent/10 p-6 rounded-full">
+                <PartyPopper className="h-16 w-16 text-accent animate-bounce" />
+              </div>
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-3xl font-headline text-primary mb-2">Congratulations!</DialogTitle>
+              <DialogDescription className="text-lg">
+                You have finished reading <span className="font-bold">"{currentBook?.title}"</span>.
+                Your discipline and commitment to spiritual growth are a beacon for the whole fellowship.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-6 flex justify-center gap-4">
+              <div className="text-center">
+                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read</p>
+                 <p className="text-2xl font-bold text-primary">{currentBook?.totalPages}</p>
+              </div>
+              <div className="text-center">
+                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Wisdom Gained</p>
+                 <p className="text-2xl font-bold text-accent">Infinite</p>
+              </div>
+            </div>
+            <DialogFooter className="sm:justify-center">
+              <Button onClick={() => setShowCompletionCelebration(false)} className="rounded-full px-10 bg-primary h-12 text-lg font-bold">
+                Continue the Journey
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
