@@ -87,12 +87,6 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: finishedBooks } = useCollection(finishedBooksQuery);
 
-  const readingProgressQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return collection(db, "users", user.uid, "readingProgress");
-  }, [db, user?.uid]);
-  const { data: readingProgressData } = useCollection(readingProgressQuery);
-
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "challenges"), where("isActive", "==", true));
@@ -173,7 +167,6 @@ export default function Dashboard() {
     setIsSubmitting(true);
 
     const userRef = doc(db, "users", user.uid);
-    const progressRef = doc(db, "users", user.uid, "readingProgress", currentBook.id);
     
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -271,19 +264,6 @@ export default function Dashboard() {
         }
         
         transaction.update(userRef, progressUpdate);
-
-        // Update detailed reading progress history
-        transaction.set(progressRef, {
-          id: currentBook.id,
-          bookId: currentBook.id,
-          pagesRead: newPagesReadTotal,
-          isFinished: newPagesReadTotal >= currentBook.totalPages,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-
-        if (newPagesReadTotal >= currentBook.totalPages) {
-           // Celebration logic after commit
-        }
       });
       
       toast({ title: toastTitle, description: toastDescription });
@@ -577,33 +557,25 @@ export default function Dashboard() {
                 <Library className="h-4 w-4 text-accent" /> Completed Library
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                {finishedBooks?.map(book => {
-                  const progress = readingProgressData?.find(p => p.bookId === book.id);
-                  const pagesRead = progress?.pagesRead || 0;
-                  const isFinished = progress?.isFinished || pagesRead >= book.totalPages;
-                  return (
-                    <Card key={book.id} className="border-none shadow-sm flex flex-col bg-muted/20">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <Badge variant="outline" className="text-[9px] uppercase">{book.status}</Badge>
-                          {isFinished ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Finished</Badge>
-                          ) : (
-                            <span className="text-[10px] font-bold text-muted-foreground">{pagesRead} / {book.totalPages} pgs</span>
-                          )}
-                        </div>
-                        <CardTitle className="text-sm font-headline">{book.title}</CardTitle>
-                        <CardDescription className="text-[10px] line-clamp-2">{book.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <Progress value={(pagesRead / book.totalPages) * 100} className="h-1.5" />
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {finishedBooks?.map(book => (
+                  <Card key={book.id} className="border-none shadow-sm flex flex-col bg-muted/20">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <Badge variant="outline" className="text-[9px] uppercase">{book.status}</Badge>
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Fellowship Success</Badge>
+                      </div>
+                      <CardTitle className="text-sm font-headline">{book.title}</CardTitle>
+                      <CardDescription className="text-[10px] line-clamp-2">{book.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-0 flex items-center gap-2">
+                       <BookOpen className="h-3 w-3 text-muted-foreground" />
+                       <span className="text-[10px] font-bold text-muted-foreground">{book.totalPages} pages total</span>
+                    </CardContent>
+                  </Card>
+                ))}
                 {finishedBooks?.length === 0 && (
                    <div className="col-span-2 py-10 text-center border border-dashed rounded-xl">
-                      <p className="text-xs text-muted-foreground italic">Your completed library will grow as the fellowship advances.</p>
+                      <p className="text-xs text-muted-foreground italic">The fellowship's completed library will grow as we advance.</p>
                    </div>
                 )}
               </div>
