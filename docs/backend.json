@@ -81,6 +81,10 @@
         },
         "freezeCount": {
           "type": "number"
+        },
+        "groupName": {
+          "type": "string",
+          "description": "The name of the small group or cohort the user belongs to."
         }
       },
       "required": [

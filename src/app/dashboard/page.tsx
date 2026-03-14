@@ -438,6 +438,7 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
+              {profile.groupName && <Badge variant="secondary" className="mt-1">{profile.groupName}</Badge>}
               <div className="mt-2 flex items-center">
                 <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
                    <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>

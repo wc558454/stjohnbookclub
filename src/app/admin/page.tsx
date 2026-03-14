@@ -159,6 +159,8 @@ export default function AdminDashboard() {
   const [isDiscOpen, setIsDiscOpen] = useState(false);
   const [adjustingMember, setAdjustingMember] = useState<any>(null);
   const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
+  const [editingGroupMember, setEditingGroupMember] = useState<any>(null);
+  const [groupName, setGroupName] = useState("");
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -379,6 +381,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConfirmUpdateGroup = () => {
+    if (!editingGroupMember || !db) return;
+
+    const userRef = doc(db, "users", editingGroupMember.id);
+    const finalGroupName = groupName.trim();
+
+    updateDocumentNonBlocking(userRef, { groupName: finalGroupName });
+
+    toast({
+      title: "Group Updated",
+      description: finalGroupName
+        ? `${editingGroupMember.name}'s group has been set to "${finalGroupName}".`
+        : `${editingGroupMember.name}'s group has been removed.`,
+    });
+    setEditingGroupMember(null);
+    setGroupName("");
+  };
+
   const totalMembers = members?.length || 0;
   const activeMembers = members?.filter(m => m.status === 'Active').length || 0;
   const avgPoints = totalMembers ? Math.round(members!.reduce((acc, m) => acc + (m.points || 0), 0) / totalMembers) : 0;
@@ -454,6 +474,7 @@ export default function AdminDashboard() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Member</TableHead>
+                    <TableHead>Group</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead className="text-center">Points</TableHead>
                     <TableHead className="text-center">Streak</TableHead>
@@ -473,6 +494,13 @@ export default function AdminDashboard() {
                           <p className="font-bold text-sm">{m.name}</p>
                           <p className="text-[10px] text-muted-foreground">{m.email}</p>
                         </TableCell>
+                        <TableCell>
+                           {m.groupName ? (
+                            <Badge variant="outline" className="text-[10px]">{m.groupName}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">None</span>
+                          )}
+                        </TableCell>
                         <TableCell className="w-[180px]">
                           <div className="space-y-1">
                             <Progress value={progress} className="h-1.5" />
@@ -484,6 +512,7 @@ export default function AdminDashboard() {
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
+                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
                         </TableCell>
@@ -677,6 +706,32 @@ export default function AdminDashboard() {
               </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={!!editingGroupMember} onOpenChange={(open) => !open && setEditingGroupMember(null)}>
+          <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Group for {editingGroupMember?.name}</DialogTitle>
+                <CardDescription>Assign or change the member's group name.</CardDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="group-name">Group Name</Label>
+                    <Input
+                        id="group-name"
+                        type="text"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                        placeholder="e.g. Cohort Alpha"
+                    />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditingGroupMember(null)}>Cancel</Button>
+                  <Button onClick={handleConfirmUpdateGroup}>Confirm Update</Button>
+              </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );

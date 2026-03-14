@@ -30,6 +30,7 @@ export type UserProfile = {
   monthlyPoints?: number;
   currentMonth?: string;
   personalBestPages?: number;
+  groupName?: string;
 };
 
 export function useAuth() {
