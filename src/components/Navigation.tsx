@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,17 +12,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, deleteDoc } from "firebase/firestore";
+import { getAuth, deleteUser } from "firebase/auth";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import AddToHomeScreen from "./AddToHomeScreen";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export function Navigation() {
   const { user, profile, isAdmin, logout, loading } = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
+  const router = useRouter();
   const [hasMounted, setHasMounted] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -61,6 +78,43 @@ export function Navigation() {
         updateDocumentNonBlocking(doc(db, "users", user.uid, "notifications", n.id), { isRead: true });
       }
     });
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user || !db || isDeleting) return;
+    setIsDeleting(true);
+    
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (currentUser) {
+        // 1. Delete Firestore document first to ensure it's removed from lists
+        await deleteDoc(doc(db, "users", user.uid));
+        
+        // 2. Delete Auth account
+        await deleteUser(currentUser);
+        
+        toast({
+          title: "Account Deleted",
+          description: "Your fellowship data has been permanently removed."
+        });
+        
+        setIsDeleteDialogOpen(false);
+        router.push("/");
+      }
+    } catch (error: any) {
+      console.error("Account deletion error:", error);
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: error.code === 'auth/requires-recent-login' 
+          ? "Please log out and log back in to perform this sensitive action."
+          : "An error occurred while deleting your account."
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -183,15 +237,50 @@ export function Navigation() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
+                <DropdownMenuItem onClick={logout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsDeleteDialogOpen(true);
+                  }}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Delete Account</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account
+              and remove your fellowship progress, points, and profile from the St. John Chrysostom Bookclub.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteAccount();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   );
 }
