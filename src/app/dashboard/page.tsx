@@ -48,7 +48,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
@@ -195,13 +195,6 @@ export default function Dashboard() {
         const currentProfile = userSnap.data() as UserProfile;
 
         const lastReadAt = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
-        if (lastReadAt) {
-          const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
-          if (lastReadStart === todayStart) {
-            throw "You have already recorded your reading for today.";
-          }
-        }
-
         let newStreak = currentProfile.streak || 0;
         let tempFreezeCount = currentProfile.freezeCount ?? 2;
         const ptsToAdd = pagesReadToday * 2;
@@ -226,6 +219,10 @@ export default function Dashboard() {
               toastTitle = "Streak Reset";
               toastDescription = "You missed too many days. Starting fresh at 1.";
             }
+          } else if (diffDays === 0) {
+             // Already read today, maintain the current streak
+             newStreak = currentProfile.streak || 1;
+             toastTitle = "Progress Updated";
           }
         }
 
@@ -432,7 +429,7 @@ export default function Dashboard() {
           currentMonth: currentMonthStr,
         });
       });
-      toast({ title: "Challenge Completed", description: `+${reward} points awarded!` });
+      toast({ title: "Challenge Completed", description: `+${reward} awarded!` });
     } catch (e) {
       toast({ variant: "destructive", title: "Submission Failed" });
     }
@@ -589,11 +586,11 @@ export default function Dashboard() {
                   <CardTitle className="text-base flex items-center gap-2 font-headline">
                     <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
                   </CardTitle>
-                  <CardDescription className="text-xs">Submit your reading for the day to earn points and maintain your streak.</CardDescription>
+                  <CardDescription className="text-xs">Submit your reading to earn points. You can log progress multiple times a day!</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-3 pb-6">
                   <div className="flex-1 space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Today</Label>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Now</Label>
                     <Input type="number" value={pagesReadToday} onChange={(e) => setPagesReadToday(parseInt(e.target.value) || 0)} className="h-10 bg-white" />
                   </div>
                   <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting} className="h-10 px-8 rounded-full font-bold">
