@@ -14,7 +14,6 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -27,7 +26,6 @@ import {
   Star, 
   Award,
   CheckCircle2,
-  Zap,
   CalendarDays,
   Loader2,
   Snowflake,
@@ -43,9 +41,6 @@ import {
   MessageSquare,
   ArrowRight,
   Library,
-  HandsPraying,
-  BellRing,
-  Smartphone,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -54,7 +49,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
-import { requestNotificationPermission as requestPushPermission } from "@/firebase/messaging";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -67,18 +61,13 @@ export default function Dashboard() {
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
 
   useEffect(() => {
     setHasMounted(true);
-    if ('Notification' in window) {
-      setNotificationPermission(Notification.permission);
-    }
   }, []);
 
   useEffect(() => {
@@ -154,37 +143,6 @@ export default function Dashboard() {
     return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
   }, [userChallenges]);
 
-  const handleEnablePush = async () => {
-    if (!user?.uid || !app || !db) return;
-    
-    setIsRequestingPush(true);
-    try {
-      const token = await requestPushPermission(app, db, user.uid);
-      if (token) {
-        setNotificationPermission('granted');
-        toast({
-          title: "Push Notifications Enabled",
-          description: "You'll now receive reading reminders and fellowship updates on your phone!",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Setup Incomplete",
-          description: "Please check your browser settings to allow notifications.",
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to enable push notifications.",
-      });
-    } finally {
-      setIsRequestingPush(false);
-    }
-  };
-  
   if (loading || !user || !profile) return null;
 
   const handleSelectBook = (bookId: string) => {
@@ -585,31 +543,6 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              {/* Push Notification Card */}
-              {notificationPermission !== 'granted' && (
-                <Card className="border-none shadow-sm bg-accent/10 border-l-4 border-l-accent overflow-hidden">
-                  <CardContent className="p-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-accent/20 rounded-full">
-                        <Smartphone className="h-5 w-5 text-accent" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-primary">Enable Push Notifications</p>
-                        <p className="text-xs text-muted-foreground">Get reminders, challenge alerts, and updates even when the app is closed.</p>
-                      </div>
-                    </div>
-                    <Button 
-                      onClick={handleEnablePush} 
-                      disabled={isRequestingPush}
-                      size="sm" 
-                      className="rounded-full bg-accent text-primary font-bold hover:bg-accent/80"
-                    >
-                      {isRequestingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
               <Card className="border-none shadow-sm bg-primary text-white overflow-hidden">
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
