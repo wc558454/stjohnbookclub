@@ -40,12 +40,12 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
 
       match /userChallenges/{userChallengeId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId);
-        allow delete: if isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
       }
 
       match /notifications/{notificationId} {

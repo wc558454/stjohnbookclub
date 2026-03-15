@@ -17,6 +17,17 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Trophy, 
@@ -42,17 +53,18 @@ import {
   ArrowRight,
   Library,
   Bell,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, logout } = useAuth();
   const router = useRouter();
   const db = useFirestore();
   const app = useFirebaseApp();
@@ -510,6 +522,32 @@ export default function Dashboard() {
     setSubmissionText("");
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user?.uid || !db) return;
+    
+    try {
+      // 1. Delete Firestore document
+      deleteDocumentNonBlocking(doc(db, "users", user.uid));
+      
+      // 2. Log out
+      await logout();
+      
+      toast({
+        title: "Account Deleted",
+        description: "Your data has been removed from the fellowship records."
+      });
+      
+      router.push("/");
+    } catch (error) {
+      console.error("Deletion failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: "Could not remove account data. Please try again."
+      });
+    }
+  };
+
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
 
   return (
@@ -763,6 +801,38 @@ export default function Dashboard() {
                   }) : (
                     <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-none shadow-sm border-destructive/20 bg-destructive/5">
+                <CardHeader>
+                  <CardTitle className="text-base text-destructive flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" /> Danger Zone
+                  </CardTitle>
+                  <CardDescription>Permanently remove your account and all fellowship data.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="rounded-full">Delete My Account</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your profile, 
+                          remove you from all ranking lists, and clear your spiritual progress from the fellowship records.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete Permanently
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </CardContent>
               </Card>
             </div>

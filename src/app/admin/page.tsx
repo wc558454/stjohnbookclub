@@ -24,7 +24,8 @@ import {
   Edit,
   Plus,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  UserX
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -39,6 +40,17 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -410,6 +422,15 @@ export default function AdminDashboard() {
     setGroupName("");
   };
 
+  const handleAdminDeleteUser = (memberId: string, memberName: string) => {
+    if (!db) return;
+    deleteDocumentNonBlocking(doc(db, "users", memberId));
+    toast({
+      title: "Member Removed",
+      description: `${memberName} has been removed from the fellowship.`,
+    });
+  };
+
   const totalMembers = members?.length || 0;
   const activeMembers = members?.filter(m => m.status === 'Active').length || 0;
   const avgPoints = totalMembers ? Math.round(members!.reduce((acc, m) => acc + (m.points || 0), 0) / totalMembers) : 0;
@@ -530,9 +551,26 @@ export default function AdminDashboard() {
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
-                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"><UserX className="h-4 w-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently remove <strong>{m.name}</strong> from the fellowship, leaderboards, and all ranking lists. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleAdminDeleteUser(m.id, m.name)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove Member</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </TableCell>
                       </TableRow>
                     );
