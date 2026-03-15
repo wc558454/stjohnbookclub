@@ -39,6 +39,7 @@ import {
   BookUp,
   GaugeCircle,
   PartyPopper,
+  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -543,6 +544,51 @@ export default function Dashboard() {
                 <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting || !currentBook} className="h-10 px-8 rounded-full font-bold">
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base flex items-center gap-2 font-headline">
+                  <Sparkles className="h-4 w-4 text-accent" /> Spiritual Challenges
+                </CardTitle>
+                <CardDescription className="text-xs">Go beyond the reading schedule and deepen your practice.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {challenges?.length ? challenges.map(chall => {
+                  const completed = userChallenges?.some(uc => uc.challengeId === chall.id);
+                  return (
+                    <div key={chall.id} className="p-4 rounded-xl border bg-card flex justify-between items-center group hover:border-accent/50 transition-colors">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm text-primary">{chall.title}</p>
+                          <Badge variant="outline" className="text-[9px] py-0">{chall.type}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{chall.description}</p>
+                        <p className="text-[10px] text-accent font-bold uppercase tracking-widest mt-1">Reward: +{chall.pointsReward} Points</p>
+                      </div>
+                      <div className="ml-4">
+                        {completed ? (
+                          <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
+                            <CheckCircle2 className="h-5 w-5" />
+                            <span>Done</span>
+                          </div>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="rounded-full border-primary text-primary hover:bg-primary hover:text-white"
+                            onClick={() => setCompletingChallenge(chall)}
+                          >
+                            Complete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
+                )}
               </CardContent>
             </Card>
           </div>
