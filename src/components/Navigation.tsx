@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,7 +42,8 @@ export function Navigation() {
   const notifications = useMemo(() => {
     if (!allNotifications) return [];
     const now = new Date();
-    return allNotifications.filter(n => new Date(n.expiresAt) > now).slice(0, 10);
+    // Filter out notifications that have expired (48 hours expiry logic)
+    return allNotifications.filter(n => new Date(n.expiresAt) > now).slice(0, 15);
   }, [allNotifications]);
   
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -55,7 +56,6 @@ export function Navigation() {
   const handleMarkAllAsRead = async () => {
     if (!user?.uid || !db || notifications.length === 0) return;
     
-    // Using simple loop with non-blocking updates for brevity in this MVP
     notifications.forEach(n => {
       if (!n.isRead) {
         updateDocumentNonBlocking(doc(db, "users", user.uid, "notifications", n.id), { isRead: true });
@@ -80,6 +80,7 @@ export function Navigation() {
           {user && (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
+              <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Forum</Link>
             </>
           )}
         </div>
@@ -109,33 +110,48 @@ export function Navigation() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <div className="p-4 font-bold border-b flex justify-between items-center">
-                  <span>Notifications</span>
-                  <div className="flex items-center gap-2">
-                    {unreadCount > 0 && (
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-accent" onClick={handleMarkAllAsRead}>
-                        <CheckCheck className="h-3 w-3 mr-1" /> Mark all read
-                      </Button>
-                    )}
-                  </div>
+              <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden">
+                <div className="p-4 font-bold border-b bg-muted/50 flex justify-between items-center">
+                  <span className="text-sm flex items-center gap-2"><Bell className="h-4 w-4" /> Fellowship Alerts</span>
+                  {unreadCount > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-accent hover:bg-accent/10" onClick={handleMarkAllAsRead}>
+                      <CheckCheck className="h-3 w-3 mr-1" /> Clear All
+                    </Button>
+                  )}
                 </div>
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto">
                   {notifications.length > 0 ? notifications.map(n => (
                     <div 
                       key={n.id} 
-                      className={`p-4 border-b text-xs hover:bg-muted transition-colors cursor-pointer ${!n.isRead ? 'bg-accent/5' : ''}`}
+                      className={`p-4 border-b text-xs hover:bg-muted transition-colors cursor-pointer relative group ${!n.isRead ? 'bg-accent/5' : ''}`}
                       onClick={() => handleMarkAsRead(n.id)}
                     >
-                      <p className={`font-medium ${!n.isRead ? 'text-primary' : 'text-muted-foreground'}`}>{n.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {hasMounted ? new Date(n.createdAt).toLocaleString() : '...'}
-                      </p>
+                      <div className="flex justify-between items-start mb-1">
+                         <p className={`font-bold uppercase tracking-widest text-[9px] ${!n.isRead ? 'text-accent' : 'text-muted-foreground'}`}>
+                           {n.type}
+                         </p>
+                         <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5" />
+                            {hasMounted ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                         </div>
+                      </div>
+                      <p className={`text-xs leading-relaxed ${!n.isRead ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{n.message}</p>
+                      {!n.isRead && (
+                        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-accent rounded-full" />
+                      )}
                     </div>
                   )) : (
-                    <div className="p-8 text-center text-xs text-muted-foreground italic">No new alerts.</div>
+                    <div className="p-12 text-center text-xs text-muted-foreground italic flex flex-col items-center gap-2">
+                       <Bell className="h-8 w-8 opacity-20" />
+                       No current alerts in your harbor.
+                    </div>
                   )}
                 </div>
+                {notifications.length > 0 && (
+                  <div className="p-2 text-center bg-muted/20">
+                     <p className="text-[10px] text-muted-foreground italic">Alerts expire automatically after 48 hours.</p>
+                  </div>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -159,6 +175,9 @@ export function Navigation() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard" className="cursor-pointer">Member Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/forum" className="cursor-pointer">Fellowship Forum</Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>

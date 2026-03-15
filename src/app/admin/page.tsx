@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -256,10 +257,11 @@ export default function AdminDashboard() {
   const handleSaveChallenge = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const title = formData.get("title") as string;
     
     if (editingChall) {
       const data = {
-        title: formData.get("title") as string,
+        title,
         description: formData.get("description") as string,
         pointsReward: parseInt(formData.get("points") as string),
         type: formData.get("type") as string,
@@ -268,7 +270,7 @@ export default function AdminDashboard() {
       updateDocumentNonBlocking(doc(db, "challenges", editingChall.id), data);
     } else {
       const data = {
-        title: formData.get("title") as string,
+        title,
         description: formData.get("description") as string,
         pointsReward: parseInt(formData.get("points") as string),
         type: formData.get("type") as string,
@@ -279,6 +281,20 @@ export default function AdminDashboard() {
       };
       const id = Math.random().toString(36).substring(7);
       setDoc(doc(db, "challenges", id), { ...data, id });
+
+      // Notify all members about the new challenge
+      members?.forEach(member => {
+        const notifId = Math.random().toString(36).substring(7);
+        setDoc(doc(db, "users", member.id, "notifications", notifId), {
+          id: notifId,
+          userId: member.id,
+          type: "NewChallenge",
+          message: `New fellowship challenge released: "${title}"!`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+        });
+      });
     }
 
     setIsChallOpen(false);
@@ -311,7 +327,7 @@ export default function AdminDashboard() {
         message: `New discussion announced: "${topic}" on ${new Date(dateTime).toLocaleString()}`,
         isRead: false,
         createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
       });
     });
 
@@ -345,6 +361,18 @@ export default function AdminDashboard() {
           points: newPoints,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+        });
+
+        // Add a notification about leaderboard update/points change
+        const notifId = Math.random().toString(36).substring(7);
+        transaction.set(doc(db, "users", adjustingMember.id, "notifications", notifId), {
+          id: notifId,
+          userId: adjustingMember.id,
+          type: "LeaderboardUpdate",
+          message: `Your points have been updated! Your new total is ${newPoints.toLocaleString()}.`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
         });
       });
 

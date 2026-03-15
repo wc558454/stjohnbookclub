@@ -41,6 +41,7 @@ import {
   MessageSquare,
   ArrowRight,
   Library,
+  Bell,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -101,7 +102,7 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(5));
+    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(10));
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
@@ -116,6 +117,61 @@ export default function Dashboard() {
     return query(collection(db, "users"), orderBy("points", "desc"), limit(20));
   }, [db, user]);
   const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
+
+  // Auto-generate notifications for Discussion Reminders (3 hours before)
+  useEffect(() => {
+    if (!user || !discussions || !db) return;
+
+    const now = Date.now();
+    const threeHoursInMs = 3 * 60 * 60 * 1000;
+    const fortyEightHoursInMs = 48 * 60 * 60 * 1000;
+
+    discussions.forEach(disc => {
+      const discTime = new Date(disc.scheduledDateTime).getTime();
+      const timeDiff = discTime - now;
+
+      if (timeDiff > 0 && timeDiff <= threeHoursInMs) {
+        const notifId = `remind_disc_${disc.id}`;
+        // Use setDoc with specific ID for idempotency (won't duplicate if already sent)
+        setDoc(doc(db, "users", user.uid, "notifications", notifId), {
+          id: notifId,
+          userId: user.uid,
+          type: "DiscussionReminder",
+          message: `Reminder: The discussion "${disc.topic}" starts in less than 3 hours!`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(now + fortyEightHoursInMs).toISOString()
+        });
+      }
+    });
+  }, [user, discussions, db]);
+
+  // Auto-generate Reading Reminder (if evening and haven't read)
+  useEffect(() => {
+    if (!user || !profile || !db) return;
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Only remind in the evening (after 6 PM)
+    if (currentHour >= 18) {
+      const todayStr = now.toISOString().split('T')[0];
+      const lastReadStr = profile.lastReadAt ? new Date(profile.lastReadAt).toISOString().split('T')[0] : '';
+      
+      if (todayStr !== lastReadStr) {
+        const notifId = `remind_reading_${todayStr}`;
+        setDoc(doc(db, "users", user.uid, "notifications", notifId), {
+          id: notifId,
+          userId: user.uid,
+          type: "ReadingReminder",
+          message: "Don't forget your spiritual reading today! Keep your streak alive.",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+        });
+      }
+    }
+  }, [user, profile, db]);
 
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
@@ -198,6 +254,8 @@ export default function Dashboard() {
         let tempFreezeCount = currentProfile.freezeCount ?? 2;
         const ptsToAdd = pagesReadToday * 2;
 
+        let streakAlertNotif = null;
+
         if (!lastReadAt) {
           newStreak = 1;
         } else {
@@ -213,6 +271,18 @@ export default function Dashboard() {
               tempFreezeCount -= missedDays;
               toastTitle = "Streak Preserved!";
               toastDescription = `You missed ${missedDays} day(s), but ${missedDays} freeze(s) were used. Streak: ${newStreak}`;
+              
+              // Create notification for streak protection
+              const notifId = `streak_prot_${now.toISOString().split('T')[0]}`;
+              streakAlertNotif = {
+                id: notifId,
+                userId: user.uid,
+                type: "StreakProtection",
+                message: `Streak Protection Alert! You missed ${missedDays} day(s), but your streak was saved using freezes.`,
+                isRead: false,
+                createdAt: now.toISOString(),
+                expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
+              };
             } else {
               newStreak = 1;
               toastTitle = "Streak Reset";
@@ -257,6 +327,10 @@ export default function Dashboard() {
           lastFreezeRefill: newRefillDate,
           personalBestPages: newPersonalBest,
         });
+
+        if (streakAlertNotif) {
+          transaction.set(doc(db, "users", user.uid, "notifications", streakAlertNotif.id), streakAlertNotif);
+        }
       });
       
       toast({ title: toastTitle, description: toastDescription });
