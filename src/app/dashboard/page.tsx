@@ -55,7 +55,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
@@ -298,18 +298,25 @@ export default function Dashboard() {
         const lastReadAt = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
         let newStreak = currentProfile.streak || 0;
         let tempFreezeCount = currentProfile.freezeCount ?? 2;
+        let currentDailyPagesSum = 0;
         const ptsToAdd = pagesReadToday * 2;
 
         let streakAlertNotif = null;
 
         if (!lastReadAt) {
           newStreak = 1;
+          currentDailyPagesSum = pagesReadToday;
         } else {
           const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
           const diffDays = Math.round((todayStart - lastReadStart) / (1000 * 60 * 60 * 24));
 
-          if (diffDays === 1) {
+          if (diffDays === 0) {
+            newStreak = currentProfile.streak || 1;
+            currentDailyPagesSum = (currentProfile.dailyPagesRead || 0) + pagesReadToday;
+            toastTitle = "Progress Updated";
+          } else if (diffDays === 1) {
             newStreak += 1;
+            currentDailyPagesSum = pagesReadToday;
             toastDescription += ` Streak extended to ${newStreak} days!`;
           } else if (diffDays > 1) {
             const missedDays = diffDays - 1;
@@ -328,14 +335,13 @@ export default function Dashboard() {
                 createdAt: now.toISOString(),
                 expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
               };
+              currentDailyPagesSum = pagesReadToday;
             } else {
               newStreak = 1;
               toastTitle = "Streak Reset";
               toastDescription = "You missed too many days. Starting fresh at 1.";
+              currentDailyPagesSum = pagesReadToday;
             }
-          } else if (diffDays === 0) {
-             newStreak = currentProfile.streak || 1;
-             toastTitle = "Progress Updated";
           }
         }
 
@@ -358,7 +364,7 @@ export default function Dashboard() {
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
-        const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, pagesReadToday);
+        const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
         const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
 
         transaction.update(userRef, {
@@ -371,6 +377,7 @@ export default function Dashboard() {
           lastReadAt: now.toISOString(),
           lastFreezeRefill: newRefillDate,
           personalBestPages: newPersonalBest,
+          dailyPagesRead: currentDailyPagesSum,
         });
 
         if (streakAlertNotif) {
@@ -618,7 +625,7 @@ export default function Dashboard() {
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best read in one day</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best per day</p>
                 <p className="text-lg font-bold text-primary">{profile.personalBestPages || 0} pgs</p>
               </div>
             </div>

@@ -75,6 +75,11 @@
           "description": "The highest number of pages read by the user in a single day.",
           "format": "int32"
         },
+        "dailyPagesRead": {
+          "type": "number",
+          "description": "Total pages read by the user today. Resets on first read of a new day.",
+          "format": "int32"
+        },
         "currentPagesRead": {
           "type": "number",
           "description": "Pages read in the current active book."

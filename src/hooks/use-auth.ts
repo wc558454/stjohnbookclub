@@ -40,6 +40,7 @@ export type UserProfile = {
   monthlyPoints?: number;
   currentMonth?: string;
   personalBestPages?: number;
+  dailyPagesRead?: number;
   groupName?: string;
   badges?: BadgeData[];
 };
