@@ -88,6 +88,10 @@
           "type": "string",
           "description": "The ID of the book the user has currently selected for study."
         },
+        "bookProgress": {
+          "type": "object",
+          "description": "A record of progress (pages read) for each book ID the user has engaged with."
+        },
         "freezeCount": {
           "type": "number"
         },

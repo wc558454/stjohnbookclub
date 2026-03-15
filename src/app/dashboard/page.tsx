@@ -166,59 +166,6 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardQuery);
 
-  // Auto-generate notifications for Discussion Reminders (3 hours before)
-  useEffect(() => {
-    if (!user || !discussions || !db) return;
-
-    const now = Date.now();
-    const threeHoursInMs = 3 * 60 * 60 * 1000;
-    const fortyEightHoursInMs = 48 * 60 * 60 * 1000;
-
-    discussions.forEach(disc => {
-      const discTime = new Date(disc.scheduledDateTime).getTime();
-      const timeDiff = discTime - now;
-
-      if (timeDiff > 0 && timeDiff <= threeHoursInMs) {
-        const notifId = `remind_disc_${disc.id}`;
-        setDoc(doc(db, "users", user.uid, "notifications", notifId), {
-          id: notifId,
-          userId: user.uid,
-          type: "DiscussionReminder",
-          message: `Reminder: The discussion "${disc.topic}" starts in less than 3 hours!`,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(now + fortyEightHoursInMs).toISOString()
-        });
-      }
-    });
-  }, [user, discussions, db]);
-
-  // Auto-generate Reading Reminder (if evening and haven't read)
-  useEffect(() => {
-    if (!user || !profile || !db) return;
-    
-    const now = new Date();
-    const currentHour = now.getHours();
-    
-    if (currentHour >= 18) {
-      const todayStr = now.toISOString().split('T')[0];
-      const lastReadStr = profile.lastReadAt ? new Date(profile.lastReadAt).toISOString().split('T')[0] : '';
-      
-      if (todayStr !== lastReadStr) {
-        const notifId = `remind_reading_${todayStr}`;
-        setDoc(doc(db, "users", user.uid, "notifications", notifId), {
-          id: notifId,
-          userId: user.uid,
-          type: "ReadingReminder",
-          message: "Don't forget your spiritual reading today! Keep your streak alive.",
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-        });
-      }
-    }
-  }, [user, profile, db]);
-
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
     
@@ -248,12 +195,22 @@ export default function Dashboard() {
   if (loading || !user || !profile) return null;
 
   const handleSelectBook = (bookId: string) => {
-    if (!user?.uid || !db) return;
+    if (!user?.uid || !db || !profile) return;
+    
+    // Resume progress if it was previously saved for this specific book
+    const savedProgress = profile.bookProgress?.[bookId] || 0;
+    
     updateDocumentNonBlocking(doc(db, "users", user.uid), {
       currentBookId: bookId,
-      currentPagesRead: 0
+      currentPagesRead: savedProgress
     });
-    toast({ title: "Study Selected", description: "You have started a new book study." });
+    
+    toast({ 
+      title: savedProgress > 0 ? "Study Resumed" : "Study Selected", 
+      description: savedProgress > 0 
+        ? `Resuming from page ${savedProgress}.` 
+        : "You have started a new book study." 
+    });
   };
 
   const getRank = (pts: number) => {
@@ -365,11 +322,18 @@ export default function Dashboard() {
             : ptsToAdd;
 
         const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
+        
+        // Update both the immediate session and the per-book persistent record
         const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
+        const updatedBookProgress = {
+          ...(currentProfile.bookProgress || {}),
+          [currentProfile.currentBookId!]: newPagesReadTotal
+        };
 
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + ptsToAdd,
           currentPagesRead: newPagesReadTotal,
+          bookProgress: updatedBookProgress,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           streak: newStreak,
@@ -639,30 +603,38 @@ export default function Dashboard() {
               <p className="text-muted-foreground">Select an active book study to begin your spiritual journey.</p>
             </header>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeBooks?.map(book => (
-                <Card key={book.id} className="border-none shadow-md hover:shadow-xl transition-shadow overflow-hidden group">
-                  <div className="h-48 bg-primary relative flex items-center justify-center overflow-hidden">
-                    <BookOpen className="h-20 w-20 text-white/10 group-hover:scale-125 transition-transform" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-60" />
-                    <Badge className="absolute top-4 right-4 bg-accent text-primary font-bold">ACTIVE</Badge>
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="text-xl font-headline text-primary">{book.title}</CardTitle>
-                    <CardDescription className="line-clamp-2">{book.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
-                       <span className="flex items-center gap-1"><BookUp className="h-3 w-3" /> {book.totalPages} Pages</span>
-                       <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Due: {book.currentReadingPlanDueDate ? new Date(book.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</span>
+              {activeBooks?.map(book => {
+                const savedPages = profile.bookProgress?.[book.id] || 0;
+                return (
+                  <Card key={book.id} className="border-none shadow-md hover:shadow-xl transition-shadow overflow-hidden group">
+                    <div className="h-48 bg-primary relative flex items-center justify-center overflow-hidden">
+                      <BookOpen className="h-20 w-20 text-white/10 group-hover:scale-125 transition-transform" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-60" />
+                      {savedPages > 0 && (
+                        <Badge className="absolute top-4 left-4 bg-accent text-primary font-bold">
+                          RESUME (Pg {savedPages})
+                        </Badge>
+                      )}
+                      <Badge className="absolute top-4 right-4 bg-white/20 text-white font-bold">ACTIVE</Badge>
                     </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button onClick={() => handleSelectBook(book.id)} className="w-full rounded-full bg-primary font-bold group">
-                      Begin Study <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+                    <CardHeader>
+                      <CardTitle className="text-xl font-headline text-primary">{book.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">{book.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
+                        <span className="flex items-center gap-1"><BookUp className="h-3 w-3" /> {book.totalPages} Pages</span>
+                        <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Due: {book.currentReadingPlanDueDate ? new Date(book.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button onClick={() => handleSelectBook(book.id)} className="w-full rounded-full bg-primary font-bold group">
+                        {savedPages > 0 ? "Resume Study" : "Begin Study"} <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
               {activeBooks?.length === 0 && (
                 <div className="col-span-full py-20 text-center space-y-4 bg-muted/20 rounded-xl border border-dashed">
                    <Library className="h-12 w-12 text-muted-foreground mx-auto" />

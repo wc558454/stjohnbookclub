@@ -33,6 +33,7 @@ export type UserProfile = {
   pagesPerWeek?: number;
   currentPagesRead?: number;
   currentBookId?: string;
+  bookProgress?: Record<string, number>;
   lastReadAt?: string;
   freezeCount?: number;
   lastFreezeRefill?: string;
