@@ -38,8 +38,8 @@ const formSchema = z.object({
   email: z.string().email("Invalid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   batchYear: z.string().min(1, "Please select your batch year."),
-  readingLevel: z.string().min(1, "Please select your reading level."),
-  pagesPerDay: z.coerce.number().min(1, "Plan at least 1 page per day.").max(100, "That's a lot! Maybe start smaller."),
+  guidingSaint: z.string().min(1, "Please enter a saint name."),
+  pagesPerWeek: z.coerce.number().min(1, "Plan at least 1 page per week.").max(1000, "That's a lot! Maybe start smaller."),
   spiritualGoal: z.string().max(500, "Goal must be under 500 characters.").optional(),
 });
 
@@ -59,8 +59,8 @@ export default function Register() {
       email: "",
       password: "",
       batchYear: "",
-      readingLevel: "",
-      pagesPerDay: 5,
+      guidingSaint: "",
+      pagesPerWeek: 35,
       spiritualGoal: "",
     },
   });
@@ -77,8 +77,8 @@ export default function Register() {
         name: values.fullName,
         email: values.email,
         batchYear: values.batchYear,
-        readingLevel: values.readingLevel,
-        pagesPerDay: values.pagesPerDay,
+        guidingSaint: values.guidingSaint,
+        pagesPerWeek: values.pagesPerWeek,
         spiritualGoal: values.spiritualGoal,
         points: 0,
         monthlyPoints: 0,
@@ -202,22 +202,14 @@ export default function Register() {
                 <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                   <FormField
                     control={form.control}
-                    name="readingLevel"
+                    name="guidingSaint"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Level of Reading</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Level" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Beginner">Beginner</SelectItem>
-                            <SelectItem value="Intermediate">Intermediate</SelectItem>
-                            <SelectItem value="Advanced">Advanced</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Saint you want to guide you on this journey</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. St. John Chrysostom" {...field} />
+                        </FormControl>
+                        <FormDescription>Enter the name of a saint who inspires you.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -225,12 +217,12 @@ export default function Register() {
 
                   <FormField
                     control={form.control}
-                    name="pagesPerDay"
+                    name="pagesPerWeek"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Planned Pages Per Day</FormLabel>
+                        <FormLabel>Planned Pages Per Week</FormLabel>
                         <FormControl>
-                          <Input type="number" min={1} max={100} {...field} />
+                          <Input type="number" min={1} max={1000} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -43,6 +43,7 @@ import {
   MessageSquare,
   ArrowRight,
   Library,
+  HandsPraying,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -453,8 +454,12 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
-              {profile.groupName && <Badge variant="secondary" className="mt-1">{profile.groupName}</Badge>}
-              <div className="mt-2 flex items-center">
+              <div className="flex flex-wrap gap-2 mt-1">
+                {profile.groupName && <Badge variant="secondary">{profile.groupName}</Badge>}
+                {profile.guidingSaint && <Badge variant="outline" className="border-accent text-accent">Guided by {profile.guidingSaint}</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 font-medium">Goal: {profile.pagesPerWeek || 0} pages per week</p>
+              <div className="mt-3 flex items-center">
                 <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
                    <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
                         <rank.icon className="h-5 w-5" />

@@ -29,9 +29,9 @@
           "type": "string",
           "description": "The year or batch identifier when the user joined the bookclub."
         },
-        "readingLevel": {
+        "guidingSaint": {
           "type": "string",
-          "description": "A descriptive level indicating the user's reading proficiency or engagement (e.g., 'Beginner', 'Intermediate', 'Advanced')."
+          "description": "The name of the saint chosen by the user to guide them on their journey."
         },
         "points": {
           "type": "number",
@@ -89,6 +89,10 @@
         "groupName": {
           "type": "string",
           "description": "The name of the small group or cohort the user belongs to."
+        },
+        "pagesPerWeek": {
+          "type": "number",
+          "description": "The user's planned reading goal in pages per week."
         }
       },
       "required": [
@@ -96,7 +100,7 @@
         "name",
         "email",
         "batchYear",
-        "readingLevel",
+        "guidingSaint",
         "points",
         "level",
         "streak",

@@ -14,14 +14,14 @@ export type UserProfile = {
   name: string;
   email: string;
   batchYear: string;
-  readingLevel: string;
+  guidingSaint: string;
   points: number;
   level: number;
   streak: number;
   status: string;
   role: string;
   profilePictureUrl?: string;
-  pagesPerDay?: number;
+  pagesPerWeek?: number;
   currentPagesRead?: number;
   currentBookId?: string;
   lastReadAt?: string;
