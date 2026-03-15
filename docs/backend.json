@@ -93,6 +93,20 @@
         "pagesPerWeek": {
           "type": "number",
           "description": "The user's planned reading goal in pages per week."
+        },
+        "badges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "iconName": { "type": "string" },
+              "awardedAt": { "type": "string", "format": "date-time" },
+              "message": { "type": "string" }
+            }
+          }
         }
       },
       "required": [

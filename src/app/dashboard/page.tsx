@@ -41,14 +41,56 @@ import {
   MessageSquare,
   ArrowRight,
   Library,
+  Medal,
+  Heart,
+  Shield,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth, UserProfile } from "@/hooks/use-auth";
+import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
+
+const ICON_MAP: Record<string, any> = {
+  Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
+};
+
+function UserBadgeList({ badges, size = "md" }: { badges?: BadgeData[], size?: "sm" | "md" }) {
+  if (!badges || badges.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      <TooltipProvider>
+        {badges.map((badge) => {
+          const Icon = ICON_MAP[badge.iconName] || Award;
+          return (
+            <Tooltip key={badge.id}>
+              <TooltipTrigger asChild>
+                <div className={`rounded-full bg-accent/10 p-1 border border-accent/30 text-accent ${size === 'sm' ? 'scale-75' : ''}`}>
+                  <Icon className={size === 'sm' ? "h-3 w-3" : "h-4 w-4"} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[200px]">
+                <p className="font-bold text-xs">{badge.name}</p>
+                <p className="text-[10px] text-muted-foreground">{badge.description}</p>
+                {badge.message && (
+                  <p className="text-[10px] italic mt-1 border-t pt-1 border-border/50">"{badge.message}"</p>
+                )}
+                <p className="text-[8px] text-muted-foreground mt-1">Awarded on {new Date(badge.awardedAt).toLocaleDateString()}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </TooltipProvider>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
@@ -525,21 +567,26 @@ export default function Dashboard() {
               ) : profile.name?.charAt(0)}
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {profile.groupName && <Badge variant="secondary">{profile.groupName}</Badge>}
-                {profile.guidingSaint && <Badge variant="outline" className="border-accent text-accent">Guided by {profile.guidingSaint}</Badge>}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 font-medium">Goal: {profile.pagesPerWeek || 0} pages per week</p>
-              <div className="mt-3 flex items-center">
-                <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
-                   <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
-                        <rank.icon className="h-5 w-5" />
-                   </div>
-                   <div>
-                       <p className={`font-bold text-lg leading-tight ${rank.color}`}>{rank.title}</p>
-                       <p className="text-xs font-medium text-muted-foreground">Level {rank.level}</p>
-                   </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
+                  <UserBadgeList badges={profile.badges} />
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {profile.groupName && <Badge variant="secondary">{profile.groupName}</Badge>}
+                  {profile.guidingSaint && <Badge variant="outline" className="border-accent text-accent">Guided by {profile.guidingSaint}</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 font-medium">Goal: {profile.pagesPerWeek || 0} pages per week</p>
+                <div className="mt-3 flex items-center">
+                  <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
+                     <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
+                          <rank.icon className="h-5 w-5" />
+                     </div>
+                     <div>
+                         <p className={`font-bold text-lg leading-tight ${rank.color}`}>{rank.title}</p>
+                         <p className="text-xs font-medium text-muted-foreground">Level {rank.level}</p>
+                     </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -814,7 +861,10 @@ export default function Dashboard() {
                       <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
                         <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
                         <div className="flex-1">
-                          <p className="text-sm font-bold">{m.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-bold">{m.name}</p>
+                            <UserBadgeList badges={m.badges} size="sm" />
+                          </div>
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
                         </div>
                       </div>
@@ -825,7 +875,10 @@ export default function Dashboard() {
                       <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
                         <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
                         <div className="flex-1">
-                          <p className="text-sm font-bold">{m.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-bold">{m.name}</p>
+                            <UserBadgeList badges={m.badges} size="sm" />
+                          </div>
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
                         </div>
                       </div>
@@ -836,7 +889,10 @@ export default function Dashboard() {
                       <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
                         <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
                         <div className="flex-1">
-                          <p className="text-sm font-bold">{m.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-bold">{m.name}</p>
+                            <UserBadgeList badges={m.badges} size="sm" />
+                          </div>
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
                         </div>
                         {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}

@@ -9,6 +9,15 @@ import { useEffect, useState } from "react";
 import { signOut } from "firebase/auth";
 import { getAuth } from "firebase/auth";
 
+export type BadgeData = {
+  id: string;
+  name: string;
+  description: string;
+  iconName: string;
+  awardedAt: string;
+  message?: string;
+};
+
 export type UserProfile = {
   id: string;
   name: string;
@@ -32,6 +41,7 @@ export type UserProfile = {
   currentMonth?: string;
   personalBestPages?: number;
   groupName?: string;
+  badges?: BadgeData[];
 };
 
 export function useAuth() {

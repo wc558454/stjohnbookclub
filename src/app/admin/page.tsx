@@ -25,12 +25,21 @@ import {
   Plus,
   TrendingUp,
   UserCheck,
+  Award,
+  Search,
+  Star,
+  Trophy,
+  Medal,
+  Flame,
+  Sparkles,
+  Heart,
+  Shield,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, arrayUnion } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -45,6 +54,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+
+const BADGE_ICONS = [
+  { name: "Award", icon: Award },
+  { name: "Star", icon: Star },
+  { name: "Trophy", icon: Trophy },
+  { name: "Medal", icon: Medal },
+  { name: "Flame", icon: Flame },
+  { name: "Sparkles", icon: Sparkles },
+  { name: "Heart", icon: Heart },
+  { name: "Shield", icon: Shield },
+];
 
 function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
   const db = useFirestore();
@@ -161,6 +181,8 @@ export default function AdminDashboard() {
   const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
   const [editingGroupMember, setEditingGroupMember] = useState<any>(null);
   const [groupName, setGroupName] = useState("");
+  const [awardingBadgeMember, setAwardingBadgeMember] = useState<any>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -191,6 +213,17 @@ export default function AdminDashboard() {
     return collection(db, "discussions");
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
+
+  const filteredMembers = useMemo(() => {
+    if (!members) return [];
+    if (!memberSearch.trim()) return members;
+    const s = memberSearch.toLowerCase();
+    return members.filter(m => 
+      m.name?.toLowerCase().includes(s) || 
+      m.email?.toLowerCase().includes(s) || 
+      m.groupName?.toLowerCase().includes(s)
+    );
+  }, [members, memberSearch]);
 
   const avgReadingProgress = useMemo(() => {
     if (!members || !books || members.length === 0) return 0;
@@ -332,6 +365,50 @@ export default function AdminDashboard() {
 
     setIsDiscOpen(false);
     toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
+  };
+
+  const handleConfirmAwardBadge = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!awardingBadgeMember || !db) return;
+
+    const formData = new FormData(e.currentTarget);
+    const badgeData = {
+      id: Math.random().toString(36).substring(7),
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      iconName: formData.get("iconName") as string,
+      awardedAt: new Date().toISOString(),
+      message: formData.get("message") as string,
+    };
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, "users", awardingBadgeMember.id);
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw new Error("User not found");
+
+        transaction.update(userRef, {
+          badges: arrayUnion(badgeData)
+        });
+
+        const notifId = Math.random().toString(36).substring(7);
+        transaction.set(doc(db, "users", awardingBadgeMember.id, "notifications", notifId), {
+          id: notifId,
+          userId: awardingBadgeMember.id,
+          type: "BadgeAwarded",
+          message: `Congratulations! You have been awarded the "${badgeData.name}" badge.`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        });
+      });
+
+      toast({ title: "Badge Awarded", description: `"${badgeData.name}" given to ${awardingBadgeMember.name}.` });
+      setAwardingBadgeMember(null);
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Award Failed", description: error.message });
+    }
   };
 
   const handleConfirmAdjustPoints = async () => {
@@ -477,7 +554,16 @@ export default function AdminDashboard() {
             <TabsTrigger value="discussions">Discussions</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="members">
+          <TabsContent value="members" className="space-y-4">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search by name, email, or group..." 
+                className="pl-10" 
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+              />
+            </div>
             <Card className="border-none shadow-sm overflow-hidden">
               <Table>
                 <TableHeader className="bg-muted/50">
@@ -495,15 +581,24 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members?.map(m => {
+                  {filteredMembers?.map(m => {
                     const activeBook = m.currentBookId ? books?.find(b => b.id === m.currentBookId) : null;
                     const pagesRead = m.currentPagesRead || 0;
                     const progress = activeBook ? Math.min(100, Math.round((pagesRead / activeBook.totalPages) * 100)) : 0;
                     return (
                       <TableRow key={m.id}>
                         <TableCell>
-                          <p className="font-bold text-sm">{m.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{m.email}</p>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <p className="font-bold text-sm leading-tight">{m.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{m.email}</p>
+                            </div>
+                            {m.badges && m.badges.length > 0 && (
+                               <Badge variant="outline" className="text-[8px] h-4 px-1 flex gap-0.5 border-accent text-accent">
+                                 <Award className="h-2 w-2" /> {m.badges.length}
+                               </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                            {m.groupName ? (
@@ -528,6 +623,7 @@ export default function AdminDashboard() {
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setAwardingBadgeMember(m)}>Award Badge</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
@@ -642,6 +738,53 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Award Badge Dialog */}
+        <Dialog open={!!awardingBadgeMember} onOpenChange={(open) => !open && setAwardingBadgeMember(null)}>
+          <DialogContent>
+            <form onSubmit={handleConfirmAwardBadge}>
+              <DialogHeader>
+                <DialogTitle>Award Badge to {awardingBadgeMember?.name}</DialogTitle>
+                <CardDescription>Grant a special title or achievement to this member.</CardDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-1">
+                  <Label>Badge Name</Label>
+                  <Input name="name" placeholder="Golden Speaker" required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Description</Label>
+                  <Input name="description" placeholder="For exceptional discussion participation" required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Icon</Label>
+                  <Select name="iconName" defaultValue="Award">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BADGE_ICONS.map(bi => (
+                        <SelectItem key={bi.name} value={bi.name}>
+                          <div className="flex items-center gap-2">
+                            <bi.icon className="h-4 w-4" /> {bi.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Optional Message</Label>
+                  <Textarea name="message" placeholder="You've been a beacon of light in our cohort discussions!" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setAwardingBadgeMember(null)}>Cancel</Button>
+                <Button type="submit">Award Badge</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
           <DialogContent>
