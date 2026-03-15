@@ -197,7 +197,6 @@ export default function Dashboard() {
   const handleSelectBook = (bookId: string) => {
     if (!user?.uid || !db || !profile) return;
     
-    // Resume progress if it was previously saved for this specific book
     const savedProgress = profile.bookProgress?.[bookId] || 0;
     
     updateDocumentNonBlocking(doc(db, "users", user.uid), {
@@ -323,7 +322,6 @@ export default function Dashboard() {
 
         const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
         
-        // Update both the immediate session and the per-book persistent record
         const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
         const updatedBookProgress = {
           ...(currentProfile.bookProgress || {}),
@@ -844,6 +842,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-bold">{m.name}</p>
+                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
                           <div className="flex justify-between items-end">
@@ -861,6 +860,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-bold">{m.name}</p>
+                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
                           <div className="flex justify-between items-end">
@@ -878,6 +878,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-bold">{m.name}</p>
+                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
                           <div className="flex justify-between items-center">
@@ -895,7 +896,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Challenge Completion Dialog */}
         <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
           <DialogContent>
             <DialogHeader>
@@ -912,7 +912,6 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Book Completion Celebration Dialog */}
         <Dialog open={showCompletionCelebration} onOpenChange={setShowCompletionCelebration}>
           <DialogContent className="max-w-md text-center py-10">
             <div className="flex justify-center mb-6">
