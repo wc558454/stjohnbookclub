@@ -596,6 +596,7 @@ export default function Dashboard() {
                           <Badge variant="outline" className="text-[9px] py-0">{chall.type}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{chall.description}</p>
+                        <p className="text-[10px] text-muted-foreground italic">Target: {chall.completionCriteria}</p>
                         <p className="text-[10px] text-accent font-bold uppercase tracking-widest mt-1">Reward: +{chall.pointsReward} Points</p>
                       </div>
                       <div className="ml-4">
