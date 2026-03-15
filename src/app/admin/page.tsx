@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -179,6 +178,18 @@ export default function AdminDashboard() {
     return query(collection(db, "books"), orderBy("createdAt", "desc"));
   }, [db, user]);
   const { data: books } = useCollection(booksQuery);
+
+  const challengesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "challenges");
+  }, [db, user]);
+  const { data: challenges } = useCollection(challengesQuery);
+
+  const discussionsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "discussions");
+  }, [db, user]);
+  const { data: discussions } = useCollection(discussionsQuery);
 
   const avgReadingProgress = useMemo(() => {
     if (!members || !books || members.length === 0) return 0;
