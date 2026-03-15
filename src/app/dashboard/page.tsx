@@ -836,59 +836,71 @@ export default function Dashboard() {
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="monthly" className="mt-0">
-                    {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => (
-                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-bold">{m.name}</p>
-                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                            <UserBadgeList badges={m.badges} size="sm" />
-                          </div>
-                          <div className="flex justify-between items-end">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
-                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                    {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => {
+                      const mRank = getRank(m.points || 0);
+                      return (
+                        <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                          <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-bold">{m.name}</p>
+                              {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" />
+                            </div>
+                            <div className="flex justify-between items-end">
+                              <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
+                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                      );
+                    }) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                   </TabsContent>
                   <TabsContent value="all-time" className="mt-0">
-                    {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => (
-                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-bold">{m.name}</p>
-                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                            <UserBadgeList badges={m.badges} size="sm" />
-                          </div>
-                          <div className="flex justify-between items-end">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
-                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                    {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => {
+                      const mRank = getRank(m.points || 0);
+                      return (
+                        <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                          <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-bold">{m.name}</p>
+                              {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" />
+                            </div>
+                            <div className="flex justify-between items-end">
+                              <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
+                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                      );
+                    }) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                   </TabsContent>
                   <TabsContent value="streaks" className="mt-0">
-                    {streakLeaderboardMembers?.length ? streakLeaderboardMembers.map((m, i) => (
-                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-bold">{m.name}</p>
-                            {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                            <UserBadgeList badges={m.badges} size="sm" />
+                    {streakLeaderboardMembers?.length ? streakLeaderboardMembers.map((m, i) => {
+                      const mRank = getRank(m.points || 0);
+                      return (
+                        <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                          <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-bold">{m.name}</p>
+                              {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" />
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
+                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
-                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
-                          </div>
+                          {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}
                         </div>
-                        {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}
-                      </div>
-                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                      );
+                    }) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                   </TabsContent>
                 </Tabs>
               </Card>
