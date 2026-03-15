@@ -25,13 +25,12 @@ import {
   Plus,
   TrendingUp,
   UserCheck,
-  UserX
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, getDocs, writeBatch, runTransaction } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -40,17 +39,6 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -294,7 +282,6 @@ export default function AdminDashboard() {
       const id = Math.random().toString(36).substring(7);
       setDoc(doc(db, "challenges", id), { ...data, id });
 
-      // Notify all members about the new challenge
       members?.forEach(member => {
         const notifId = Math.random().toString(36).substring(7);
         setDoc(doc(db, "users", member.id, "notifications", notifId), {
@@ -375,7 +362,6 @@ export default function AdminDashboard() {
           currentMonth: currentMonthStr,
         });
 
-        // Add a notification about leaderboard update/points change
         const notifId = Math.random().toString(36).substring(7);
         transaction.set(doc(db, "users", adjustingMember.id, "notifications", notifId), {
           id: notifId,
@@ -420,15 +406,6 @@ export default function AdminDashboard() {
     });
     setEditingGroupMember(null);
     setGroupName("");
-  };
-
-  const handleAdminDeleteUser = (memberId: string, memberName: string) => {
-    if (!db) return;
-    deleteDocumentNonBlocking(doc(db, "users", memberId));
-    toast({
-      title: "Member Removed",
-      description: `${memberName} has been removed from the fellowship.`,
-    });
   };
 
   const totalMembers = members?.length || 0;
@@ -554,23 +531,6 @@ export default function AdminDashboard() {
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"><UserX className="h-4 w-4" /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Member?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently remove <strong>{m.name}</strong> from the fellowship, leaderboards, and all ranking lists. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleAdminDeleteUser(m.id, m.name)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove Member</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
                         </TableCell>
                       </TableRow>
                     );
