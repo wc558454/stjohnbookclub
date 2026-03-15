@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import AddToHomeScreen from "./AddToHomeScreen";
@@ -80,7 +80,6 @@ export function Navigation() {
           {user && (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
-              <Link href="/forum" className="text-sm font-medium hover:text-accent transition-colors">Forum</Link>
             </>
           )}
         </div>
@@ -175,9 +174,6 @@ export function Navigation() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard" className="cursor-pointer">Member Dashboard</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/forum" className="cursor-pointer">Fellowship Forum</Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>

@@ -204,34 +204,6 @@
         "expiresAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "type", "message", "isRead", "createdAt", "expiresAt"]
-    },
-    "ForumPost": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ForumPost",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "likes": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "authorId", "authorName", "content", "createdAt"]
-    },
-    "ForumComment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ForumComment",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "postId": { "type": "string" },
-        "authorId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "content": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
     }
   },
   "auth": {
@@ -263,22 +235,6 @@
             "$ref": "#/backend/entities/UserChallenge"
           },
           "description": "Records of challenges a user has completed."
-        }
-      },
-      {
-        "path": "/forumPosts/{postId}",
-        "definition": {
-          "entityName": "ForumPost",
-          "schema": { "$ref": "#/backend/entities/ForumPost" },
-          "description": "Global collection for forum posts."
-        }
-      },
-      {
-        "path": "/forumPosts/{postId}/comments/{commentId}",
-        "definition": {
-          "entityName": "ForumComment",
-          "schema": { "$ref": "#/backend/entities/ForumComment" },
-          "description": "Comments on a forum post."
         }
       },
       {
