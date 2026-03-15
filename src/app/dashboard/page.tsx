@@ -40,6 +40,7 @@ import {
   GaugeCircle,
   PartyPopper,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -130,6 +131,12 @@ export default function Dashboard() {
 
     return Math.ceil(remainingPages / remainingDays);
   }, [currentBook, profile]);
+
+  const hasReflectedToday = useMemo(() => {
+    if (!userChallenges) return false;
+    const todayStr = new Date().toISOString().split('T')[0];
+    return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
+  }, [userChallenges]);
   
   if (loading || !user || !profile) return null;
 
@@ -280,20 +287,17 @@ export default function Dashboard() {
   
   const handleReflectionSubmit = async () => {
     const words = reflection.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 50) {
-      toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 50 words long." });
+    if (words.length < 30) {
+      toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 30 words long." });
       return;
     }
 
-    const reward = 10;
+    const reward = 5;
     const reflectionId = `refl_${new Date().toISOString().split('T')[0]}`;
     
     const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
-    const challSnap = await getDoc(challRef);
-    if(challSnap.exists()) {
-      toast({ variant: "destructive", title: "Already Reflected", description: "One reflection per day."});
-      return;
-    }
+    
+    setIsSubmitting(true);
 
     const userRef = doc(db, "users", user.uid);
     try {
@@ -301,6 +305,10 @@ export default function Dashboard() {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data();
+
+        // Check if already submitted in this transaction for safety
+        const existingRefl = await transaction.get(challRef);
+        if (existingRefl.exists()) throw "Already submitted today";
 
         transaction.set(challRef, {
           id: reflectionId,
@@ -328,7 +336,10 @@ export default function Dashboard() {
       setReflection("");
       toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
     } catch(e) {
-      toast({ variant: "destructive", title: "Submission Failed" });
+      console.error(e);
+      toast({ variant: "destructive", title: "Submission Failed", description: e === "Already submitted today" ? e : "Could not save reflection." });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -437,6 +448,8 @@ export default function Dashboard() {
     setCompletingChallenge(null);
     setSubmissionText("");
   };
+
+  const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -556,6 +569,43 @@ export default function Dashboard() {
                 <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting || !currentBook} className="h-10 px-8 rounded-full font-bold">
                   {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-accent/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2 font-headline">
+                  <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
+                </CardTitle>
+                <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pb-6">
+                {hasReflectedToday ? (
+                  <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
+                    <CheckCircle2 className="h-6 w-6" />
+                    <div>
+                      <p className="text-sm">Reflection submitted for today!</p>
+                      <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Textarea 
+                      placeholder="Today I learned..." 
+                      value={reflection} 
+                      onChange={(e) => setReflection(e.target.value)}
+                      className="bg-white min-h-[120px] shadow-inner focus-visible:ring-accent"
+                    />
+                    <div className="flex justify-between items-center">
+                       <p className={`text-[10px] font-bold uppercase tracking-tight ${reflectionWordCount < 30 ? 'text-muted-foreground' : 'text-green-600'}`}>
+                         Words: {reflectionWordCount} / 30
+                       </p>
+                       <Button onClick={handleReflectionSubmit} disabled={reflectionWordCount < 30 || isSubmitting} size="sm" className="rounded-full px-6 bg-primary font-bold">
+                         {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reflection"}
+                       </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
