@@ -79,6 +79,10 @@
           "type": "number",
           "description": "Pages read in the current active book."
         },
+        "currentBookId": {
+          "type": "string",
+          "description": "The ID of the book the user has currently selected for study."
+        },
         "freezeCount": {
           "type": "number"
         },

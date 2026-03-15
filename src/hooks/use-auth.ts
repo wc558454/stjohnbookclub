@@ -23,6 +23,7 @@ export type UserProfile = {
   profilePictureUrl?: string;
   pagesPerDay?: number;
   currentPagesRead?: number;
+  currentBookId?: string;
   lastReadAt?: string;
   freezeCount?: number;
   lastFreezeRefill?: string;

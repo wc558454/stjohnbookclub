@@ -179,60 +179,33 @@ export default function AdminDashboard() {
     return query(collection(db, "books"), orderBy("createdAt", "desc"));
   }, [db, user]);
   const { data: books } = useCollection(booksQuery);
-  const currentBook = books?.find(b => b.status === 'current');
 
-  const challengesQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(db, "challenges"));
-  }, [db, user]);
-  const { data: challenges } = useCollection(challengesQuery);
+  const avgReadingProgress = useMemo(() => {
+    if (!members || !books || members.length === 0) return 0;
+    
+    let totalProgress = 0;
+    let countedMembers = 0;
 
-  const discussionsQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"));
-  }, [db, user]);
-  const { data: discussions } = useCollection(discussionsQuery);
+    members.forEach(m => {
+      if (m.currentBookId) {
+        const book = books.find(b => b.id === m.currentBookId);
+        if (book) {
+          const progress = ((m.currentPagesRead || 0) / book.totalPages) * 100;
+          totalProgress += Math.min(100, progress);
+          countedMembers++;
+        }
+      }
+    });
 
-  const avgBookProgress = useMemo(() => {
-    if (!currentBook || !members || members.length === 0) {
-      return 0;
-    }
-    const totalProgress = members.reduce((acc, member) => {
-      const progress = ((member.currentPagesRead || 0) / currentBook.totalPages) * 100;
-      return acc + Math.min(100, progress);
-    }, 0);
-    return Math.round(totalProgress / members.length);
-  }, [members, currentBook]);
+    return countedMembers > 0 ? Math.round(totalProgress / countedMembers) : 0;
+  }, [members, books]);
 
   if (loading || !user || !isAdmin) return null;
 
   const handleSetCurrent = async (bookToSet: any) => {
-    if (!db || !books) return;
-
-    const batch = writeBatch(db);
-
-    const currentActiveBook = books.find(b => b.status === 'current');
-    if (currentActiveBook) {
-      const oldBookRef = doc(db, "books", currentActiveBook.id);
-      batch.update(oldBookRef, { status: "archived" });
-    }
-
-    const newBookRef = doc(db, "books", bookToSet.id);
-    batch.update(newBookRef, { status: "current" });
-
-    try {
-      const membersSnapshot = await getDocs(collection(db, "users"));
-      membersSnapshot.forEach(memberDoc => {
-        const userRef = doc(db, "users", memberDoc.id);
-        batch.update(userRef, { currentPagesRead: 0 });
-      });
-
-      await batch.commit();
-      toast({ title: "New Current Book Set", description: `${bookToSet.title} is now active. User progress reset.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error setting current book" });
-      console.error("Error setting current book:", error);
-    }
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
+    toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
   };
 
   const handleMarkFinished = (bookToFinish: any) => {
@@ -263,7 +236,7 @@ export default function AdminDashboard() {
         status: 'pending' 
       };
       await setDoc(doc(db, "books", id), newBook);
-      toast({ title: "New Book Added", description: "You can now set it as the current book." });
+      toast({ title: "New Book Added", description: "You can now set it as current to make it available." });
     }
     setIsBookOpen(false);
     setEditingBook(null);
@@ -318,7 +291,6 @@ export default function AdminDashboard() {
     
     setDoc(doc(db, "discussions", id), discData);
 
-    // Announce to all members via notification
     members?.forEach(member => {
       const notifId = Math.random().toString(36).substring(7);
       setDoc(doc(db, "users", member.id, "notifications", notifId), {
@@ -454,8 +426,8 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold text-primary">{avgBookProgress}%</p>
-              <p className="text-[10px] text-accent font-medium mt-1">Average book completion</p>
+              <p className="text-3xl font-bold text-primary">{avgReadingProgress}%</p>
+              <p className="text-[10px] text-accent font-medium mt-1">Overall fellowship completion</p>
             </CardContent>
           </Card>
         </div>
@@ -475,6 +447,7 @@ export default function AdminDashboard() {
                   <TableRow>
                     <TableHead>Member</TableHead>
                     <TableHead>Group</TableHead>
+                    <TableHead>Current Study</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead className="text-center">Points</TableHead>
                     <TableHead className="text-center">Streak</TableHead>
@@ -486,8 +459,9 @@ export default function AdminDashboard() {
                 </TableHeader>
                 <TableBody>
                   {members?.map(m => {
+                    const activeBook = m.currentBookId ? books?.find(b => b.id === m.currentBookId) : null;
                     const pagesRead = m.currentPagesRead || 0;
-                    const progress = currentBook ? Math.min(100, Math.round((pagesRead / currentBook.totalPages) * 100)) : 0;
+                    const progress = activeBook ? Math.min(100, Math.round((pagesRead / activeBook.totalPages) * 100)) : 0;
                     return (
                       <TableRow key={m.id}>
                         <TableCell>
@@ -501,11 +475,16 @@ export default function AdminDashboard() {
                             <span className="text-muted-foreground text-xs italic">None</span>
                           )}
                         </TableCell>
-                        <TableCell className="w-[180px]">
-                          <div className="space-y-1">
-                            <Progress value={progress} className="h-1.5" />
-                            <p className="text-[10px] text-muted-foreground">{pagesRead} / {currentBook?.totalPages || '?'} pgs ({progress}%)</p>
-                          </div>
+                        <TableCell className="max-w-[150px]">
+                           <p className="text-xs font-medium truncate">{activeBook?.title || "Not started"}</p>
+                        </TableCell>
+                        <TableCell className="w-[150px]">
+                          {activeBook ? (
+                             <div className="space-y-1">
+                                <Progress value={progress} className="h-1.5" />
+                                <p className="text-[10px] text-muted-foreground">{pagesRead} / {activeBook.totalPages} pgs ({progress}%)</p>
+                             </div>
+                          ) : <span className="text-muted-foreground text-[10px]">-</span>}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
@@ -545,7 +524,7 @@ export default function AdminDashboard() {
                       <TableCell className="text-xs">{b.currentReadingPlanDueDate ? new Date(b.currentReadingPlanDueDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="text-right space-x-1">
                         {b.status !== 'current' && b.status !== 'finished' && (
-                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Set Current</Button>
+                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Activate</Button>
                         )}
                         {b.status === 'current' && (
                           <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>Mark Finished</Button>

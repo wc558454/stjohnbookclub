@@ -41,6 +41,8 @@ import {
   PartyPopper,
   Sparkles,
   MessageSquare,
+  ArrowRight,
+  Library,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -75,12 +77,16 @@ export default function Dashboard() {
     }
   }, [user, loading, router]);
 
-  const currentBookQuery = useMemoFirebase(() => {
+  const activeBooksQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "books"), where("status", "==", "current"), limit(1));
+    return query(collection(db, "books"), where("status", "==", "current"));
   }, [db, user]);
-  const { data: currentBooks } = useCollection(currentBookQuery);
-  const currentBook = currentBooks?.[0];
+  const { data: activeBooks } = useCollection(activeBooksQuery);
+
+  const currentBook = useMemo(() => {
+    if (!activeBooks || !profile?.currentBookId) return null;
+    return activeBooks.find(b => b.id === profile.currentBookId);
+  }, [activeBooks, profile?.currentBookId]);
 
   const challengesQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -140,6 +146,15 @@ export default function Dashboard() {
   
   if (loading || !user || !profile) return null;
 
+  const handleSelectBook = (bookId: string) => {
+    if (!user?.uid || !db) return;
+    updateDocumentNonBlocking(doc(db, "users", user.uid), {
+      currentBookId: bookId,
+      currentPagesRead: 0
+    });
+    toast({ title: "Study Selected", description: "You have started a new book study." });
+  };
+
   const getRank = (pts: number) => {
     if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-muted-foreground" };
     if (pts <= 3000) return { title: "Golden Seeker", level: 2, icon: Footprints, color: "text-accent" };
@@ -167,8 +182,6 @@ export default function Dashboard() {
 
     setIsSubmitting(true);
     const userRef = doc(db, "users", user.uid);
-    
-    // Normalize "today" to start of day
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
@@ -181,7 +194,6 @@ export default function Dashboard() {
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
 
-        // Check if already submitted today
         const lastReadAt = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
         if (lastReadAt) {
           const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
@@ -194,7 +206,6 @@ export default function Dashboard() {
         let tempFreezeCount = currentProfile.freezeCount ?? 2;
         const ptsToAdd = pagesReadToday * 2;
 
-        // Streak Calculation
         if (!lastReadAt) {
           newStreak = 1;
         } else {
@@ -218,7 +229,6 @@ export default function Dashboard() {
           }
         }
 
-        // Weekly Refill Check (Every Monday)
         const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
         const lastMonday = new Date(now);
         lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
@@ -228,11 +238,10 @@ export default function Dashboard() {
         let newRefillDate = currentProfile.lastFreezeRefill;
 
         if (lastRefillAt.getTime() < lastMonday.getTime()) {
-          finalFreezeCount = 2; // Refill to 2 at the start of the week
+          finalFreezeCount = 2; 
           newRefillDate = now.toISOString();
         }
 
-        // Point tracking
         const currentMonthStr = now.toISOString().slice(0, 7);
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
@@ -261,9 +270,6 @@ export default function Dashboard() {
         setShowCompletionCelebration(true);
       }
 
-      if (pagesReadToday > (profile.personalBestPages || 0)) {
-        toast({ title: "New Personal Best!", description: `You read ${pagesReadToday} pages today!` });
-      }
       setPagesReadToday(0);
     } catch (e: any) {
       console.error(e);
@@ -286,11 +292,9 @@ export default function Dashboard() {
 
     const reward = 5;
     const reflectionId = `refl_${new Date().toISOString().split('T')[0]}`;
-    
     const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
     
     setIsSubmitting(true);
-
     const userRef = doc(db, "users", user.uid);
     try {
       await runTransaction(db, async (transaction) => {
@@ -298,7 +302,6 @@ export default function Dashboard() {
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data();
 
-        // Check if already submitted in this transaction for safety
         const existingRefl = await transaction.get(challRef);
         if (existingRefl.exists()) throw "Already submitted today";
 
@@ -386,8 +389,6 @@ export default function Dashboard() {
     if (!completingChallenge || !submissionText.trim() || !user) return;
 
     const reward = completingChallenge.pointsReward;
-    
-    // Period-based ID for idempotency and renewal
     let periodSuffix = "";
     const now = new Date();
     if (completingChallenge.type === 'Daily') {
@@ -399,7 +400,6 @@ export default function Dashboard() {
     }
     
     const userChallengeId = `dynamic_${completingChallenge.id}${periodSuffix}`;
-    
     const userChallengeData = {
       id: userChallengeId,
       challengeId: completingChallenge.id,
@@ -468,11 +468,6 @@ export default function Dashboard() {
                    </div>
                 </div>
               </div>
-              {profile.spiritualGoal && (
-                <blockquote className="mt-4 border-l-2 pl-4 italic text-muted-foreground text-sm max-w-md">
-                  {profile.spiritualGoal}
-                </blockquote>
-              )}
             </div>
           </div>
           <div className="md:col-span-2 grid grid-cols-2 gap-3">
@@ -507,14 +502,58 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {currentBook && (
+        {!currentBook ? (
+          <div className="space-y-6">
+            <header className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-primary font-headline">Choose Your Path</h2>
+              <p className="text-muted-foreground">Select an active book study to begin your spiritual journey.</p>
+            </header>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeBooks?.map(book => (
+                <Card key={book.id} className="border-none shadow-md hover:shadow-xl transition-shadow overflow-hidden group">
+                  <div className="h-48 bg-primary relative flex items-center justify-center overflow-hidden">
+                    <BookOpen className="h-20 w-20 text-white/10 group-hover:scale-125 transition-transform" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-60" />
+                    <Badge className="absolute top-4 right-4 bg-accent text-primary font-bold">ACTIVE</Badge>
+                  </div>
+                  <CardHeader>
+                    <CardTitle className="text-xl font-headline text-primary">{book.title}</CardTitle>
+                    <CardDescription className="line-clamp-2">{book.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
+                       <span className="flex items-center gap-1"><BookUp className="h-3 w-3" /> {book.totalPages} Pages</span>
+                       <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Due: {book.currentReadingPlanDueDate ? new Date(book.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button onClick={() => handleSelectBook(book.id)} className="w-full rounded-full bg-primary font-bold group">
+                      Begin Study <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+              {activeBooks?.length === 0 && (
+                <div className="col-span-full py-20 text-center space-y-4 bg-muted/20 rounded-xl border border-dashed">
+                   <Library className="h-12 w-12 text-muted-foreground mx-auto" />
+                   <p className="text-muted-foreground italic">No studies currently available. Check back soon!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
               <Card className="border-none shadow-sm bg-primary text-white overflow-hidden">
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <Badge className="bg-white/10 text-accent mb-2">CURRENT BOOK</Badge>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-white/10 text-accent">MY CURRENT STUDY</Badge>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/60 hover:text-white hover:bg-white/10" onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}>
+                          Change Book
+                        </Button>
+                      </div>
                       <CardTitle className="text-xl font-headline">{currentBook.title}</CardTitle>
                     </div>
                     <BookOpen className="h-6 w-6 text-accent/50" />
@@ -544,195 +583,182 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            <Card className="border-none shadow-sm bg-accent/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2 font-headline">
-                  <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
-                </CardTitle>
-                <CardDescription className="text-xs">Submit your reading for the day to earn points and maintain your streak.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-end gap-3 pb-6">
-                <div className="flex-1 space-y-1.5">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Today</Label>
-                  <Input type="number" value={pagesReadToday} onChange={(e) => setPagesReadToday(parseInt(e.target.value) || 0)} className="h-10 bg-white" />
-                </div>
-                <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting || !currentBook} className="h-10 px-8 rounded-full font-bold">
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-accent/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2 font-headline">
-                  <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
-                </CardTitle>
-                <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pb-6">
-                {hasReflectedToday ? (
-                  <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
-                    <CheckCircle2 className="h-6 w-6" />
-                    <div>
-                      <p className="text-sm">Reflection submitted for today!</p>
-                      <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
-                    </div>
+              <Card className="border-none shadow-sm bg-accent/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 font-headline">
+                    <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
+                  </CardTitle>
+                  <CardDescription className="text-xs">Submit your reading for the day to earn points and maintain your streak.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-end gap-3 pb-6">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Pages Read Today</Label>
+                    <Input type="number" value={pagesReadToday} onChange={(e) => setPagesReadToday(parseInt(e.target.value) || 0)} className="h-10 bg-white" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <Textarea 
-                      placeholder="Today I learned..." 
-                      value={reflection} 
-                      onChange={(e) => setReflection(e.target.value)}
-                      className="bg-white min-h-[120px] shadow-inner focus-visible:ring-accent"
-                    />
-                    <div className="flex justify-between items-center">
-                       <p className={`text-[10px] font-bold uppercase tracking-tight ${reflectionWordCount < 30 ? 'text-muted-foreground' : 'text-green-600'}`}>
-                         Words: {reflectionWordCount} / 30
-                       </p>
-                       <Button onClick={handleReflectionSubmit} disabled={reflectionWordCount < 30 || isSubmitting} size="sm" className="rounded-full px-6 bg-primary font-bold">
-                         {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reflection"}
-                       </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  <Button onClick={handleMarkComplete} disabled={pagesReadToday <= 0 || isSubmitting} className="h-10 px-8 rounded-full font-bold">
+                    {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reading"}
+                  </Button>
+                </CardContent>
+              </Card>
 
-            <Card className="border-none shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base flex items-center gap-2 font-headline">
-                  <Sparkles className="h-4 w-4 text-accent" /> Spiritual Challenges
-                </CardTitle>
-                <CardDescription className="text-xs">Go beyond the reading schedule and deepen your practice.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {challenges?.length ? challenges.map(chall => {
-                  const completed = userChallenges?.some(uc => {
-                    if (uc.challengeId !== chall.id) return false;
-                    
-                    const completedDate = new Date(uc.completedAt);
-                    const now = new Date();
-                    
-                    if (chall.type === 'Daily') {
-                      return completedDate.toDateString() === now.toDateString();
-                    }
-                    
-                    if (chall.type === 'Weekly') {
-                      const startOfWeek = new Date(now);
-                      startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-                      startOfWeek.setHours(0, 0, 0, 0);
-                      return completedDate >= startOfWeek;
-                    }
-                    
-                    return true; // Special is one-time
-                  });
-
-                  return (
-                    <div key={chall.id} className="p-4 rounded-xl border bg-card flex justify-between items-center group hover:border-accent/50 transition-colors">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm text-primary">{chall.title}</p>
-                          <Badge variant="outline" className="text-[9px] py-0">{chall.type}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{chall.description}</p>
-                        <p className="text-[10px] text-muted-foreground italic">Target: {chall.completionCriteria}</p>
-                        <p className="text-[10px] text-accent font-bold uppercase tracking-widest mt-1">Reward: +{chall.pointsReward} Points</p>
+              <Card className="border-none shadow-sm bg-accent/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 font-headline">
+                    <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
+                  </CardTitle>
+                  <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pb-6">
+                  {hasReflectedToday ? (
+                    <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
+                      <CheckCircle2 className="h-6 w-6" />
+                      <div>
+                        <p className="text-sm">Reflection submitted for today!</p>
+                        <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
                       </div>
-                      <div className="ml-4">
-                        {completed ? (
-                          <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                            <CheckCircle2 className="h-5 w-5" />
-                            <span>Done</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Textarea 
+                        placeholder="Today I learned..." 
+                        value={reflection} 
+                        onChange={(e) => setReflection(e.target.value)}
+                        className="bg-white min-h-[120px] shadow-inner focus-visible:ring-accent"
+                      />
+                      <div className="flex justify-between items-center">
+                         <p className={`text-[10px] font-bold uppercase tracking-tight ${reflectionWordCount < 30 ? 'text-muted-foreground' : 'text-green-600'}`}>
+                           Words: {reflectionWordCount} / 30
+                         </p>
+                         <Button onClick={handleReflectionSubmit} disabled={reflectionWordCount < 30 || isSubmitting} size="sm" className="rounded-full px-6 bg-primary font-bold">
+                           {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Submit Reflection"}
+                         </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base flex items-center gap-2 font-headline">
+                    <Sparkles className="h-4 w-4 text-accent" /> Spiritual Challenges
+                  </CardTitle>
+                  <CardDescription className="text-xs">Go beyond the reading schedule and deepen your practice.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {challenges?.length ? challenges.map(chall => {
+                    const completed = userChallenges?.some(uc => {
+                      if (uc.challengeId !== chall.id) return false;
+                      const completedDate = new Date(uc.completedAt);
+                      const now = new Date();
+                      if (chall.type === 'Daily') return completedDate.toDateString() === now.toDateString();
+                      if (chall.type === 'Weekly') {
+                        const startOfWeek = new Date(now);
+                        startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+                        startOfWeek.setHours(0, 0, 0, 0);
+                        return completedDate >= startOfWeek;
+                      }
+                      return true;
+                    });
+
+                    return (
+                      <div key={chall.id} className="p-4 rounded-xl border bg-card flex justify-between items-center group hover:border-accent/50 transition-colors">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm text-primary">{chall.title}</p>
+                            <Badge variant="outline" className="text-[9px] py-0">{chall.type}</Badge>
                           </div>
-                        ) : (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="rounded-full border-primary text-primary hover:bg-primary hover:text-white"
-                            onClick={() => setCompletingChallenge(chall)}
-                          >
-                            Complete
+                          <p className="text-xs text-muted-foreground">{chall.description}</p>
+                          <p className="text-[10px] text-muted-foreground italic">Target: {chall.completionCriteria}</p>
+                          <p className="text-[10px] text-accent font-bold uppercase tracking-widest mt-1">Reward: +{chall.pointsReward} Points</p>
+                        </div>
+                        <div className="ml-4">
+                          {completed ? (
+                            <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
+                              <CheckCircle2 className="h-5 w-5" />
+                              <span>Done</span>
+                            </div>
+                          ) : (
+                            <Button variant="outline" size="sm" className="rounded-full border-primary text-primary hover:bg-primary hover:text-white" onClick={() => setCompletingChallenge(chall)}>
+                              Complete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card className="border-none shadow-sm bg-secondary/10">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-accent" /> Upcoming Discussions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-3">
+                  {discussions?.length ? discussions.map(disc => {
+                    const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
+                    return (
+                      <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-primary">{disc.topic}</p>
+                          <p className="text-[10px] text-muted-foreground">{hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : '...'}</p>
+                        </div>
+                        {!attended && (
+                          <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
+                            Check-in (+20)
                           </Button>
                         )}
+                        {attended && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                       </div>
-                    </div>
-                  );
-                }) : (
-                  <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                    );
+                  }) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No scheduled discussions.</p>}
+                </CardContent>
+              </Card>
 
-          <div className="space-y-6">
-            <Card className="border-none shadow-sm bg-secondary/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-accent" /> Upcoming Discussions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                {discussions?.length ? discussions.map(disc => {
-                  const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
-                  return (
-                    <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-bold text-primary">{disc.topic}</p>
-                        <p className="text-[10px] text-muted-foreground">{hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : '...'}</p>
+              <Card className="border-none shadow-sm overflow-hidden">
+                <Tabs defaultValue="monthly" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 h-auto p-0 rounded-none bg-accent/5">
+                    <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      <Award className="h-4 w-4 mr-2" /> Monthly
+                    </TabsTrigger>
+                    <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      <Trophy className="h-4 w-4 mr-2" /> All-Time
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="monthly" className="mt-0">
+                    {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => (
+                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold">{m.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
+                        </div>
                       </div>
-                      {!attended && (
-                        <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
-                          Check-in (+20)
-                        </Button>
-                      )}
-                      {attended && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                    </div>
-                  );
-                }) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No scheduled discussions.</p>}
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm overflow-hidden">
-              <Tabs defaultValue="monthly" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 h-auto p-0 rounded-none bg-accent/5">
-                  <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                    <Award className="h-4 w-4 mr-2" /> Monthly
-                  </TabsTrigger>
-                  <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                    <Trophy className="h-4 w-4 mr-2" /> All-Time
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="monthly" className="mt-0">
-                  {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => (
-                    <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                      <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold">{m.name}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
+                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                  </TabsContent>
+                  <TabsContent value="all-time" className="mt-0">
+                    {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => (
+                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold">{m.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
+                        </div>
                       </div>
-                    </div>
-                  )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
-                </TabsContent>
-                <TabsContent value="all-time" className="mt-0">
-                  {allTimeLeaderboardMembers?.length ? allTimeLeaderboardMembers.map((m, i) => (
-                    <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
-                      <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold">{m.name}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
-                      </div>
-                    </div>
-                  )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
-                </TabsContent>
-              </Tabs>
-            </Card>
+                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Challenge Completion Dialog */}
         <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
@@ -743,13 +769,7 @@ export default function Dashboard() {
             </DialogHeader>
             <div className="py-4 space-y-2">
               <Label htmlFor="submission-text" className="font-medium">Your Submission</Label>
-              <Textarea
-                id="submission-text"
-                placeholder="Share your thoughts..."
-                value={submissionText}
-                onChange={(e) => setSubmissionText(e.target.value)}
-                className="min-h-[100px] bg-white"
-              />
+              <Textarea id="submission-text" placeholder="Share your thoughts..." value={submissionText} onChange={(e) => setSubmissionText(e.target.value)} className="min-h-[100px] bg-white" />
             </div>
             <DialogFooter>
               <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim()}>Submit and Complete</Button>
@@ -789,7 +809,6 @@ export default function Dashboard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </main>
     </div>
   );
