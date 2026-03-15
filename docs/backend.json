@@ -93,6 +93,10 @@
         "pagesPerWeek": {
           "type": "number",
           "description": "The user's planned reading goal in pages per week."
+        },
+        "fcmToken": {
+          "type": "string",
+          "description": "Firebase Cloud Messaging token for push notifications."
         }
       },
       "required": [

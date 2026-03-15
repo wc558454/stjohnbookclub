@@ -45,25 +45,29 @@ import {
   Library,
   HandsPraying,
   BellRing,
+  Smartphone,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, getDoc, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
+import { requestNotificationPermission as requestPushPermission } from "@/firebase/messaging";
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const db = useFirestore();
+  const app = useFirebaseApp();
   const { toast } = useToast();
   
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
   const [reflection, setReflection] = useState("");
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
@@ -150,21 +154,34 @@ export default function Dashboard() {
     return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
   }, [userChallenges]);
 
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-      toast({ variant: "destructive", title: "Not Supported", description: "Browser notifications are not supported on this device." });
-      return;
-    }
-
-    const permission = await Notification.requestPermission();
-    setNotificationPermission(permission);
+  const handleEnablePush = async () => {
+    if (!user?.uid || !app || !db) return;
     
-    if (permission === 'granted') {
-      toast({ title: "Permissions Granted", description: "You will now receive spiritual nudges and alerts." });
-      new Notification("St. John Chrysostom Bookclub", {
-        body: "Notifications are now enabled! Welcome to the fellowship.",
-        icon: "/icon-192.png"
+    setIsRequestingPush(true);
+    try {
+      const token = await requestPushPermission(app, db, user.uid);
+      if (token) {
+        setNotificationPermission('granted');
+        toast({
+          title: "Push Notifications Enabled",
+          description: "You'll now receive reading reminders and fellowship updates on your phone!",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Setup Incomplete",
+          description: "Please check your browser settings to allow notifications.",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to enable push notifications.",
       });
+    } finally {
+      setIsRequestingPush(false);
     }
   };
   
@@ -568,21 +585,26 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              {/* Notification Settings Prompt */}
+              {/* Push Notification Card */}
               {notificationPermission !== 'granted' && (
                 <Card className="border-none shadow-sm bg-accent/10 border-l-4 border-l-accent overflow-hidden">
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-accent/20 rounded-full">
-                        <BellRing className="h-5 w-5 text-accent" />
+                        <Smartphone className="h-5 w-5 text-accent" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-primary">Enable Mobile Notifications</p>
-                        <p className="text-xs text-muted-foreground">Receive daily reading nudges and fellowship alerts on your phone.</p>
+                        <p className="text-sm font-bold text-primary">Enable Push Notifications</p>
+                        <p className="text-xs text-muted-foreground">Get reminders, challenge alerts, and updates even when the app is closed.</p>
                       </div>
                     </div>
-                    <Button onClick={requestNotificationPermission} size="sm" className="rounded-full bg-accent text-primary font-bold hover:bg-accent/80">
-                      Enable
+                    <Button 
+                      onClick={handleEnablePush} 
+                      disabled={isRequestingPush}
+                      size="sm" 
+                      className="rounded-full bg-accent text-primary font-bold hover:bg-accent/80"
+                    >
+                      {isRequestingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable"}
                     </Button>
                   </CardContent>
                 </Card>
