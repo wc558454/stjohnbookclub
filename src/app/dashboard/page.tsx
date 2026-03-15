@@ -116,6 +116,12 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
 
+  const streakLeaderboardQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), orderBy("streak", "desc"), limit(20));
+  }, [db, user]);
+  const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardQuery);
+
   // Auto-generate notifications for Discussion Reminders (3 hours before)
   useEffect(() => {
     if (!user || !discussions || !db) return;
@@ -792,12 +798,15 @@ export default function Dashboard() {
 
               <Card className="border-none shadow-sm overflow-hidden">
                 <Tabs defaultValue="monthly" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 h-auto p-0 rounded-none bg-accent/5">
+                  <TabsList className="grid w-full grid-cols-3 h-auto p-0 rounded-none bg-accent/5">
                     <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
                       <Award className="h-4 w-4 mr-2" /> Monthly
                     </TabsTrigger>
                     <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
                       <Trophy className="h-4 w-4 mr-2" /> All-Time
+                    </TabsTrigger>
+                    <TabsTrigger value="streaks" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      <Flame className="h-4 w-4 mr-2" /> Streaks
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="monthly" className="mt-0">
@@ -819,6 +828,18 @@ export default function Dashboard() {
                           <p className="text-sm font-bold">{m.name}</p>
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
                         </div>
+                      </div>
+                    )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                  </TabsContent>
+                  <TabsContent value="streaks" className="mt-0">
+                    {streakLeaderboardMembers?.length ? streakLeaderboardMembers.map((m, i) => (
+                      <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold">{m.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
+                        </div>
+                        {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}
                       </div>
                     )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                   </TabsContent>
