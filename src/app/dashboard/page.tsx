@@ -618,7 +618,7 @@ export default function Dashboard() {
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best read in one day</p>
                 <p className="text-lg font-bold text-primary">{profile.personalBestPages || 0} pgs</p>
               </div>
             </div>
