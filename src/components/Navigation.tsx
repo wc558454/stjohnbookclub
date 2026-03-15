@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, writeBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import AddToHomeScreen from "./AddToHomeScreen";
@@ -30,11 +30,10 @@ export function Navigation() {
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!user?.uid) return null;
-    // We can't do a range on a different field than the orderBy, so we'll filter client-side.
     return query(
       collection(db, "users", user.uid, "notifications"),
       orderBy("createdAt", "desc"),
-      limit(30) // Fetch more to account for client-side filtering
+      limit(20)
     );
   }, [db, user?.uid]);
 
@@ -49,8 +48,19 @@ export function Navigation() {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleMarkAsRead = (id: string) => {
-    if (!user?.uid) return;
+    if (!user?.uid || !db) return;
     updateDocumentNonBlocking(doc(db, "users", user.uid, "notifications", id), { isRead: true });
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.uid || !db || notifications.length === 0) return;
+    
+    // Using simple loop with non-blocking updates for brevity in this MVP
+    notifications.forEach(n => {
+      if (!n.isRead) {
+        updateDocumentNonBlocking(doc(db, "users", user.uid, "notifications", n.id), { isRead: true });
+      }
+    });
   };
 
   return (
@@ -102,7 +112,13 @@ export function Navigation() {
               <DropdownMenuContent align="end" className="w-80">
                 <div className="p-4 font-bold border-b flex justify-between items-center">
                   <span>Notifications</span>
-                  {unreadCount > 0 && <span className="text-[10px] text-muted-foreground uppercase">{unreadCount} New</span>}
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-accent" onClick={handleMarkAllAsRead}>
+                        <CheckCheck className="h-3 w-3 mr-1" /> Mark all read
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length > 0 ? notifications.map(n => (

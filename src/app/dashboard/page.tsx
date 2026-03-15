@@ -44,6 +44,7 @@ import {
   ArrowRight,
   Library,
   HandsPraying,
+  BellRing,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -64,12 +65,16 @@ export default function Dashboard() {
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
 
   useEffect(() => {
     setHasMounted(true);
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   useEffect(() => {
@@ -144,6 +149,24 @@ export default function Dashboard() {
     const todayStr = new Date().toISOString().split('T')[0];
     return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
   }, [userChallenges]);
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast({ variant: "destructive", title: "Not Supported", description: "Browser notifications are not supported on this device." });
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    
+    if (permission === 'granted') {
+      toast({ title: "Permissions Granted", description: "You will now receive spiritual nudges and alerts." });
+      new Notification("St. John Chrysostom Bookclub", {
+        body: "Notifications are now enabled! Welcome to the fellowship.",
+        icon: "/icon-192.png"
+      });
+    }
+  };
   
   if (loading || !user || !profile) return null;
 
@@ -221,7 +244,6 @@ export default function Dashboard() {
               toastDescription = "You missed too many days. Starting fresh at 1.";
             }
           } else if (diffDays === 0) {
-             // Already read today, maintain the current streak
              newStreak = currentProfile.streak || 1;
              toastTitle = "Progress Updated";
           }
@@ -546,6 +568,26 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
+              {/* Notification Settings Prompt */}
+              {notificationPermission !== 'granted' && (
+                <Card className="border-none shadow-sm bg-accent/10 border-l-4 border-l-accent overflow-hidden">
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-accent/20 rounded-full">
+                        <BellRing className="h-5 w-5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-primary">Enable Mobile Notifications</p>
+                        <p className="text-xs text-muted-foreground">Receive daily reading nudges and fellowship alerts on your phone.</p>
+                      </div>
+                    </div>
+                    <Button onClick={requestNotificationPermission} size="sm" className="rounded-full bg-accent text-primary font-bold hover:bg-accent/80">
+                      Enable
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="border-none shadow-sm bg-primary text-white overflow-hidden">
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
