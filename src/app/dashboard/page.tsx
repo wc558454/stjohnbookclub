@@ -44,11 +44,13 @@ import {
   Medal,
   Heart,
   Shield,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from "lucide-react";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
