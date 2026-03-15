@@ -166,82 +166,74 @@ export default function Dashboard() {
     }
 
     setIsSubmitting(true);
-
     const userRef = doc(db, "users", user.uid);
     
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-    const lastReadDay = profile.lastReadAt ? new Date(profile.lastReadAt) : null;
-    let lastReadDayStart: Date | null = null;
-    if(lastReadDay) {
-        lastReadDayStart = new Date(lastReadDay.getFullYear(), lastReadDay.getMonth(), lastReadDay.getDate());
-    }
-
-    if (lastReadDayStart && lastReadDayStart.getTime() === todayStart.getTime()) {
-      toast({
-        variant: "destructive",
-        title: "Already Submitted",
-        description: "You have already recorded your reading for today.",
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    const ptsToAdd = pagesReadToday * 2;
-    let toastTitle = "Progress Recorded";
-    let toastDescription = `+${ptsToAdd} points earned!`;
+    // Normalize "today" to start of day
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     try {
+      let toastTitle = "Progress Recorded";
+      let toastDescription = `+${pagesReadToday * 2} points earned!`;
+
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
 
-        const transactionLastReadDay = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
-        let transactionLastReadDayStart: Date | null = null;
-        if(transactionLastReadDay) {
-            transactionLastReadDayStart = new Date(transactionLastReadDay.getFullYear(), transactionLastReadDay.getMonth(), transactionLastReadDay.getDate());
+        // Check if already submitted today
+        const lastReadAt = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
+        if (lastReadAt) {
+          const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
+          if (lastReadStart === todayStart) {
+            throw "You have already recorded your reading for today.";
+          }
         }
 
         let newStreak = currentProfile.streak || 0;
-        let newFreezeCount = currentProfile.freezeCount ?? 2;
+        let tempFreezeCount = currentProfile.freezeCount ?? 2;
+        const ptsToAdd = pagesReadToday * 2;
 
-        if (!transactionLastReadDayStart) {
-            newStreak = 1;
+        // Streak Calculation
+        if (!lastReadAt) {
+          newStreak = 1;
         } else {
-            const diffTime = todayStart.getTime() - transactionLastReadDayStart.getTime();
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
+          const diffDays = Math.round((todayStart - lastReadStart) / (1000 * 60 * 60 * 24));
 
-            if (diffDays === 1) {
-                newStreak += 1;
-                toastDescription += ` Streak extended to ${newStreak} days!`;
-            } else if (diffDays > 1) {
-                const daysToCover = diffDays - 1;
-                if (newFreezeCount >= daysToCover) {
-                    newFreezeCount -= daysToCover;
-                    toastTitle = "Streak Preserved!";
-                    toastDescription = `You missed ${daysToCover} day(s), but ${daysToCover} freeze(s) were used.`;
-                } else {
-                    newStreak = 1;
-                    toastTitle = "Streak Reset";
-                }
+          if (diffDays === 1) {
+            newStreak += 1;
+            toastDescription += ` Streak extended to ${newStreak} days!`;
+          } else if (diffDays > 1) {
+            const missedDays = diffDays - 1;
+            if (tempFreezeCount >= missedDays) {
+              tempFreezeCount -= missedDays;
+              toastTitle = "Streak Preserved!";
+              toastDescription = `You missed ${missedDays} day(s), but ${missedDays} freeze(s) were used. Streak: ${newStreak}`;
+            } else {
+              newStreak = 1;
+              toastTitle = "Streak Reset";
+              toastDescription = "You missed too many days. Starting fresh at 1.";
             }
+          }
         }
 
-        const lastRefillDate = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
-        const lastMonday = new Date(today);
-        lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        // Weekly Refill Check (Every Monday)
+        const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
         lastMonday.setHours(0, 0, 0, 0);
 
-        let needsRefill = false;
-        let finalFreezeCount = newFreezeCount;
-        if (lastRefillDate < lastMonday) {
-            finalFreezeCount = 2 - ((currentProfile.freezeCount ?? 2) - newFreezeCount);
-            needsRefill = true;
+        let finalFreezeCount = tempFreezeCount;
+        let newRefillDate = currentProfile.lastFreezeRefill;
+
+        if (lastRefillAt.getTime() < lastMonday.getTime()) {
+          finalFreezeCount = 2; // Refill to 2 at the start of the week
+          newRefillDate = now.toISOString();
         }
 
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        // Point tracking
+        const currentMonthStr = now.toISOString().slice(0, 7);
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
@@ -250,21 +242,17 @@ export default function Dashboard() {
         const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, pagesReadToday);
         const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
 
-        const progressUpdate: any = {
+        transaction.update(userRef, {
           points: (currentProfile.points || 0) + ptsToAdd,
           currentPagesRead: newPagesReadTotal,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           streak: newStreak,
           freezeCount: finalFreezeCount,
-          lastReadAt: new Date().toISOString(),
+          lastReadAt: now.toISOString(),
+          lastFreezeRefill: newRefillDate,
           personalBestPages: newPersonalBest,
-        };
-        if (needsRefill) {
-            progressUpdate.lastFreezeRefill = new Date().toISOString();
-        }
-        
-        transaction.update(userRef, progressUpdate);
+        });
       });
       
       toast({ title: toastTitle, description: toastDescription });
@@ -277,9 +265,13 @@ export default function Dashboard() {
         toast({ title: "New Personal Best!", description: `You read ${pagesReadToday} pages today!` });
       }
       setPagesReadToday(0);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "Update Failed" });
+      toast({ 
+        variant: "destructive", 
+        title: "Update Failed", 
+        description: typeof e === 'string' ? e : "Could not record progress." 
+      });
     } finally {
       setIsSubmitting(false);
     }
