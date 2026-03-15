@@ -874,7 +874,10 @@ export default function Dashboard() {
                             <p className="text-sm font-bold">{m.name}</p>
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
+                          <div className="flex justify-between items-end">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
+                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                          </div>
                         </div>
                       </div>
                     )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
@@ -888,7 +891,10 @@ export default function Dashboard() {
                             <p className="text-sm font-bold">{m.name}</p>
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
+                          <div className="flex justify-between items-end">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
+                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                          </div>
                         </div>
                       </div>
                     )) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
@@ -902,7 +908,10 @@ export default function Dashboard() {
                             <p className="text-sm font-bold">{m.name}</p>
                             <UserBadgeList badges={m.badges} size="sm" />
                           </div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
+                            <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                          </div>
                         </div>
                         {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}
                       </div>
