@@ -383,7 +383,19 @@ export default function Dashboard() {
     if (!completingChallenge || !submissionText.trim() || !user) return;
 
     const reward = completingChallenge.pointsReward;
-    const userChallengeId = `dynamic_${completingChallenge.id}`;
+    
+    // Period-based ID for idempotency and renewal
+    let periodSuffix = "";
+    const now = new Date();
+    if (completingChallenge.type === 'Daily') {
+      periodSuffix = `_d_${now.toISOString().split('T')[0]}`;
+    } else if (completingChallenge.type === 'Weekly') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      periodSuffix = `_w_${startOfWeek.toISOString().split('T')[0]}`;
+    }
+    
+    const userChallengeId = `dynamic_${completingChallenge.id}${periodSuffix}`;
     
     const userChallengeData = {
       id: userChallengeId,
@@ -556,7 +568,26 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {challenges?.length ? challenges.map(chall => {
-                  const completed = userChallenges?.some(uc => uc.challengeId === chall.id);
+                  const completed = userChallenges?.some(uc => {
+                    if (uc.challengeId !== chall.id) return false;
+                    
+                    const completedDate = new Date(uc.completedAt);
+                    const now = new Date();
+                    
+                    if (chall.type === 'Daily') {
+                      return completedDate.toDateString() === now.toDateString();
+                    }
+                    
+                    if (chall.type === 'Weekly') {
+                      const startOfWeek = new Date(now);
+                      startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+                      startOfWeek.setHours(0, 0, 0, 0);
+                      return completedDate >= startOfWeek;
+                    }
+                    
+                    return true; // Special is one-time
+                  });
+
                   return (
                     <div key={chall.id} className="p-4 rounded-xl border bg-card flex justify-between items-center group hover:border-accent/50 transition-colors">
                       <div className="space-y-1 flex-1">
