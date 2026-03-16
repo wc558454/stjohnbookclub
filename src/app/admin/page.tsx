@@ -35,6 +35,7 @@ import {
   Heart,
   Shield,
   X,
+  CheckCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -546,6 +547,11 @@ export default function AdminDashboard() {
                       <TableCell className="text-right space-x-1">
                         {b.status !== 'current' && (
                           <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Activate</Button>
+                        )}
+                        {b.status === 'current' && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>
+                            <CheckCircle className="h-3 w-3 mr-1" /> Mark Finished
+                          </Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
