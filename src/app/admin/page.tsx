@@ -15,16 +15,12 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
-  Users, 
   Trash,
   ShieldAlert,
   Zap,
   BookOpen,
-  MessageSquare,
   Edit,
   Plus,
-  TrendingUp,
-  UserCheck,
   Award,
   Search,
   Star,
@@ -34,7 +30,6 @@ import {
   Sparkles,
   Heart,
   Shield,
-  X,
   CheckCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -251,6 +246,12 @@ export default function AdminDashboard() {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
     toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
+  };
+
+  const handleDeactivate = (bookToDeactivate: any) => {
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "books", bookToDeactivate.id), { status: 'pending' });
+    toast({ title: "Book Deactivated" });
   };
 
   const handleMarkFinished = (bookToFinish: any) => {
@@ -552,9 +553,12 @@ export default function AdminDashboard() {
                           <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Activate</Button>
                         )}
                         {b.status === 'current' && (
-                          <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>
-                            <CheckCircle className="h-3 w-3 mr-1" /> Mark Finished
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleDeactivate(b)}>Deactivate</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>
+                              <CheckCircle className="h-3 w-3 mr-1" /> Mark Finished
+                            </Button>
+                          </>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
