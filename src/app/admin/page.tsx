@@ -40,7 +40,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction, arrayUnion } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -55,7 +55,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 
 const BADGE_ICONS = [
   { name: "Award", icon: Award },
@@ -183,8 +182,6 @@ export default function AdminDashboard() {
   const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
   const [editingGroupMember, setEditingGroupMember] = useState<any>(null);
   const [groupName, setGroupName] = useState("");
-  
-  // Badge management states
   const [managingBadgesMember, setManagingBadgesMember] = useState<any>(null);
   const [editingBadge, setEditingBadge] = useState<any>(null);
   const [memberSearch, setMemberSearch] = useState("");
@@ -232,10 +229,8 @@ export default function AdminDashboard() {
 
   const avgReadingProgress = useMemo(() => {
     if (!members || !books || members.length === 0) return 0;
-    
     let totalProgress = 0;
     let countedMembers = 0;
-
     members.forEach(m => {
       if (m.currentBookId) {
         const book = books.find(b => b.id === m.currentBookId);
@@ -246,7 +241,6 @@ export default function AdminDashboard() {
         }
       }
     });
-
     return countedMembers > 0 ? Math.round(totalProgress / countedMembers) : 0;
   }, [members, books]);
 
@@ -273,20 +267,14 @@ export default function AdminDashboard() {
       totalPages: parseInt(formData.get("pages") as string),
       currentReadingPlanDueDate: formData.get("due") as string,
     };
-
     if (editingBook) {
       updateDocumentNonBlocking(doc(db, "books", editingBook.id), data);
       toast({ title: "Book Saved" });
     } else {
       const id = Math.random().toString(36).substring(7);
-      const newBook = { 
-        ...data, 
-        id, 
-        createdAt: new Date().toISOString(),
-        status: 'pending' 
-      };
+      const newBook = { ...data, id, createdAt: new Date().toISOString(), status: 'pending' };
       await setDoc(doc(db, "books", id), newBook);
-      toast({ title: "New Book Added", description: "You can now set it as current to make it available." });
+      toast({ title: "New Book Added" });
     }
     setIsBookOpen(false);
     setEditingBook(null);
@@ -296,44 +284,19 @@ export default function AdminDashboard() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
-    
+    const data = {
+      title,
+      description: formData.get("description") as string,
+      pointsReward: parseInt(formData.get("points") as string),
+      type: formData.get("type") as string,
+      completionCriteria: formData.get("criteria") as string,
+    };
     if (editingChall) {
-      const data = {
-        title,
-        description: formData.get("description") as string,
-        pointsReward: parseInt(formData.get("points") as string),
-        type: formData.get("type") as string,
-        completionCriteria: formData.get("criteria") as string,
-      };
       updateDocumentNonBlocking(doc(db, "challenges", editingChall.id), data);
     } else {
-      const data = {
-        title,
-        description: formData.get("description") as string,
-        pointsReward: parseInt(formData.get("points") as string),
-        type: formData.get("type") as string,
-        completionCriteria: formData.get("criteria") as string,
-        isActive: true,
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      };
       const id = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "challenges", id), { ...data, id });
-
-      members?.forEach(member => {
-        const notifId = Math.random().toString(36).substring(7);
-        setDoc(doc(db, "users", member.id, "notifications", notifId), {
-          id: notifId,
-          userId: member.id,
-          type: "NewChallenge",
-          message: `New fellowship challenge released: "${title}"!`,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-        });
-      });
+      setDoc(doc(db, "challenges", id), { ...data, id, isActive: true });
     }
-
     setIsChallOpen(false);
     setEditingChall(null);
     toast({ title: "Challenge Saved" });
@@ -344,38 +307,15 @@ export default function AdminDashboard() {
     const formData = new FormData(e.currentTarget);
     const topic = formData.get("topic") as string;
     const dateTime = formData.get("dateTime") as string;
-    
     const id = Math.random().toString(36).substring(7);
-    const discData = {
-      id,
-      topic,
-      scheduledDateTime: dateTime,
-      isActive: true,
-    };
-    
-    setDoc(doc(db, "discussions", id), discData);
-
-    members?.forEach(member => {
-      const notifId = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "users", member.id, "notifications", notifId), {
-        id: notifId,
-        userId: member.id,
-        type: "DiscussionScheduled",
-        message: `New discussion announced: "${topic}" on ${new Date(dateTime).toLocaleString()}`,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-      });
-    });
-
+    setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
     setIsDiscOpen(false);
-    toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
+    toast({ title: "Discussion Scheduled" });
   };
 
   const handleSaveBadge = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!managingBadgesMember || !db) return;
-
     const formData = new FormData(e.currentTarget);
     const badgeData = {
       id: editingBadge ? editingBadge.id : Math.random().toString(36).substring(7),
@@ -385,148 +325,68 @@ export default function AdminDashboard() {
       awardedAt: editingBadge ? editingBadge.awardedAt : new Date().toISOString(),
       message: formData.get("message") as string,
     };
-
     try {
       await runTransaction(db, async (transaction) => {
         const userRef = doc(db, "users", managingBadgesMember.id);
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw new Error("User not found");
-
         const userData = userSnap.data();
         let currentBadges = userData.badges || [];
-
         if (editingBadge) {
           currentBadges = currentBadges.map((b: any) => b.id === editingBadge.id ? badgeData : b);
         } else {
           currentBadges = [...currentBadges, badgeData];
         }
-
         transaction.update(userRef, { badges: currentBadges });
-
-        if (!editingBadge) {
-          const notifId = Math.random().toString(36).substring(7);
-          transaction.set(doc(db, "users", managingBadgesMember.id, "notifications", notifId), {
-            id: notifId,
-            userId: managingBadgesMember.id,
-            type: "BadgeAwarded",
-            message: `Congratulations! You have been awarded the "${badgeData.name}" badge.`,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          });
-        }
       });
-
-      toast({ 
-        title: editingBadge ? "Badge Updated" : "Badge Awarded", 
-        description: `"${badgeData.name}" saved for ${managingBadgesMember.name}.` 
-      });
+      toast({ title: "Badge Saved" });
       setEditingBadge(null);
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Action Failed", description: error.message });
+      toast({ variant: "destructive", title: "Action Failed" });
     }
   };
 
   const handleDeleteBadge = async (badgeId: string) => {
     if (!managingBadgesMember || !db) return;
-
     try {
       await runTransaction(db, async (transaction) => {
         const userRef = doc(db, "users", managingBadgesMember.id);
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw new Error("User not found");
-
         const userData = userSnap.data();
-        const currentBadges = (userData.badges || []).filter((b: any) => b.id !== badgeId);
-
+        const currentBadges = (userData?.badges || []).filter((b: any) => b.id !== badgeId);
         transaction.update(userRef, { badges: currentBadges });
       });
-
       toast({ title: "Badge Removed" });
-      if (editingBadge?.id === badgeId) setEditingBadge(null);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Removal Failed", description: error.message });
+      toast({ variant: "destructive", title: "Removal Failed" });
     }
   };
 
   const handleConfirmAdjustPoints = async () => {
     if (!adjustingMember || !db) return;
-    
     const userRef = doc(db, "users", adjustingMember.id);
     const adjustment = pointsAdjustment || 0;
-
     try {
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) {
-          throw new Error("User not found");
-        }
         const currentProfile = userSnap.data();
-        
-        const newPoints = (currentProfile.points || 0) + adjustment;
-
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
-        const newMonthlyPoints =
-          currentProfile.currentMonth === currentMonthStr
-            ? (currentProfile.monthlyPoints || 0) + adjustment
-            : adjustment;
-
-        transaction.update(userRef, { 
-          points: newPoints,
-          monthlyPoints: newMonthlyPoints,
-          currentMonth: currentMonthStr,
-        });
-
-        const notifId = Math.random().toString(36).substring(7);
-        transaction.set(doc(db, "users", adjustingMember.id, "notifications", notifId), {
-          id: notifId,
-          userId: adjustingMember.id,
-          type: "LeaderboardUpdate",
-          message: `Your points have been updated! Your new total is ${newPoints.toLocaleString()}.`,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-        });
+        if (!currentProfile) return;
+        transaction.update(userRef, { points: (currentProfile.points || 0) + adjustment });
       });
-
-      toast({ 
-        title: "Points Adjusted", 
-        description: `${adjustingMember.name}'s points have been updated.` 
-      });
+      toast({ title: "Points Adjusted" });
       setAdjustingMember(null);
       setPointsAdjustment(0);
     } catch (error: any) {
-      console.error("Failed to adjust points:", error);
-      toast({
-        variant: "destructive",
-        title: "Adjustment Failed",
-        description: error.message || "Could not update points.",
-      });
+      toast({ variant: "destructive", title: "Adjustment Failed" });
     }
   };
 
   const handleConfirmUpdateGroup = () => {
     if (!editingGroupMember || !db) return;
-
-    const userRef = doc(db, "users", editingGroupMember.id);
-    const finalGroupName = groupName.trim();
-
-    updateDocumentNonBlocking(userRef, { groupName: finalGroupName });
-
-    toast({
-      title: "Group Updated",
-      description: finalGroupName
-        ? `${editingGroupMember.name}'s group has been set to "${finalGroupName}".`
-        : `${editingGroupMember.name}'s group has been removed.`,
-    });
+    updateDocumentNonBlocking(doc(db, "users", editingGroupMember.id), { groupName: groupName.trim() });
+    toast({ title: "Group Updated" });
     setEditingGroupMember(null);
-    setGroupName("");
   };
-
-  const totalMembers = members?.length || 0;
-  const activeMembers = members?.filter(m => m.status === 'Active').length || 0;
-  const avgPoints = totalMembers ? Math.round(members!.reduce((acc, m) => acc + (m.points || 0), 0) / totalMembers) : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -552,35 +412,26 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-none shadow-sm bg-accent/5">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
-                <Users className="h-3 w-3" /> Total Members
-              </CardTitle>
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total Members</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold text-primary">{totalMembers}</p>
-              <p className="text-[10px] text-accent font-medium mt-1">{activeMembers} Active currently</p>
+              <p className="text-3xl font-bold text-primary">{members?.length || 0}</p>
             </CardContent>
           </Card>
           <Card className="border-none shadow-sm bg-accent/5">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-3 w-3" /> Average Points
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold text-primary">{avgPoints.toLocaleString()}</p>
-              <p className="text-[10px] text-accent font-medium mt-1">Steady growth in wisdom</p>
-            </CardContent>
-          </Card>
-          <Card className="border-none shadow-sm bg-accent/5">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
-                <UserCheck className="h-3 w-3" /> Reading Progress
-              </CardTitle>
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Reading Progress</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <p className="text-3xl font-bold text-primary">{avgReadingProgress}%</p>
-              <p className="text-[10px] text-accent font-medium mt-1">Overall fellowship completion</p>
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm bg-accent/5">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">System Health</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-3xl font-bold text-green-600">Active</p>
             </CardContent>
           </Card>
         </div>
@@ -633,8 +484,8 @@ export default function AdminDashboard() {
                               <p className="text-[10px] text-muted-foreground">{m.email}</p>
                             </div>
                             {m.badges && m.badges.length > 0 && (
-                               <Badge variant="outline" className="text-[8px] h-4 px-1 flex gap-0.5 border-accent text-accent">
-                                 <Award className="h-2 w-2" /> {m.badges.length}
+                               <Badge variant="outline" className="text-[8px] h-4 px-1 border-accent text-accent">
+                                 {m.badges.length} Badge(s)
                                </Badge>
                             )}
                           </div>
@@ -683,23 +534,18 @@ export default function AdminDashboard() {
                     <TableHead>Book Title</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Total Pages</TableHead>
-                    <TableHead>Due Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {books?.map(b => (
-                    <TableRow key={b.id} className={b.status === 'current' ? 'bg-accent/10' : ''}>
+                    <TableRow key={b.id}>
                       <TableCell className="font-bold">{b.title}</TableCell>
                       <TableCell><Badge variant={b.status === 'current' ? 'default' : 'secondary'}>{b.status}</Badge></TableCell>
                       <TableCell>{b.totalPages} pgs</TableCell>
-                      <TableCell className="text-xs">{b.currentReadingPlanDueDate ? new Date(b.currentReadingPlanDueDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="text-right space-x-1">
-                        {b.status !== 'current' && b.status !== 'finished' && (
+                        {b.status !== 'current' && (
                           <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Activate</Button>
-                        )}
-                        {b.status === 'current' && (
-                          <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>Mark Finished</Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setIsBookOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "books", b.id))}><Trash className="h-4 w-4"/></Button>
@@ -719,33 +565,18 @@ export default function AdminDashboard() {
                     <TableHead>Challenge</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Points</TableHead>
-                    <TableHead>Criteria</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
-                  </TableHeader>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {challenges?.map(c => (
                     <TableRow key={c.id}>
                       <TableCell className="font-bold">{c.title}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{c.type}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
                       <TableCell className="text-accent font-bold">+{c.pointsReward}</TableCell>
-                      <TableCell className="text-[10px] text-muted-foreground">{c.completionCriteria}</TableCell>
-                      <TableCell>
-                        <Badge variant={c.isActive ? 'default' : 'secondary'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
-                      </TableCell>
+                      <TableCell><Badge variant={c.isActive ? 'default' : 'secondary'}>{c.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
                       <TableCell className="text-right">
-                         <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-[10px]"
-                          onClick={() => {
-                            updateDocumentNonBlocking(doc(db, "challenges", c.id), { isActive: !c.isActive });
-                            toast({ title: `Challenge ${c.title} ${c.isActive ? 'deactivated' : 'activated'}.` });
-                          }}
-                        >
-                          {c.isActive ? 'Deactivate' : 'Activate'}
-                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setEditingChall(c); setIsChallOpen(true); }}><Edit className="h-4 w-4"/></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", c.id))}><Trash className="h-4 w-4"/></Button>
                       </TableCell>
@@ -764,11 +595,9 @@ export default function AdminDashboard() {
                   <div key={d.id} className="flex justify-between items-center p-4 border rounded-xl bg-accent/5">
                     <div>
                       <p className="font-bold text-sm text-primary">{d.topic}</p>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
-                        <MessageSquare className="h-3 w-3" /> {new Date(d.scheduledDateTime).toLocaleString()}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(d.scheduledDateTime).toLocaleString()}</p>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}>
                       <Trash className="h-4 w-4"/>
                     </Button>
                   </div>
@@ -788,95 +617,58 @@ export default function AdminDashboard() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Manage Badges: {managingBadgesMember?.name}</DialogTitle>
-              <CardDescription>View, edit, or remove current badges and award new ones.</CardDescription>
+              <CardDescription>Edit or remove existing badges, or award a new one.</CardDescription>
             </DialogHeader>
-            
             <div className="grid md:grid-cols-2 gap-8 py-4">
-              {/* Current Badges List */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Current Badges</h3>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                  {managingBadgesMember?.badges?.length > 0 ? managingBadgesMember.badges.map((b: any) => {
-                    const Icon = BADGE_ICONS.find(bi => bi.name === b.iconName)?.icon || Award;
-                    return (
-                      <div key={b.id} className={`p-3 border rounded-lg flex items-center gap-3 group transition-colors ${editingBadge?.id === b.id ? 'bg-accent/10 border-accent' : 'bg-muted/30'}`}>
-                        <div className="p-2 rounded-full bg-accent/20 text-accent">
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{b.name}</p>
-                          <p className="text-[10px] text-muted-foreground line-clamp-1">{b.description}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingBadge(b)}>
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteBadge(b.id)}>
-                            <Trash className="h-3 w-3" />
-                          </Button>
-                        </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {managingBadgesMember?.badges?.map((b: any) => (
+                    <div key={b.id} className="p-3 border rounded-lg flex items-center justify-between group bg-muted/30">
+                      <div>
+                        <p className="text-sm font-bold">{b.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{b.description}</p>
                       </div>
-                    );
-                  }) : (
-                    <p className="text-xs italic text-muted-foreground py-10 text-center">No badges awarded yet.</p>
-                  )}
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingBadge(b)}>
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteBadge(b.id)}>
+                          <Trash className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {!managingBadgesMember?.badges?.length && <p className="text-xs italic text-muted-foreground">No badges yet.</p>}
                 </div>
               </div>
-
-              {/* Award / Edit Form */}
               <div className="space-y-4 border-l pl-8">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                    {editingBadge ? "Edit Badge" : "Award New"}
-                  </h3>
-                  {editingBadge && (
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setEditingBadge(null)}>
-                      <X className="h-3 w-3 mr-1" /> New
-                    </Button>
-                  )}
-                </div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{editingBadge ? "Edit Badge" : "Award New"}</h3>
                 <form onSubmit={handleSaveBadge} className="space-y-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Badge Name</Label>
-                    <Input key={editingBadge?.id} name="name" defaultValue={editingBadge?.name} placeholder="e.g. Golden Speaker" required />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Description</Label>
-                    <Input key={editingBadge?.id} name="description" defaultValue={editingBadge?.description} placeholder="Short honorific" required />
-                  </div>
+                  <div className="space-y-1"><Label className="text-xs">Name</Label><Input name="name" defaultValue={editingBadge?.name} required /></div>
+                  <div className="space-y-1"><Label className="text-xs">Description</Label><Input name="description" defaultValue={editingBadge?.description} required /></div>
                   <div className="space-y-1">
                     <Label className="text-xs">Icon</Label>
-                    <Select key={editingBadge?.id} name="iconName" defaultValue={editingBadge?.iconName || "Award"}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Select name="iconName" defaultValue={editingBadge?.iconName || "Award"}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {BADGE_ICONS.map(bi => (
                           <SelectItem key={bi.name} value={bi.name}>
-                            <div className="flex items-center gap-2">
-                              <bi.icon className="h-3 w-3" /> {bi.name}
-                            </div>
+                            <div className="flex items-center gap-2"><bi.icon className="h-3 w-3" /> {bi.name}</div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Optional Message</Label>
-                    <Textarea key={editingBadge?.id} name="message" defaultValue={editingBadge?.message} className="text-xs min-h-[60px]" placeholder="Reason for the honor..." />
-                  </div>
-                  <Button type="submit" className="w-full h-9 text-xs font-bold">
-                    {editingBadge ? "Save Changes" : "Award Badge"}
-                  </Button>
+                  <div className="space-y-1"><Label className="text-xs">Message</Label><Textarea name="message" defaultValue={editingBadge?.message} className="text-xs h-16" /></div>
+                  <Button type="submit" className="w-full">{editingBadge ? "Save Changes" : "Award Badge"}</Button>
                 </form>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setManagingBadgesMember(null)}>Done</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
 
+        {/* Other Dialogs */}
         <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
           <DialogContent>
             <form onSubmit={handleSaveBook}>
@@ -906,10 +698,10 @@ export default function AdminDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-1"><Label>Points Reward</Label><Input name="points" type="number" defaultValue={editingChall?.pointsReward} required /></div>
-                <div className="space-y-1"><Label>Completion Criteria</Label><Input name="criteria" defaultValue={editingChall?.completionCriteria} required /></div>
+                <div className="space-y-1"><Label>Criteria</Label><Input name="criteria" defaultValue={editingChall?.completionCriteria} required /></div>
                 <div className="space-y-1"><Label>Description</Label><Textarea name="description" defaultValue={editingChall?.description} /></div>
               </div>
-              <DialogFooter><Button type="submit" className="w-full">Activate Challenge</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">Save Challenge</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -919,66 +711,37 @@ export default function AdminDashboard() {
             <form onSubmit={handleSaveDiscussion}>
               <DialogHeader><DialogTitle>Schedule Discussion</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-1"><Label>Topic</Label><Input name="topic" placeholder="The Gold of Silence" required /></div>
+                <div className="space-y-1"><Label>Topic</Label><Input name="topic" required /></div>
                 <div className="space-y-1"><Label>Date & Time</Label><Input name="dateTime" type="datetime-local" required /></div>
               </div>
-              <DialogFooter><Button type="submit" className="w-full">Announce Discussion</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">Schedule</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!adjustingMember} onOpenChange={(open) => !open && setAdjustingMember(null)}>
+        <Dialog open={!!adjustingMember} onOpenChange={() => setAdjustingMember(null)}>
           <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adjust Points for {adjustingMember?.name}</DialogTitle>
-                <CardDescription>Manually add or subtract points from a member's total.</CardDescription>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Adjust Points: {adjustingMember?.name}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                   <div className="space-y-1">
-                    <Label htmlFor="points-adjustment">Points to Add/Subtract (use a negative number to subtract)</Label>
-                    <Input
-                        id="points-adjustment"
-                        type="number"
-                        value={pointsAdjustment}
-                        onChange={(e) => setPointsAdjustment(parseInt(e.target.value) || 0)}
-                        placeholder="e.g. 50 or -20"
-                    />
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Current points: <span className="font-bold">{adjustingMember?.points || 0}</span>
-                    <br />
-                    New total will be: <span className="font-bold">{(adjustingMember?.points || 0) + pointsAdjustment}</span>
+                    <Label>Points to Add/Subtract</Label>
+                    <Input type="number" value={pointsAdjustment} onChange={(e) => setPointsAdjustment(parseInt(e.target.value) || 0)} />
                   </div>
               </div>
-              <DialogFooter>
-                  <Button variant="outline" onClick={() => setAdjustingMember(null)}>Cancel</Button>
-                  <Button onClick={handleConfirmAdjustPoints}>Confirm Adjustment</Button>
-              </DialogFooter>
+              <DialogFooter><Button onClick={handleConfirmAdjustPoints}>Confirm</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!editingGroupMember} onOpenChange={(open) => !open && setEditingGroupMember(null)}>
+        <Dialog open={!!editingGroupMember} onOpenChange={() => setEditingGroupMember(null)}>
           <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Group for {editingGroupMember?.name}</DialogTitle>
-                <CardDescription>Assign or change the member's group name.</CardDescription>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Edit Group: {editingGroupMember?.name}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                   <div className="space-y-1">
-                    <Label htmlFor="group-name">Group Name</Label>
-                    <Input
-                        id="group-name"
-                        type="text"
-                        value={groupName}
-                        onChange={(e) => setGroupName(e.target.value)}
-                        placeholder="e.g. Cohort Alpha"
-                    />
+                    <Label>Group Name</Label>
+                    <Input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
                   </div>
               </div>
-              <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditingGroupMember(null)}>Cancel</Button>
-                  <Button onClick={handleConfirmUpdateGroup}>Confirm Update</Button>
-              </DialogFooter>
+              <DialogFooter><Button onClick={handleConfirmUpdateGroup}>Update</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 
