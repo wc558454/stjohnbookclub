@@ -34,6 +34,7 @@ import {
   Sparkles,
   Heart,
   Shield,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -54,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 const BADGE_ICONS = [
   { name: "Award", icon: Award },
@@ -181,7 +183,10 @@ export default function AdminDashboard() {
   const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
   const [editingGroupMember, setEditingGroupMember] = useState<any>(null);
   const [groupName, setGroupName] = useState("");
-  const [awardingBadgeMember, setAwardingBadgeMember] = useState<any>(null);
+  
+  // Badge management states
+  const [managingBadgesMember, setManagingBadgesMember] = useState<any>(null);
+  const [editingBadge, setEditingBadge] = useState<any>(null);
   const [memberSearch, setMemberSearch] = useState("");
 
   useEffect(() => {
@@ -367,47 +372,81 @@ export default function AdminDashboard() {
     toast({ title: "Discussion Announced", description: "Notifications sent to all members." });
   };
 
-  const handleConfirmAwardBadge = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveBadge = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!awardingBadgeMember || !db) return;
+    if (!managingBadgesMember || !db) return;
 
     const formData = new FormData(e.currentTarget);
     const badgeData = {
-      id: Math.random().toString(36).substring(7),
+      id: editingBadge ? editingBadge.id : Math.random().toString(36).substring(7),
       name: formData.get("name") as string,
       description: formData.get("description") as string,
       iconName: formData.get("iconName") as string,
-      awardedAt: new Date().toISOString(),
+      awardedAt: editingBadge ? editingBadge.awardedAt : new Date().toISOString(),
       message: formData.get("message") as string,
     };
 
     try {
       await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", awardingBadgeMember.id);
+        const userRef = doc(db, "users", managingBadgesMember.id);
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw new Error("User not found");
 
-        transaction.update(userRef, {
-          badges: arrayUnion(badgeData)
-        });
+        const userData = userSnap.data();
+        let currentBadges = userData.badges || [];
 
-        const notifId = Math.random().toString(36).substring(7);
-        transaction.set(doc(db, "users", awardingBadgeMember.id, "notifications", notifId), {
-          id: notifId,
-          userId: awardingBadgeMember.id,
-          type: "BadgeAwarded",
-          message: `Congratulations! You have been awarded the "${badgeData.name}" badge.`,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-        });
+        if (editingBadge) {
+          currentBadges = currentBadges.map((b: any) => b.id === editingBadge.id ? badgeData : b);
+        } else {
+          currentBadges = [...currentBadges, badgeData];
+        }
+
+        transaction.update(userRef, { badges: currentBadges });
+
+        if (!editingBadge) {
+          const notifId = Math.random().toString(36).substring(7);
+          transaction.set(doc(db, "users", managingBadgesMember.id, "notifications", notifId), {
+            id: notifId,
+            userId: managingBadgesMember.id,
+            type: "BadgeAwarded",
+            message: `Congratulations! You have been awarded the "${badgeData.name}" badge.`,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
       });
 
-      toast({ title: "Badge Awarded", description: `"${badgeData.name}" given to ${awardingBadgeMember.name}.` });
-      setAwardingBadgeMember(null);
+      toast({ 
+        title: editingBadge ? "Badge Updated" : "Badge Awarded", 
+        description: `"${badgeData.name}" saved for ${managingBadgesMember.name}.` 
+      });
+      setEditingBadge(null);
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Award Failed", description: error.message });
+      toast({ variant: "destructive", title: "Action Failed", description: error.message });
+    }
+  };
+
+  const handleDeleteBadge = async (badgeId: string) => {
+    if (!managingBadgesMember || !db) return;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, "users", managingBadgesMember.id);
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw new Error("User not found");
+
+        const userData = userSnap.data();
+        const currentBadges = (userData.badges || []).filter((b: any) => b.id !== badgeId);
+
+        transaction.update(userRef, { badges: currentBadges });
+      });
+
+      toast({ title: "Badge Removed" });
+      if (editingBadge?.id === badgeId) setEditingBadge(null);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Removal Failed", description: error.message });
     }
   };
 
@@ -623,7 +662,7 @@ export default function AdminDashboard() {
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setAwardingBadgeMember(m)}>Award Badge</Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setManagingBadgesMember(m)}>Badges</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
@@ -683,7 +722,7 @@ export default function AdminDashboard() {
                     <TableHead>Criteria</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
+                  </TableHeader>
                 </TableHeader>
                 <TableBody>
                   {challenges?.map(c => (
@@ -739,50 +778,102 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* Award Badge Dialog */}
-        <Dialog open={!!awardingBadgeMember} onOpenChange={(open) => !open && setAwardingBadgeMember(null)}>
-          <DialogContent>
-            <form onSubmit={handleConfirmAwardBadge}>
-              <DialogHeader>
-                <DialogTitle>Award Badge to {awardingBadgeMember?.name}</DialogTitle>
-                <CardDescription>Grant a special title or achievement to this member.</CardDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-1">
-                  <Label>Badge Name</Label>
-                  <Input name="name" placeholder="Golden Speaker" required />
-                </div>
-                <div className="space-y-1">
-                  <Label>Description</Label>
-                  <Input name="description" placeholder="For exceptional discussion participation" required />
-                </div>
-                <div className="space-y-1">
-                  <Label>Icon</Label>
-                  <Select name="iconName" defaultValue="Award">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BADGE_ICONS.map(bi => (
-                        <SelectItem key={bi.name} value={bi.name}>
-                          <div className="flex items-center gap-2">
-                            <bi.icon className="h-4 w-4" /> {bi.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>Optional Message</Label>
-                  <Textarea name="message" placeholder="You've been a beacon of light in our cohort discussions!" />
+        {/* Manage Badges Dialog */}
+        <Dialog open={!!managingBadgesMember} onOpenChange={(open) => {
+          if (!open) {
+            setManagingBadgesMember(null);
+            setEditingBadge(null);
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Manage Badges: {managingBadgesMember?.name}</DialogTitle>
+              <CardDescription>View, edit, or remove current badges and award new ones.</CardDescription>
+            </DialogHeader>
+            
+            <div className="grid md:grid-cols-2 gap-8 py-4">
+              {/* Current Badges List */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Current Badges</h3>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                  {managingBadgesMember?.badges?.length > 0 ? managingBadgesMember.badges.map((b: any) => {
+                    const Icon = BADGE_ICONS.find(bi => bi.name === b.iconName)?.icon || Award;
+                    return (
+                      <div key={b.id} className={`p-3 border rounded-lg flex items-center gap-3 group transition-colors ${editingBadge?.id === b.id ? 'bg-accent/10 border-accent' : 'bg-muted/30'}`}>
+                        <div className="p-2 rounded-full bg-accent/20 text-accent">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{b.name}</p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-1">{b.description}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingBadge(b)}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteBadge(b.id)}>
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-xs italic text-muted-foreground py-10 text-center">No badges awarded yet.</p>
+                  )}
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setAwardingBadgeMember(null)}>Cancel</Button>
-                <Button type="submit">Award Badge</Button>
-              </DialogFooter>
-            </form>
+
+              {/* Award / Edit Form */}
+              <div className="space-y-4 border-l pl-8">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    {editingBadge ? "Edit Badge" : "Award New"}
+                  </h3>
+                  {editingBadge && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setEditingBadge(null)}>
+                      <X className="h-3 w-3 mr-1" /> New
+                    </Button>
+                  )}
+                </div>
+                <form onSubmit={handleSaveBadge} className="space-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Badge Name</Label>
+                    <Input key={editingBadge?.id} name="name" defaultValue={editingBadge?.name} placeholder="e.g. Golden Speaker" required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Description</Label>
+                    <Input key={editingBadge?.id} name="description" defaultValue={editingBadge?.description} placeholder="Short honorific" required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Icon</Label>
+                    <Select key={editingBadge?.id} name="iconName" defaultValue={editingBadge?.iconName || "Award"}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BADGE_ICONS.map(bi => (
+                          <SelectItem key={bi.name} value={bi.name}>
+                            <div className="flex items-center gap-2">
+                              <bi.icon className="h-3 w-3" /> {bi.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Optional Message</Label>
+                    <Textarea key={editingBadge?.id} name="message" defaultValue={editingBadge?.message} className="text-xs min-h-[60px]" placeholder="Reason for the honor..." />
+                  </div>
+                  <Button type="submit" className="w-full h-9 text-xs font-bold">
+                    {editingBadge ? "Save Changes" : "Award Badge"}
+                  </Button>
+                </form>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setManagingBadgesMember(null)}>Done</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
