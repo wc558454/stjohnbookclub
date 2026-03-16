@@ -372,7 +372,10 @@ export default function AdminDashboard() {
         const userSnap = await transaction.get(userRef);
         const currentProfile = userSnap.data();
         if (!currentProfile) return;
-        transaction.update(userRef, { points: (currentProfile.points || 0) + adjustment });
+        transaction.update(userRef, { 
+          points: (currentProfile.points || 0) + adjustment,
+          monthlyPoints: (currentProfile.monthlyPoints || 0) + adjustment
+        });
       });
       toast({ title: "Points Adjusted" });
       setAdjustingMember(null);
