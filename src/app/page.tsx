@@ -120,7 +120,7 @@ export default function Home() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-4 text-sm text-primary-foreground/40 pt-8 border-t border-white/10 w-full justify-between">
-            <p>© 2024 St. John Chrysostom Bookclub. All rights reserved.</p>
+            <p>© 2026 St. John Chrysostom Bookclub. All rights reserved.</p>
             <p className="font-medium">Made by <span className="text-white">William</span></p>
           </div>
         </div>
