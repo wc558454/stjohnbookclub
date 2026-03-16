@@ -493,7 +493,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>
                            {m.groupName ? (
-                            <Badge variant="outline" className="text-[10px]">{m.groupName}</Badge>
+                            <Badge variant="outline" className="text-[10px] rounded-sm">{m.groupName}</Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs italic">None</span>
                           )}
