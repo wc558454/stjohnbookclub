@@ -44,6 +44,7 @@ import {
   Medal,
   Heart,
   Shield,
+  Quote,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -548,6 +549,16 @@ export default function Dashboard() {
                   {profile.guidingSaint && <Badge variant="outline" className="border-accent text-accent">Guided by {profile.guidingSaint}</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 font-medium">Goal: {profile.pagesPerWeek || 0} pages per week</p>
+                {profile.spiritualGoal && (
+                  <div className="mt-2 max-w-sm">
+                    <p className="text-[10px] uppercase font-bold text-accent flex items-center gap-1">
+                       <Quote className="h-3 w-3" /> My Spiritual Goal
+                    </p>
+                    <p className="text-xs text-muted-foreground italic leading-snug mt-0.5 line-clamp-2 hover:line-clamp-none transition-all cursor-default">
+                      "{profile.spiritualGoal}"
+                    </p>
+                  </div>
+                )}
                 <div className="mt-3 flex items-center">
                   <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
                      <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
