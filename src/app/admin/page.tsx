@@ -31,6 +31,8 @@ import {
   Heart,
   Shield,
   CheckCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -242,22 +244,31 @@ export default function AdminDashboard() {
 
   if (loading || !user || !isAdmin) return null;
 
-  const handleSetCurrent = async (bookToSet: any) => {
+  const handleSetCurrentBook = async (bookToSet: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
     toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
   };
 
-  const handleDeactivate = (bookToDeactivate: any) => {
+  const handleDeactivateBook = (bookToDeactivate: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToDeactivate.id), { status: 'pending' });
     toast({ title: "Book Deactivated" });
   };
 
-  const handleMarkFinished = (bookToFinish: any) => {
+  const handleMarkFinishedBook = (bookToFinish: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToFinish.id), { status: 'finished' });
     toast({ title: "Book Finished" });
+  };
+
+  const handleToggleChallenge = (challenge: any, isActive: boolean) => {
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "challenges", challenge.id), { isActive });
+    toast({ 
+      title: isActive ? "Challenge Activated" : "Challenge Deactivated",
+      description: `${challenge.title} is now ${isActive ? 'visible' : 'hidden'} to members.`
+    });
   };
 
   const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -550,12 +561,12 @@ export default function AdminDashboard() {
                       <TableCell>{b.totalPages} pgs</TableCell>
                       <TableCell className="text-right space-x-1">
                         {b.status !== 'current' && (
-                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrent(b)}>Activate</Button>
+                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrentBook(b)}>Activate</Button>
                         )}
                         {b.status === 'current' && (
                           <>
-                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleDeactivate(b)}>Deactivate</Button>
-                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinished(b)}>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleDeactivateBook(b)}>Deactivate</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleMarkFinishedBook(b)}>
                               <CheckCircle className="h-3 w-3 mr-1" /> Mark Finished
                             </Button>
                           </>
@@ -589,9 +600,18 @@ export default function AdminDashboard() {
                       <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
                       <TableCell className="text-accent font-bold">+{c.pointsReward}</TableCell>
                       <TableCell><Badge variant={c.isActive ? 'default' : 'secondary'}>{c.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingChall(c); setIsChallOpen(true); }}><Edit className="h-4 w-4"/></Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", c.id))}><Trash className="h-4 w-4"/></Button>
+                      <TableCell className="text-right flex justify-end gap-1">
+                        {c.isActive ? (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleToggleChallenge(c, false)}>
+                            <EyeOff className="h-3 w-3 mr-1" /> Deactivate
+                          </Button>
+                        ) : (
+                          <Button size="sm" className="h-7 text-[10px]" onClick={() => handleToggleChallenge(c, true)}>
+                            <Eye className="h-3 w-3 mr-1" /> Activate
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingChall(c); setIsChallOpen(true); }}><Edit className="h-4 w-4"/></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteDocumentNonBlocking(doc(db, "challenges", c.id))}><Trash className="h-4 w-4"/></Button>
                       </TableCell>
                     </TableRow>
                   ))}
