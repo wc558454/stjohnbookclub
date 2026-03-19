@@ -49,6 +49,7 @@ import {
   ChevronDown,
   ChevronUp,
   BellRing,
+  Edit,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -114,6 +115,7 @@ export default function Dashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const [showReflectionHistory, setShowReflectionHistory] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
@@ -553,6 +555,23 @@ export default function Dashboard() {
     }
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user?.uid || !db) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const updatedData = {
+      name: formData.get("name") as string,
+      pagesPerWeek: parseInt(formData.get("pagesPerWeek") as string),
+      guidingSaint: formData.get("guidingSaint") as string,
+      spiritualGoal: formData.get("spiritualGoal") as string,
+    };
+
+    updateDocumentNonBlocking(doc(db, "users", user.uid), updatedData);
+    toast({ title: "Profile Updated", description: "Your spiritual profile has been refreshed." });
+    setIsEditProfileOpen(false);
+  };
+
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
 
   return (
@@ -571,6 +590,9 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
                   <UserBadgeList badges={profile.badges} />
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-accent" onClick={() => setIsEditProfileOpen(true)}>
+                    <Edit className="h-3 w-3" />
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {profile.groupName && <Badge variant="secondary">{profile.groupName}</Badge>}
@@ -733,7 +755,7 @@ export default function Dashboard() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2 font-headline">
                     <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
-                  </CardTitle>
+                  </Target>
                   <CardDescription className="text-xs">Submit your reading to earn points. You can log progress multiple times a day!</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-3 pb-6">
@@ -1049,6 +1071,38 @@ export default function Dashboard() {
                 Continue the Journey
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+          <DialogContent>
+            <form onSubmit={handleUpdateProfile}>
+              <DialogHeader>
+                <DialogTitle>Edit Spiritual Profile</DialogTitle>
+                <DialogDescription>Update your registration details and spiritual goals.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-1">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input id="name" name="name" defaultValue={profile.name} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="guidingSaint">Guiding Saint</Label>
+                  <Input id="guidingSaint" name="guidingSaint" defaultValue={profile.guidingSaint} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="pagesPerWeek">Weekly Page Goal</Label>
+                  <Input id="pagesPerWeek" name="pagesPerWeek" type="number" defaultValue={profile.pagesPerWeek} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="spiritualGoal">Spiritual Goal</Label>
+                  <Textarea id="spiritualGoal" name="spiritualGoal" defaultValue={profile.spiritualGoal} className="min-h-[100px]" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" className="w-full">Save Changes</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </main>
