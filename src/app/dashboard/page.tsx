@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -755,7 +754,7 @@ export default function Dashboard() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2 font-headline">
                     <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
-                  </Target>
+                  </CardTitle>
                   <CardDescription className="text-xs">Submit your reading to earn points. You can log progress multiple times a day!</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-3 pb-6">
