@@ -45,10 +45,8 @@ import {
   Shield,
   Quote,
   History,
-  ChevronDown,
-  ChevronUp,
-  BellRing,
   Edit,
+  BellRing,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -951,22 +949,6 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-none shadow-sm bg-accent/5 border-dashed border-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <BellRing className="h-4 w-4 text-accent" /> Notification Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Get alerts for reading reminders, streak protection, and fellowship announcements on your phone.
-                  </p>
-                  <Button onClick={handleEnableNotifications} variant="outline" size="sm" className="w-full rounded-full border-accent text-accent hover:bg-accent/10 font-bold">
-                    Enable Push Notifications
-                  </Button>
-                </CardContent>
-              </Card>
-
               <Card className="border-none shadow-sm bg-secondary/10">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
