@@ -48,6 +48,7 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  BellRing,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -59,10 +60,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { requestNotificationPermission } from "@/firebase/messaging";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -103,6 +105,7 @@ export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
   const db = useFirestore();
+  const app = useFirebaseApp();
   const { toast } = useToast();
   
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
@@ -166,7 +169,7 @@ export default function Dashboard() {
 
   const allTimeLeaderboardQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), orderBy("points", "desc"), limit(20));
+    return query(collection(db, "users"), orderBy("points", "desc"), limit(50));
   }, [db, user]);
   const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
 
@@ -201,6 +204,12 @@ export default function Dashboard() {
     const todayStr = new Date().toISOString().split('T')[0];
     return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
   }, [userChallenges]);
+
+  const userRank = useMemo(() => {
+    if (!allTimeLeaderboardMembers || !user) return -1;
+    const index = allTimeLeaderboardMembers.findIndex(m => m.id === user.uid);
+    return index !== -1 ? index + 1 : -1;
+  }, [allTimeLeaderboardMembers, user]);
 
   if (loading || !user || !profile) return null;
 
@@ -534,6 +543,16 @@ export default function Dashboard() {
     setSubmissionText("");
   };
 
+  const handleEnableNotifications = async () => {
+    if (!user) return;
+    const token = await requestNotificationPermission(app, db, user.uid);
+    if (token) {
+      toast({ title: "Notifications Enabled", description: "You will now receive fellowship alerts on this device." });
+    } else {
+      toast({ variant: "destructive", title: "Permission Denied", description: "Please enable notifications in your browser settings." });
+    }
+  };
+
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
 
   return (
@@ -568,7 +587,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                 )}
-                <div className="mt-3 flex items-center">
+                <div className="mt-3 flex items-center gap-3">
                   <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
                      <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
                           <rank.icon className="h-5 w-5" />
@@ -578,6 +597,12 @@ export default function Dashboard() {
                          <p className="text-xs font-medium text-muted-foreground">Level {rank.level}</p>
                      </div>
                   </div>
+                  {userRank !== -1 && (
+                    <div className="bg-accent/5 px-3 py-1 rounded-full border border-accent/20 flex items-center gap-1.5 shadow-sm">
+                       <Trophy className="h-3.5 w-3.5 text-accent" />
+                       <span className="text-[10px] font-bold text-primary uppercase tracking-tight">Rank #{userRank}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -850,6 +875,22 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-6">
+              <Card className="border-none shadow-sm bg-accent/5 border-dashed border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BellRing className="h-4 w-4 text-accent" /> Notification Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Get alerts for reading reminders, streak protection, and fellowship announcements on your phone.
+                  </p>
+                  <Button onClick={handleEnableNotifications} variant="outline" size="sm" className="w-full rounded-full border-accent text-accent hover:bg-accent/10 font-bold">
+                    Enable Push Notifications
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card className="border-none shadow-sm bg-secondary/10">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
