@@ -45,6 +45,9 @@ import {
   Heart,
   Shield,
   Quote,
+  History,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -59,6 +62,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -106,6 +110,7 @@ export default function Dashboard() {
   const [hasMounted, setHasMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
+  const [showReflectionHistory, setShowReflectionHistory] = useState(false);
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
@@ -139,9 +144,13 @@ export default function Dashboard() {
 
   const userChallengesQuery = useMemoFirebase(() => {
     if (!user?.uid) return null;
-    return collection(db, "users", user.uid, "userChallenges");
+    return query(collection(db, "users", user.uid, "userChallenges"), orderBy("completedAt", "desc"));
   }, [db, user?.uid]);
   const { data: userChallenges } = useCollection(userChallengesQuery);
+
+  const reflections = useMemo(() => {
+    return userChallenges?.filter(uc => uc.id.startsWith('refl_')) || [];
+  }, [userChallenges]);
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -715,12 +724,47 @@ export default function Dashboard() {
 
               <Card className="border-none shadow-sm bg-accent/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2 font-headline">
-                    <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
-                  </CardTitle>
-                  <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2 font-headline">
+                        <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
+                      </CardTitle>
+                      <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowReflectionHistory(!showReflectionHistory)}
+                      className="text-[10px] h-7 px-2 font-bold uppercase tracking-widest text-accent"
+                    >
+                      <History className="h-3 w-3 mr-1" /> {showReflectionHistory ? "Hide" : "View"} History
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4 pb-6">
+                  <Collapsible open={showReflectionHistory} onOpenChange={setShowReflectionHistory}>
+                    <CollapsibleContent className="space-y-4 mb-4 animate-in fade-in duration-300">
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest border-b pb-1 flex items-center gap-2">
+                          <History className="h-3 w-3" /> Reflection Archive
+                        </h4>
+                        {reflections.length > 0 ? reflections.map((refl) => (
+                          <div key={refl.id} className="p-3 bg-white border rounded-lg shadow-sm space-y-1">
+                            <div className="flex justify-between items-center border-b pb-1 mb-1">
+                              <span className="text-[9px] font-bold text-accent uppercase tracking-tighter">
+                                {new Date(refl.completedAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                              <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0">+5 PTS</Badge>
+                            </div>
+                            <p className="text-xs text-foreground/80 leading-relaxed italic">"{refl.submissionText}"</p>
+                          </div>
+                        )) : (
+                          <p className="text-[10px] text-center text-muted-foreground italic py-4">Your spiritual journal is empty. Begin reflecting today!</p>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
                   {hasReflectedToday ? (
                     <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
                       <CheckCircle2 className="h-6 w-6" />
