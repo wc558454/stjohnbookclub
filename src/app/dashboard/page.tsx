@@ -119,6 +119,9 @@ export default function Dashboard() {
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
 
+  const [editingReflection, setEditingReflection] = useState<any>(null);
+  const [editReflectionText, setEditReflectionText] = useState("");
+
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -200,11 +203,13 @@ export default function Dashboard() {
     return Math.ceil(remainingPages / remainingDays);
   }, [currentBook, profile]);
 
-  const hasReflectedToday = useMemo(() => {
-    if (!userChallenges) return false;
+  const todayReflection = useMemo(() => {
+    if (!userChallenges) return null;
     const todayStr = new Date().toISOString().split('T')[0];
-    return userChallenges.some(uc => uc.id === `refl_${todayStr}`);
+    return userChallenges.find(uc => uc.id === `refl_${todayStr}`) || null;
   }, [userChallenges]);
+
+  const hasReflectedToday = !!todayReflection;
 
   const userRank = useMemo(() => {
     if (!allTimeLeaderboardMembers || !user) return -1;
@@ -441,6 +446,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleUpdateReflection = async () => {
+    const words = editReflectionText.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 30) {
+      toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 30 words long." });
+      return;
+    }
+
+    if (!editingReflection || !user) return;
+
+    setIsSubmitting(true);
+    const reflectionRef = doc(db, "users", user.uid, "userChallenges", editingReflection.id);
+    
+    try {
+      updateDocumentNonBlocking(reflectionRef, {
+        submissionText: editReflectionText
+      });
+      toast({ title: "Reflection Updated", description: "Your spiritual note has been corrected." });
+      setEditingReflection(null);
+      setEditReflectionText("");
+    } catch (e) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCheckIn = async (discussion: any) => {
     const discDate = new Date(discussion.scheduledDateTime);
     const now = new Date();
@@ -572,6 +603,7 @@ export default function Dashboard() {
   };
 
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
+  const editReflectionWordCount = editReflectionText.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -795,12 +827,22 @@ export default function Dashboard() {
                           <History className="h-3 w-3" /> Reflection Archive
                         </h4>
                         {reflections.length > 0 ? reflections.map((refl) => (
-                          <div key={refl.id} className="p-3 bg-white border rounded-lg shadow-sm space-y-1">
+                          <div key={refl.id} className="p-3 bg-white border rounded-lg shadow-sm space-y-1 group relative">
                             <div className="flex justify-between items-center border-b pb-1 mb-1">
                               <span className="text-[9px] font-bold text-accent uppercase tracking-tighter">
                                 {new Date(refl.completedAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
-                              <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0">+5 PTS</Badge>
+                              <div className="flex items-center gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                  onClick={() => { setEditingReflection(refl); setEditReflectionText(refl.submissionText || ""); }}
+                                >
+                                  <Edit className="h-2.5 w-2.5" />
+                                </Button>
+                                <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0">+5 PTS</Badge>
+                              </div>
                             </div>
                             <p className="text-xs text-foreground/80 leading-relaxed italic">"{refl.submissionText}"</p>
                           </div>
@@ -812,11 +854,24 @@ export default function Dashboard() {
                   </Collapsible>
 
                   {hasReflectedToday ? (
-                    <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
-                      <CheckCircle2 className="h-6 w-6" />
-                      <div>
-                        <p className="text-sm">Reflection submitted for today!</p>
-                        <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-green-600 font-bold p-4 bg-green-50 border border-green-100 rounded-xl">
+                        <CheckCircle2 className="h-6 w-6" />
+                        <div className="flex-1">
+                          <p className="text-sm">Reflection submitted for today!</p>
+                          <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-[10px] font-bold text-green-700 hover:bg-green-100"
+                          onClick={() => { setEditingReflection(todayReflection); setEditReflectionText(todayReflection?.submissionText || ""); }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" /> Edit Today's Note
+                        </Button>
+                      </div>
+                      <div className="p-3 bg-white/50 border rounded-lg italic text-xs text-muted-foreground">
+                        "{todayReflection?.submissionText}"
                       </div>
                     </div>
                   ) : (
@@ -1037,6 +1092,33 @@ export default function Dashboard() {
             </div>
             <DialogFooter>
               <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim()}>Submit and Complete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Reflection Dialog */}
+        <Dialog open={!!editingReflection} onOpenChange={(open) => { if (!open) { setEditingReflection(null); setEditReflectionText(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Reflection</DialogTitle>
+              <DialogDescription>Refine your meditation from {editingReflection && new Date(editingReflection.completedAt).toLocaleDateString()}.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
+              <Label htmlFor="edit-reflection-text" className="font-medium">Your Meditation</Label>
+              <Textarea 
+                id="edit-reflection-text" 
+                value={editReflectionText} 
+                onChange={(e) => setEditReflectionText(e.target.value)} 
+                className="min-h-[150px] bg-white" 
+              />
+              <p className={`text-[10px] font-bold uppercase tracking-tight ${editReflectionWordCount < 30 ? 'text-muted-foreground' : 'text-green-600'}`}>
+                Words: {editReflectionWordCount} / 30
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleUpdateReflection} disabled={editReflectionWordCount < 30 || isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Save Changes"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
