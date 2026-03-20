@@ -86,7 +86,7 @@ export default function Register() {
         currentPagesRead: 0,
         level: 1,
         streak: 0,
-        status: "Active",
+        status: "Pending Approval",
         role: "member",
         createdAt: new Date().toISOString(),
         freezeCount: 2,
@@ -95,8 +95,8 @@ export default function Register() {
       });
 
       toast({
-        title: "Welcome to the Fellowship!",
-        description: "Your registration has been submitted.",
+        title: "Registration Received",
+        description: "Your application to join the fellowship is now pending admin approval.",
       });
 
       router.push("/dashboard");

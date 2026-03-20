@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Heart, Share2, CornerDownRight, Loader2 } from "lucide-react";
+import { MessageCircle, Heart, Share2, CornerDownRight, Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
@@ -32,6 +32,11 @@ function CommentSection({ postId }: { postId: string }) {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !user || !profile || isSubmitting) return;
+
+    if (profile.status !== "Active") {
+      toast({ variant: "destructive", title: "Access Denied", description: "Your account must be verified by an admin to participate in discussions." });
+      return;
+    }
 
     setIsSubmitting(true);
     const reward = 2;
@@ -95,7 +100,7 @@ function CommentSection({ postId }: { postId: string }) {
           </Card>
         </div>
       ))}
-      {user && (
+      {user && profile?.status === "Active" && (
         <form onSubmit={handleCommentSubmit} className="ml-8 flex gap-2">
           <Input 
             value={newComment} 
@@ -129,6 +134,11 @@ export default function Forum() {
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPost.trim() || !user || !profile || isSubmitting) return;
+
+    if (profile.status !== "Active") {
+      toast({ variant: "destructive", title: "Access Denied", description: "Your account must be verified by an admin to participate in discussions." });
+      return;
+    }
 
     setIsSubmitting(true);
     const reward = 5;
@@ -179,7 +189,7 @@ export default function Forum() {
   };
 
   const handleLike = (postId: string, currentLikes: number) => {
-    if (!user) return;
+    if (!user || profile?.status !== "Active") return;
     updateDocumentNonBlocking(doc(db, "forumPosts", postId), {
       likes: (currentLikes || 0) + 1
     });
@@ -194,7 +204,16 @@ export default function Forum() {
           <p className="text-muted-foreground">Actual reflections from our community members. Share and interact to grow in wisdom.</p>
         </header>
 
-        {user && (
+        {user && profile?.status !== "Active" && (
+          <Card className="border-none shadow-sm bg-destructive/10 border-destructive/20 border">
+            <CardContent className="p-6 flex items-center gap-4 text-destructive">
+               <ShieldAlert className="h-6 w-6" />
+               <p className="text-sm font-medium">Your account is currently pending admin verification. You can view discussions but cannot post or interact until verified.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {user && profile?.status === "Active" && (
           <Card className="border-none shadow-sm bg-accent/5">
             <form onSubmit={handlePostSubmit}>
               <CardContent className="p-6">
@@ -236,6 +255,7 @@ export default function Forum() {
                   <button 
                     onClick={() => handleLike(post.id, post.likes)}
                     className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-accent transition-colors"
+                    disabled={profile?.status !== "Active"}
                   >
                     <Heart className={`h-4 w-4 ${post.likes > 0 ? 'fill-accent text-accent' : ''}`} /> {post.likes || 0} Likes
                   </button>

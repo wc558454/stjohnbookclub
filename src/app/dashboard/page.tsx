@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -46,7 +47,7 @@ import {
   Quote,
   History,
   Edit,
-  BellRing,
+  Clock,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -100,7 +101,7 @@ function UserBadgeList({ badges, size = "md" }: { badges?: BadgeData[], size?: "
 }
 
 export default function Dashboard() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, logout } = useAuth();
   const router = useRouter();
   const db = useFirestore();
   const app = useFirebaseApp();
@@ -216,6 +217,28 @@ export default function Dashboard() {
   }, [allTimeLeaderboardMembers, user]);
 
   if (loading || !user || !profile) return null;
+
+  // Pending Approval Screen
+  if (profile.status === "Pending Approval") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <main className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-6">
+          <div className="bg-accent/10 p-8 rounded-full">
+            <Clock className="h-16 w-16 text-accent animate-pulse" />
+          </div>
+          <div className="max-w-md space-y-2">
+            <h1 className="text-3xl font-bold text-primary font-headline">Registration Pending</h1>
+            <p className="text-muted-foreground">
+              Welcome to the fellowship, {profile.name}! Your account is currently awaiting admin verification.
+              Please check back soon.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => logout()}>Log Out</Button>
+        </main>
+      </div>
+    );
+  }
 
   const handleSelectBook = (bookId: string) => {
     if (!user?.uid || !db || !profile) return;

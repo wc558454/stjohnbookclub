@@ -32,7 +32,8 @@ import {
   Shield,
   CheckCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  UserCheck
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -527,8 +528,21 @@ export default function AdminDashboard() {
                         <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
-                        <TableCell><Badge variant="outline" className="text-[10px] py-0">{m.status}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={m.status === "Pending Approval" ? "destructive" : "outline"} className="text-[10px] py-0">
+                            {m.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
+                          {m.status === "Pending Approval" && (
+                            <Button 
+                              size="sm" 
+                              className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white" 
+                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}
+                            >
+                              <UserCheck className="h-3 w-3 mr-1" /> Approve
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setManagingBadgesMember(m)}>Badges</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
