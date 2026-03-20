@@ -483,7 +483,7 @@ export default function AdminDashboard() {
                     <TableHead className="text-center">Streak</TableHead>
                     <TableHead className="text-center">Challenges</TableHead>
                     <TableHead className="text-center">Discussions</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Member Approval</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -528,21 +528,22 @@ export default function AdminDashboard() {
                         <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
-                        <TableCell>
-                          <Badge variant={m.status === "Pending Approval" ? "destructive" : "outline"} className="text-[10px] py-0">
-                            {m.status}
-                          </Badge>
+                        <TableCell className="text-center">
+                          {m.status === "Pending Approval" ? (
+                             <Button 
+                               size="sm" 
+                               className="h-8 text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white rounded-full shadow-sm" 
+                               onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}
+                             >
+                               <UserCheck className="h-3 w-3 mr-1" /> Approve Member
+                             </Button>
+                          ) : (
+                             <Badge variant="outline" className="text-[10px] py-0 px-3 h-6 rounded-full border-muted text-muted-foreground">
+                               Verified Member
+                             </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
-                          {m.status === "Pending Approval" && (
-                            <Button 
-                              size="sm" 
-                              className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white" 
-                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}
-                            >
-                              <UserCheck className="h-3 w-3 mr-1" /> Approve
-                            </Button>
-                          )}
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setManagingBadgesMember(m)}>Badges</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>

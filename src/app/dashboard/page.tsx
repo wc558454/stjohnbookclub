@@ -48,6 +48,7 @@ import {
   History,
   Edit,
   Clock,
+  Sparkle,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -223,18 +224,45 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
-        <main className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-6">
-          <div className="bg-accent/10 p-8 rounded-full">
-            <Clock className="h-16 w-16 text-accent animate-pulse" />
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+          <div className="relative">
+            <div className="absolute inset-0 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+            <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-accent/20">
+              <Clock className="h-20 w-20 text-accent" />
+            </div>
           </div>
-          <div className="max-w-md space-y-2">
-            <h1 className="text-3xl font-bold text-primary font-headline">Registration Pending</h1>
-            <p className="text-muted-foreground">
-              Welcome to the fellowship, {profile.name}! Your account is currently awaiting admin verification.
-              Please check back soon.
+          
+          <div className="max-w-xl space-y-4">
+            <Badge variant="outline" className="text-accent border-accent px-4 py-1 text-xs font-bold uppercase tracking-widest bg-accent/5">
+              Verification in Progress
+            </Badge>
+            <h1 className="text-4xl font-bold text-primary font-headline leading-tight">
+              Welcome to the Harbor, <br />
+              <span className="text-accent italic">{profile.name}</span>
+            </h1>
+            <p className="text-lg text-muted-foreground leading-relaxed italic px-4">
+              "As a ship entering a harbor finds rest from the waves, so your soul will find peace in spiritual instruction."
+            </p>
+            <p className="text-sm text-muted-foreground/80 font-medium">
+              Your application is currently being reviewed by the fellowship administrators. 
+              We'll have you reading and reflecting in no time!
             </p>
           </div>
-          <Button variant="outline" onClick={() => logout()}>Log Out</Button>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button variant="outline" className="rounded-full px-8 h-12" onClick={() => window.location.reload()}>
+              Refresh Status
+            </Button>
+            <Button variant="ghost" className="rounded-full px-8 h-12 text-muted-foreground" onClick={() => logout()}>
+              Sign Out
+            </Button>
+          </div>
+
+          <div className="pt-12 flex items-center gap-2 text-muted-foreground/40">
+             <Sparkle className="h-4 w-4" />
+             <p className="text-[10px] font-bold uppercase tracking-widest">St. Paul Hospital Medical College Campus Fellowship</p>
+             <Sparkle className="h-4 w-4" />
+          </div>
         </main>
       </div>
     );
