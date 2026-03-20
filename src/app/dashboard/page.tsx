@@ -167,19 +167,19 @@ export default function Dashboard() {
 
   const leaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(20));
+    return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(10));
   }, [db, user]);
   const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
 
   const allTimeLeaderboardQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), orderBy("points", "desc"), limit(50));
+    return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
   }, [db, user]);
   const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
 
   const streakLeaderboardQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), orderBy("streak", "desc"), limit(20));
+    return query(collection(db, "users"), orderBy("streak", "desc"), limit(10));
   }, [db, user]);
   const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardQuery);
 
