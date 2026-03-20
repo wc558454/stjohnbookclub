@@ -65,6 +65,7 @@ import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction }
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { requestNotificationPermission } from "@/firebase/messaging";
+import { Calendar } from "@/components/ui/calendar";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -115,6 +116,7 @@ export default function Dashboard() {
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const [showReflectionHistory, setShowReflectionHistory] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
@@ -161,7 +163,7 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(10));
+    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "desc"), limit(50));
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
@@ -216,6 +218,17 @@ export default function Dashboard() {
     const index = allTimeLeaderboardMembers.findIndex(m => m.id === user.uid);
     return index !== -1 ? index + 1 : -1;
   }, [allTimeLeaderboardMembers, user]);
+
+  const discussionDates = useMemo(() => {
+    if (!discussions) return [];
+    return discussions.map(d => new Date(d.scheduledDateTime));
+  }, [discussions]);
+
+  const selectedDayDiscussions = useMemo(() => {
+    if (!discussions || !selectedDate) return [];
+    const targetDateStr = selectedDate.toDateString();
+    return discussions.filter(d => new Date(d.scheduledDateTime).toDateString() === targetDateStr);
+  }, [discussions, selectedDate]);
 
   if (loading || !user || !profile) return null;
 
@@ -1000,30 +1013,54 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-none shadow-sm bg-secondary/10">
-                <CardHeader className="pb-2">
+              <Card className="border-none shadow-sm bg-secondary/5 overflow-hidden">
+                <CardHeader className="pb-4 bg-secondary/10">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-accent" /> Upcoming Discussions
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 space-y-3">
-                  {discussions?.length ? discussions.map(disc => {
-                    const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
-                    return (
-                      <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start">
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-primary">{disc.topic}</p>
-                          <p className="text-[10px] text-muted-foreground">{hasMounted ? new Date(disc.scheduledDateTime).toLocaleString() : '...'}</p>
+                <CardContent className="p-0">
+                  <div className="p-4">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      className="rounded-md border bg-white shadow-sm"
+                      modifiers={{
+                        discussion: discussionDates
+                      }}
+                      modifiersClassNames={{
+                        discussion: "bg-accent/20 font-bold text-accent-foreground border border-accent/40 rounded-full"
+                      }}
+                    />
+                  </div>
+                  <div className="p-4 bg-muted/20 border-t space-y-3 min-h-[200px]">
+                    <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">
+                      Schedule for {selectedDate?.toLocaleDateString()}
+                    </h4>
+                    {selectedDayDiscussions.length > 0 ? selectedDayDiscussions.map(disc => {
+                      const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
+                      return (
+                        <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start shadow-sm">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-primary">{disc.topic}</p>
+                            <p className="text-[10px] text-muted-foreground">{hasMounted ? new Date(disc.scheduledDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}</p>
+                          </div>
+                          {!attended && (
+                            <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
+                              Check-in (+20)
+                            </Button>
+                          )}
+                          {attended && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                         </div>
-                        {!attended && (
-                          <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
-                            Check-in (+20)
-                          </Button>
-                        )}
-                        {attended && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      );
+                    }) : (
+                      <div className="flex flex-col items-center justify-center h-24 text-center opacity-40">
+                         <Clock className="h-6 w-6 mb-2" />
+                         <p className="text-[10px] italic">No discussions scheduled.</p>
                       </div>
-                    );
-                  }) : <p className="text-[10px] text-center text-muted-foreground py-4 italic">No scheduled discussions.</p>}
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
