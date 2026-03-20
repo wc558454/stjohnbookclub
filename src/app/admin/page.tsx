@@ -193,7 +193,8 @@ export default function AdminDashboard() {
 
   const membersQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "users");
+    // Query members ordered by points descending to establish global ranking
+    return query(collection(db, "users"), orderBy("points", "desc"));
   }, [db, user]);
   const { data: members } = useCollection(membersQuery);
 
@@ -475,6 +476,7 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
+                    <TableHead className="w-[60px] text-center">Rank</TableHead>
                     <TableHead>Member</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead>Current Study</TableHead>
@@ -488,12 +490,20 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMembers?.map(m => {
+                  {filteredMembers?.map((m, i) => {
                     const activeBook = m.currentBookId ? books?.find(b => b.id === m.currentBookId) : null;
                     const pagesRead = m.currentPagesRead || 0;
                     const progress = activeBook ? Math.min(100, Math.round((pagesRead / activeBook.totalPages) * 100)) : 0;
+                    
+                    // The 'members' array is already sorted by points from the query.
+                    // We find the index in the global 'members' list to maintain rank stability during filtering.
+                    const globalRank = (members?.findIndex(member => member.id === m.id) ?? i) + 1;
+
                     return (
                       <TableRow key={m.id}>
+                        <TableCell className="text-center font-headline font-bold text-muted-foreground">
+                          #{globalRank}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div>
@@ -525,7 +535,7 @@ export default function AdminDashboard() {
                              </div>
                           ) : <span className="text-muted-foreground text-[10px]">-</span>}
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-center">{m.points || 0}</TableCell>
+                        <TableCell className="font-mono text-xs text-center font-bold">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
                         <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell className="text-center">
