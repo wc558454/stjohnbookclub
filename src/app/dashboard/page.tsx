@@ -64,7 +64,6 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { requestNotificationPermission } from "@/firebase/messaging";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
