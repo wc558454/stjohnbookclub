@@ -61,7 +61,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from "@/firebase";
-import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -120,6 +120,7 @@ export default function Dashboard() {
 
   const [editingReflection, setEditingReflection] = useState<any>(null);
   const [editReflectionText, setEditReflectionText] = useState("");
+  const [userRank, setUserRank] = useState<number>(-1);
 
   useEffect(() => {
     setHasMounted(true);
@@ -130,6 +131,29 @@ export default function Dashboard() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Calculate actual rank by counting users with more points
+  useEffect(() => {
+    async function calculateRank() {
+      if (!user?.uid || !profile?.points || !db) return;
+      
+      const q = query(
+        collection(db, "users"),
+        where("points", ">", profile.points)
+      );
+      
+      try {
+        const snapshot = await getDocs(q);
+        setUserRank(snapshot.size + 1);
+      } catch (e) {
+        console.error("Error calculating rank:", e);
+      }
+    }
+    
+    if (profile?.points !== undefined) {
+      calculateRank();
+    }
+  }, [user?.uid, profile?.points, db]);
 
   const activeBooksQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -209,12 +233,6 @@ export default function Dashboard() {
   }, [userChallenges]);
 
   const hasReflectedToday = !!todayReflection;
-
-  const userRank = useMemo(() => {
-    if (!allTimeLeaderboardMembers || !user) return -1;
-    const index = allTimeLeaderboardMembers.findIndex(m => m.id === user.uid);
-    return index !== -1 ? index + 1 : -1;
-  }, [allTimeLeaderboardMembers, user]);
 
   const upcomingDiscussions = useMemo(() => {
     if (!discussions) return [];
