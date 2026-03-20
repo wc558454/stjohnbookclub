@@ -1020,12 +1020,16 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="p-4">
+                  <div className="p-2">
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      className="rounded-md border bg-white shadow-sm"
+                      className="rounded-md border bg-white shadow-sm p-2"
+                      classNames={{
+                        cell: "h-8 w-8 text-center text-[10px] p-0 relative",
+                        day: "h-8 w-8 p-0 font-normal",
+                      }}
                       modifiers={{
                         discussion: discussionDates
                       }}
