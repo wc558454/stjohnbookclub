@@ -39,7 +39,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -193,7 +193,6 @@ export default function AdminDashboard() {
 
   const membersQuery = useMemoFirebase(() => {
     if (!user) return null;
-    // Query members ordered by points descending to establish global ranking
     return query(collection(db, "users"), orderBy("points", "desc"));
   }, [db, user]);
   const { data: members } = useCollection(membersQuery);
@@ -244,11 +243,34 @@ export default function AdminDashboard() {
     return countedMembers > 0 ? Math.round(totalProgress / countedMembers) : 0;
   }, [members, books]);
 
+  const notifyAllMembers = async (type: string, message: string) => {
+    if (!db) return;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+    
+    // In a prototype with limited users, we can loop. In production, this would be a Cloud Function.
+    const membersSnap = await getDocs(collection(db, "users"));
+    membersSnap.forEach((memberDoc) => {
+      const notifId = Math.random().toString(36).substring(7);
+      const notifRef = doc(db, "users", memberDoc.id, "notifications", notifId);
+      setDoc(notifRef, {
+        id: notifId,
+        userId: memberDoc.id,
+        type,
+        message,
+        isRead: false,
+        createdAt: now.toISOString(),
+        expiresAt
+      });
+    });
+  };
+
   if (loading || !user || !isAdmin) return null;
 
   const handleSetCurrentBook = async (bookToSet: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
+    notifyAllMembers("New Book", `A new book study has been added: "${bookToSet.title}". Begin your journey now!`);
     toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
   };
 
@@ -267,6 +289,9 @@ export default function AdminDashboard() {
   const handleToggleChallenge = (challenge: any, isActive: boolean) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "challenges", challenge.id), { isActive });
+    if (isActive) {
+      notifyAllMembers("New Challenge", `A new challenge is active: "${challenge.title}". Complete it to earn points!`);
+    }
     toast({ 
       title: isActive ? "Challenge Activated" : "Challenge Deactivated",
       description: `${challenge.title} is now ${isActive ? 'visible' : 'hidden'} to members.`
@@ -324,6 +349,7 @@ export default function AdminDashboard() {
     const dateTime = formData.get("dateTime") as string;
     const id = Math.random().toString(36).substring(7);
     setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
+    notifyAllMembers("Discussion Scheduled", `A new discussion on "${topic}" has been scheduled for ${new Date(dateTime).toLocaleString()}.`);
     setIsDiscOpen(false);
     toast({ title: "Discussion Scheduled" });
   };
@@ -353,6 +379,21 @@ export default function AdminDashboard() {
           currentBadges = [...currentBadges, badgeData];
         }
         transaction.update(userRef, { badges: currentBadges });
+        
+        // Notify user about badge
+        if (!editingBadge) {
+          const notifId = Math.random().toString(36).substring(7);
+          const notifRef = doc(db, "users", managingBadgesMember.id, "notifications", notifId);
+          transaction.set(notifRef, {
+            id: notifId,
+            userId: managingBadgesMember.id,
+            type: "New Badge",
+            message: `Congratulations! You've been awarded the "${badgeData.name}" badge.`,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+          });
+        }
       });
       toast({ title: "Badge Saved" });
       setEditingBadge(null);
@@ -495,8 +536,6 @@ export default function AdminDashboard() {
                     const pagesRead = m.currentPagesRead || 0;
                     const progress = activeBook ? Math.min(100, Math.round((pagesRead / activeBook.totalPages) * 100)) : 0;
                     
-                    // The 'members' array is already sorted by points from the query.
-                    // We find the index in the global 'members' list to maintain rank stability during filtering.
                     const globalRank = (members?.findIndex(member => member.id === m.id) ?? i) + 1;
 
                     return (

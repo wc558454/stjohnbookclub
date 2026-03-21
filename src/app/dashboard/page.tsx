@@ -132,7 +132,6 @@ export default function Dashboard() {
     }
   }, [user, loading, router]);
 
-  // Calculate actual rank by counting users with more points
   useEffect(() => {
     async function calculateRank() {
       if (!user?.uid || !profile?.points || !db) return;
@@ -394,6 +393,17 @@ export default function Dashboard() {
               toastTitle = "Streak Reset";
               toastDescription = "You missed too many days. Starting fresh at 1.";
               currentDailyPagesSum = pagesReadToday;
+              
+              const notifId = `streak_reset_${now.toISOString().split('T')[0]}`;
+              streakAlertNotif = {
+                id: notifId,
+                userId: user.uid,
+                type: "StreakReset",
+                message: `Your reading streak has been reset because you ran out of freezes. Let's start a new journey today!`,
+                isRead: false,
+                createdAt: now.toISOString(),
+                expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
+              };
             }
           }
         }
