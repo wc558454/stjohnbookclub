@@ -449,8 +449,9 @@ export default function Dashboard() {
           dailyPagesRead: currentDailyPagesSum,
         });
 
+        const notifId = `streak_notif_${now.getTime()}`;
         if (streakAlertNotif) {
-          transaction.set(doc(db, "users", user.uid, "notifications", streakAlertNotif.id), streakAlertNotif);
+          transaction.set(doc(db, "users", user.uid, "notifications", notifId), streakAlertNotif);
         }
       });
       
@@ -1084,7 +1085,6 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.monthlyPoints || 0} PTS</p>
                               <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
@@ -1106,7 +1106,6 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.points || 0} PTS</p>
                               <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
