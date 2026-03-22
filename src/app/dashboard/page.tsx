@@ -134,7 +134,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function calculateRank() {
-      if (!user?.uid || !profile?.points || !db) return;
+      // Correctly handle 0 points by checking if points is undefined
+      if (!user?.uid || profile?.points === undefined || !db) return;
       
       const q = query(
         collection(db, "users"),
@@ -145,7 +146,7 @@ export default function Dashboard() {
         const snapshot = await getDocs(q);
         setUserRank(snapshot.size + 1);
       } catch (e) {
-        console.error("Error calculating rank:", e);
+        // Silently fail if calculation error occurs, keeping rank at -1
       }
     }
     
