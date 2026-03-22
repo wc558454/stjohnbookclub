@@ -340,7 +340,7 @@ export default function Dashboard() {
 
     try {
       let toastTitle = "Progress Recorded";
-      let toastDescription = `+${pagesReadToday * 2} points earned!`;
+      let toastDescription = `Progress recorded! Keep going.`;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -369,7 +369,7 @@ export default function Dashboard() {
           } else if (diffDays === 1) {
             newStreak += 1;
             currentDailyPagesSum = pagesReadToday;
-            toastDescription += ` Streak extended to ${newStreak} days!`;
+            toastDescription = `Streak extended to ${newStreak} days!`;
           } else if (diffDays > 1) {
             const missedDays = diffDays - 1;
             if (tempFreezeCount >= missedDays) {
@@ -520,7 +520,7 @@ export default function Dashboard() {
       });
 
       setReflection("");
-      toast({ title: "Reflection Shared", description: `+${reward} points earned!` });
+      toast({ title: "Reflection Shared", description: `Reflection saved!` });
     } catch(e) {
       console.error(e);
       toast({ variant: "destructive", title: "Submission Failed", description: e === "Already submitted today" ? e : "Could not save reflection." });
@@ -596,7 +596,7 @@ export default function Dashboard() {
           currentMonth: currentMonthStr,
         });
       });
-      toast({ title: "Checked In", description: `+${reward} points earned!` });
+      toast({ title: "Checked In", description: `Check-in successful!` });
     } catch(e) {
       toast({ variant: "destructive", title: "Check-in Failed" });
     }
@@ -649,7 +649,7 @@ export default function Dashboard() {
           currentMonth: currentMonthStr,
         });
       });
-      toast({ title: "Challenge Completed", description: `+${reward} awarded!` });
+      toast({ title: "Challenge Completed", description: `Challenge complete!` });
     } catch (e) {
       toast({ variant: "destructive", title: "Submission Failed" });
     }
@@ -880,7 +880,7 @@ export default function Dashboard() {
                       <CardTitle className="text-base flex items-center gap-2 font-headline">
                         <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
                       </CardTitle>
-                      <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn 5 points.</CardDescription>
+                      <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn points.</CardDescription>
                     </div>
                     <Button 
                       variant="ghost" 
@@ -914,7 +914,6 @@ export default function Dashboard() {
                                 >
                                   <Edit className="h-2.5 w-2.5" />
                                 </Button>
-                                <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0">+5 PTS</Badge>
                               </div>
                             </div>
                             <p className="text-xs text-foreground/80 leading-relaxed italic">"{refl.submissionText}"</p>
@@ -932,7 +931,6 @@ export default function Dashboard() {
                         <CheckCircle2 className="h-6 w-6" />
                         <div className="flex-1">
                           <p className="text-sm">Reflection submitted for today!</p>
-                          <p className="text-[10px] font-medium uppercase">+5 points awarded to your soul.</p>
                         </div>
                         <Button 
                           variant="ghost" 
@@ -1000,7 +998,6 @@ export default function Dashboard() {
                           </div>
                           <p className="text-xs text-muted-foreground">{chall.description}</p>
                           <p className="text-[10px] text-muted-foreground italic">Target: {chall.completionCriteria}</p>
-                          <p className="text-[10px] text-accent font-bold uppercase tracking-widest mt-1">Reward: +{chall.pointsReward} Points</p>
                         </div>
                         <div className="ml-4">
                           {completed ? (
@@ -1043,7 +1040,7 @@ export default function Dashboard() {
                         </div>
                         {!attended && (
                           <Button variant="ghost" size="sm" onClick={() => handleCheckIn(disc)} className="h-6 text-[9px] px-2 text-accent border border-accent/20 hover:bg-accent hover:text-white transition-colors">
-                            Check-in (+20)
+                            Check-in
                           </Button>
                         )}
                         {attended && <CheckCircle2 className="h-4 w-4 text-green-500" />}
@@ -1085,7 +1082,7 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                              <p className="text-[9px] text-accent font-bold italic">Personal Best: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
                         </div>
@@ -1106,7 +1103,7 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                              <p className="text-[9px] text-accent font-bold italic">Personal Best: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
                         </div>
@@ -1128,7 +1125,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex justify-between items-center">
                               <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
-                              <p className="text-[9px] text-accent font-bold italic">PB: {m.personalBestPages || 0} pgs</p>
+                              <p className="text-[9px] text-accent font-bold italic">Personal Best: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
                           {m.streak > 0 && <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />}
