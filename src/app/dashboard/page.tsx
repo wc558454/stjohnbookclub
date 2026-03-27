@@ -134,7 +134,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function calculateRank() {
-      // Correctly handle 0 points by checking if points is undefined
       if (!user?.uid || profile?.points === undefined || !db) return;
       
       const q = query(
@@ -146,7 +145,7 @@ export default function Dashboard() {
         const snapshot = await getDocs(q);
         setUserRank(snapshot.size + 1);
       } catch (e) {
-        // Silently fail if calculation error occurs, keeping rank at -1
+        // Silently fail
       }
     }
     
@@ -375,6 +374,7 @@ export default function Dashboard() {
             const missedDays = diffDays - 1;
             if (tempFreezeCount >= missedDays) {
               tempFreezeCount -= missedDays;
+              newStreak += 1; // Corrected: Maintain streak AND add 1 for the current day's reading
               toastTitle = "Streak Preserved!";
               toastDescription = `You missed ${missedDays} day(s), but ${missedDays} freeze(s) were used. Streak: ${newStreak}`;
               
