@@ -34,7 +34,7 @@ export type UserProfile = {
   currentPagesRead?: number;
   currentBookId?: string;
   bookProgress?: Record<string, number>;
-  lastReadAt?: string;
+  lastStreakActivityAt?: string;
   freezeCount?: number;
   lastFreezeRefill?: string;
   spiritualGoal?: string;
@@ -44,6 +44,7 @@ export type UserProfile = {
   dailyPagesRead?: number;
   groupName?: string;
   badges?: BadgeData[];
+  fcmToken?: string;
 };
 
 export function useAuth() {

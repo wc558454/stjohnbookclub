@@ -49,6 +49,8 @@ import {
   Edit,
   Clock,
   Sparkle,
+  Settings,
+  BellRing,
 } from "lucide-react";
 import { 
   Tooltip, 
@@ -64,6 +66,8 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { requestNotificationPermission } from "@/firebase/messaging";
+import { FirebaseApp } from "firebase/app";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -104,7 +108,7 @@ export default function Dashboard() {
   const { user, profile, loading, logout } = useAuth();
   const router = useRouter();
   const db = useFirestore();
-  const app = useFirebaseApp();
+  const app = useFirebaseApp() as FirebaseApp;
   const { toast } = useToast();
   
   const [pagesReadToday, setPagesReadToday] = useState<number>(0);
@@ -114,6 +118,7 @@ export default function Dashboard() {
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const [showReflectionHistory, setShowReflectionHistory] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [notificationPermissionStatus, setNotificationPermissionStatus] = useState<string>("default");
 
   const [completingChallenge, setCompletingChallenge] = useState<any>(null);
   const [submissionText, setSubmissionText] = useState("");
@@ -124,6 +129,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     setHasMounted(true);
+    if ("Notification" in window) {
+      setNotificationPermissionStatus(Notification.permission);
+    }
   }, []);
 
   useEffect(() => {
@@ -240,6 +248,76 @@ export default function Dashboard() {
     return discussions.filter(d => new Date(d.scheduledDateTime) >= cutOff);
   }, [discussions]);
 
+  const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
+    let newStreak = currentProfile.streak || 0;
+    let tempFreezeCount = currentProfile.freezeCount ?? 2;
+    let streakToastInfo = { title: "Progress Recorded", description: "Keep going!" };
+    let streakAlertNotif: { id: string, message: string, type: 'StreakProtection' | 'StreakReset' } | null = null;
+
+    if (!lastActivityAt) {
+      newStreak = 1;
+    } else {
+      const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
+      const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) { // Activity already today, streak doesn't change
+        newStreak = currentProfile.streak || 1;
+      } else if (diffDays === 1) { // New day, extend streak
+        newStreak += 1;
+        streakToastInfo = { title: "Streak Extended!", description: `Your streak is now ${newStreak} days!` };
+      } else if (diffDays > 1) { // Missed days
+        const missedDays = diffDays - 1;
+        if (tempFreezeCount >= missedDays) {
+          tempFreezeCount -= missedDays;
+          newStreak += 1; 
+          streakToastInfo = { title: "Streak Preserved!", description: `You missed ${missedDays} day(s), but a freeze was used. Streak is now ${newStreak} days.` };
+          
+          streakAlertNotif = {
+            id: `streak_prot_${now.toISOString().split('T')[0]}`,
+            message: `Streak Protection Alert! You missed ${missedDays} day(s), but your streak was saved using freezes.`,
+            type: 'StreakProtection'
+          };
+
+        } else {
+          newStreak = 1;
+          streakToastInfo = { title: "Streak Reset", description: "You missed too many days. Starting fresh at 1." };
+
+          streakAlertNotif = {
+            id: `streak_reset_${now.toISOString().split('T')[0]}`,
+            message: `Your reading streak has been reset because you ran out of freezes. Let's start a new journey today!`,
+            type: 'StreakReset'
+          };
+        }
+      }
+    }
+    
+    // Freeze refill logic
+    const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
+    const lastMonday = new Date(now);
+    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    lastMonday.setHours(0, 0, 0, 0);
+
+    let finalFreezeCount = tempFreezeCount;
+    let newRefillDate = currentProfile.lastFreezeRefill;
+
+    if (lastRefillAt.getTime() < lastMonday.getTime()) {
+      finalFreezeCount = 2; 
+      newRefillDate = now.toISOString();
+    }
+
+    return {
+      streak: newStreak,
+      freezeCount: finalFreezeCount,
+      lastStreakActivityAt: now.toISOString(),
+      lastFreezeRefill: newRefillDate,
+      streakToastInfo,
+      streakAlertNotif
+    };
+  };
+
   if (loading || !user || !profile) return null;
 
   if (profile.status === "Pending Approval") {
@@ -336,91 +414,42 @@ export default function Dashboard() {
     setIsSubmitting(true);
     const userRef = doc(db, "users", user.uid);
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
+    
     try {
-      let toastTitle = "Progress Recorded";
-      let toastDescription = `Progress recorded! Keep going.`;
+      let finalToastTitle = "Progress Recorded";
+      let finalToastDescription = `Progress recorded! Keep going.`;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
 
-        const lastReadAt = currentProfile.lastReadAt ? new Date(currentProfile.lastReadAt) : null;
-        let newStreak = currentProfile.streak || 0;
-        let tempFreezeCount = currentProfile.freezeCount ?? 2;
-        let currentDailyPagesSum = 0;
+        const streakUpdate = getStreakUpdate(currentProfile, now);
+        finalToastTitle = streakUpdate.streakToastInfo.title;
+        finalToastDescription = streakUpdate.streakToastInfo.description;
+        
         const ptsToAdd = pagesReadToday * 2;
-
-        let streakAlertNotif = null;
-
-        if (!lastReadAt) {
-          newStreak = 1;
-          currentDailyPagesSum = pagesReadToday;
-        } else {
-          const lastReadStart = new Date(lastReadAt.getFullYear(), lastReadAt.getMonth(), lastReadAt.getDate()).getTime();
-          const diffDays = Math.round((todayStart - lastReadStart) / (1000 * 60 * 60 * 24));
-
-          if (diffDays === 0) {
-            newStreak = currentProfile.streak || 1;
-            currentDailyPagesSum = (currentProfile.dailyPagesRead || 0) + pagesReadToday;
-            toastTitle = "Progress Updated";
-          } else if (diffDays === 1) {
-            newStreak += 1;
-            currentDailyPagesSum = pagesReadToday;
-            toastDescription = `Streak extended to ${newStreak} days!`;
-          } else if (diffDays > 1) {
-            const missedDays = diffDays - 1;
-            if (tempFreezeCount >= missedDays) {
-              tempFreezeCount -= missedDays;
-              newStreak += 1; // Corrected: Maintain streak AND add 1 for the current day's reading
-              toastTitle = "Streak Preserved!";
-              toastDescription = `You missed ${missedDays} day(s), but ${missedDays} freeze(s) were used. Streak: ${newStreak}`;
-              
-              const notifId = `streak_prot_${now.toISOString().split('T')[0]}`;
-              streakAlertNotif = {
-                id: notifId,
-                userId: user.uid,
-                type: "StreakProtection",
-                message: `Streak Protection Alert! You missed ${missedDays} day(s), but your streak was saved using freezes.`,
-                isRead: false,
-                createdAt: now.toISOString(),
-                expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
-              };
-              currentDailyPagesSum = pagesReadToday;
-            } else {
-              newStreak = 1;
-              toastTitle = "Streak Reset";
-              toastDescription = "You missed too many days. Starting fresh at 1.";
-              currentDailyPagesSum = pagesReadToday;
-              
-              const notifId = `streak_reset_${now.toISOString().split('T')[0]}`;
-              streakAlertNotif = {
-                id: notifId,
-                userId: user.uid,
-                type: "StreakReset",
-                message: `Your reading streak has been reset because you ran out of freezes. Let's start a new journey today!`,
-                isRead: false,
-                createdAt: now.toISOString(),
-                expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
-              };
+        
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
+        let currentDailyPagesSum = pagesReadToday;
+        
+        if (lastActivityAt) {
+            const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
+            const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
+            if (diffDays === 0) { 
+                 currentDailyPagesSum = (currentProfile.dailyPagesRead || 0) + pagesReadToday;
+                 finalToastTitle = "Progress Updated"; 
+                 finalToastDescription = `You've read ${currentDailyPagesSum} pages today.`
             }
-          }
         }
-
-        const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
-        const lastMonday = new Date(now);
-        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-        lastMonday.setHours(0, 0, 0, 0);
-
-        let finalFreezeCount = tempFreezeCount;
-        let newRefillDate = currentProfile.lastFreezeRefill;
-
-        if (lastRefillAt.getTime() < lastMonday.getTime()) {
-          finalFreezeCount = 2; 
-          newRefillDate = now.toISOString();
-        }
+        
+        const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
+        const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
+        const updatedBookProgress = {
+          ...(currentProfile.bookProgress || {}),
+          [currentProfile.currentBookId!]: newPagesReadTotal
+        };
 
         const currentMonthStr = now.toISOString().slice(0, 7);
         const newMonthlyPoints =
@@ -428,35 +457,35 @@ export default function Dashboard() {
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
-        const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
-        
-        const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
-        const updatedBookProgress = {
-          ...(currentProfile.bookProgress || {}),
-          [currentProfile.currentBookId!]: newPagesReadTotal
-        };
-
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + ptsToAdd,
           currentPagesRead: newPagesReadTotal,
           bookProgress: updatedBookProgress,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
-          streak: newStreak,
-          freezeCount: finalFreezeCount,
-          lastReadAt: now.toISOString(),
-          lastFreezeRefill: newRefillDate,
           personalBestPages: newPersonalBest,
           dailyPagesRead: currentDailyPagesSum,
+          streak: streakUpdate.streak,
+          freezeCount: streakUpdate.freezeCount,
+          lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
+          lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
 
-        const notifId = `streak_notif_${now.getTime()}`;
-        if (streakAlertNotif) {
-          transaction.set(doc(db, "users", user.uid, "notifications", notifId), streakAlertNotif);
+        if (streakUpdate.streakAlertNotif) {
+          const { id, message, type } = streakUpdate.streakAlertNotif;
+          transaction.set(doc(db, "users", user.uid, "notifications", id), {
+            id,
+            userId: user.uid,
+            type,
+            message,
+            isRead: false,
+            createdAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
+          });
         }
       });
       
-      toast({ title: toastTitle, description: toastDescription });
+      toast({ title: finalToastTitle, description: finalToastDescription });
       
       if (readingTotal + pagesReadToday >= currentBook.totalPages) {
         setShowCompletionCelebration(true);
@@ -488,11 +517,15 @@ export default function Dashboard() {
     
     setIsSubmitting(true);
     const userRef = doc(db, "users", user.uid);
+    const now = new Date();
     try {
+      let toastTitle = "Reflection Shared";
+      let toastDescription = `Reflection saved!`;
+
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
-        const currentProfile = userSnap.data();
+        const currentProfile = userSnap.data() as UserProfile;
 
         const existingRefl = await transaction.get(challRef);
         if (existingRefl.exists()) throw "Already submitted today";
@@ -507,6 +540,14 @@ export default function Dashboard() {
           submissionText: reflection
         });
 
+        const streakUpdate = getStreakUpdate(currentProfile, now);
+        if (streakUpdate.streak !== currentProfile.streak) {
+            toastTitle = streakUpdate.streakToastInfo.title;
+            toastDescription = streakUpdate.streakToastInfo.description;
+        } else {
+            toastDescription += " Your streak is maintained."
+        }
+
         const currentMonthStr = new Date().toISOString().slice(0, 7);
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
@@ -517,11 +558,28 @@ export default function Dashboard() {
           points: (currentProfile.points || 0) + reward,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+          streak: streakUpdate.streak,
+          freezeCount: streakUpdate.freezeCount,
+          lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
+          lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
+        
+        if (streakUpdate.streakAlertNotif) {
+          const { id, message, type } = streakUpdate.streakAlertNotif;
+          transaction.set(doc(db, "users", user.uid, "notifications", id), {
+            id,
+            userId: user.uid,
+            type,
+            message,
+            isRead: false,
+            createdAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
+          });
+        }
       });
 
       setReflection("");
-      toast({ title: "Reflection Shared", description: `Reflection saved!` });
+      toast({ title: toastTitle, description: toastDescription });
     } catch(e) {
       console.error(e);
       toast({ variant: "destructive", title: "Submission Failed", description: e === "Already submitted today" ? e : "Could not save reflection." });
@@ -674,6 +732,18 @@ export default function Dashboard() {
     updateDocumentNonBlocking(doc(db, "users", user.uid), updatedData);
     toast({ title: "Profile Updated", description: "Your spiritual profile has been refreshed." });
     setIsEditProfileOpen(false);
+  };
+
+  const handleRequestPermission = async () => {
+    if (!user || !app) return;
+    const token = await requestNotificationPermission(app, db, user.uid);
+    if (token) {
+      toast({ title: "Notifications Enabled!", description: "You'll now receive updates on your device." });
+      setNotificationPermissionStatus("granted");
+    } else {
+      toast({ variant: "destructive", title: "Permission Denied", description: "You can enable notifications in your browser settings." });
+      setNotificationPermissionStatus("denied");
+    }
   };
 
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
@@ -881,7 +951,7 @@ export default function Dashboard() {
                       <CardTitle className="text-base flex items-center gap-2 font-headline">
                         <MessageSquare className="h-4 w-4 text-accent" /> Daily Reading Reflection
                       </CardTitle>
-                      <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn points.</CardDescription>
+                      <CardDescription className="text-xs">Share what you learned from today's reading (min. 30 words) to earn points and maintain your streak.</CardDescription>
                     </div>
                     <Button 
                       variant="ghost" 
@@ -1022,6 +1092,36 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-6">
+               <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-accent" /> Notification Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {notificationPermissionStatus === 'granted' ? (
+                    <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span>Push notifications are enabled.</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">Enable push notifications to get reminders and updates directly on your device.</p>
+                      <Button 
+                        onClick={handleRequestPermission} 
+                        disabled={notificationPermissionStatus === 'denied'}
+                        className="w-full"
+                      >
+                        <BellRing className="h-4 w-4 mr-2" /> Enable Notifications
+                      </Button>
+                      {notificationPermissionStatus === 'denied' && (
+                        <p className="text-[10px] text-destructive text-center">You have blocked notifications. Please enable them in your browser settings.</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-4 border-b bg-accent/5">
                   <CardTitle className="text-sm flex items-center gap-2">

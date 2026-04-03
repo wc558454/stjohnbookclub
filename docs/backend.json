@@ -116,6 +116,19 @@
               "message": { "type": "string" }
             }
           }
+        },
+        "fcmToken": {
+          "type": "string",
+          "description": "The Firebase Cloud Messaging token for push notifications."
+        },
+        "lastStreakActivityAt": {
+          "type": "string",
+          "description": "Timestamp of the user's last activity that counts towards a streak (reading or reflection).",
+          "format": "date-time"
+        },
+        "lastFreezeRefill": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "required": [
