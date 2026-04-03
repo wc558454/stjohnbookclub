@@ -195,7 +195,11 @@
         "pointsReward": { "type": "number" },
         "completionCriteria": { "type": "string" },
         "type": { "type": "string" },
-        "isActive": { "type": "boolean" }
+        "isActive": { "type": "boolean" },
+        "totalCompletions": {
+          "type": "number",
+          "description": "The total number of times this challenge has been completed across all users."
+        }
       },
       "required": ["id", "title", "pointsReward", "type", "isActive"]
     },

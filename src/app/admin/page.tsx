@@ -33,13 +33,15 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
-  UserCheck
+  UserCheck,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -184,6 +186,7 @@ export default function AdminDashboard() {
   const [managingBadgesMember, setManagingBadgesMember] = useState<any>(null);
   const [editingBadge, setEditingBadge] = useState<any>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -335,11 +338,47 @@ export default function AdminDashboard() {
       updateDocumentNonBlocking(doc(db, "challenges", editingChall.id), data);
     } else {
       const id = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "challenges", id), { ...data, id, isActive: true });
+      setDoc(doc(db, "challenges", id), { ...data, id, isActive: true, totalCompletions: 0 });
     }
     setIsChallOpen(false);
     setEditingChall(null);
     toast({ title: "Challenge Saved" });
+  };
+
+  const handleRecalculateCompletions = async () => {
+    if (!db || !challenges) return;
+    setIsRecalculating(true);
+
+    try {
+        const completionCounts = new Map<string, number>();
+        challenges.forEach(c => completionCounts.set(c.id, 0));
+
+        const usersSnapshot = await getDocs(collection(db, "users"));
+
+        for (const userDoc of usersSnapshot.docs) {
+            const userChallengesSnapshot = await getDocs(collection(db, "users", userDoc.id, "userChallenges"));
+            userChallengesSnapshot.forEach(ucDoc => {
+                const uc = ucDoc.data();
+                if (uc.challengeId && !uc.id.startsWith('refl_') && !uc.id.startsWith('att_')) {
+                   if (completionCounts.has(uc.challengeId)) {
+                       completionCounts.set(uc.challengeId, (completionCounts.get(uc.challengeId) || 0) + 1);
+                   }
+                }
+            });
+        }
+        
+        for (const [challengeId, count] of completionCounts.entries()) {
+            await updateDoc(doc(db, "challenges", challengeId), { totalCompletions: count });
+        }
+        
+        toast({ title: "Recalculation Complete", description: "Challenge completion counts have been updated." });
+
+    } catch (error) {
+        console.error("Failed to recalculate completions:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not recalculate challenge totals." });
+    } finally {
+        setIsRecalculating(false);
+    }
   };
 
   const handleSaveDiscussion = (e: React.FormEvent<HTMLFormElement>) => {
@@ -646,6 +685,12 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="challenges">
+            <div className="flex justify-end mb-4">
+                <Button onClick={handleRecalculateCompletions} disabled={isRecalculating} size="sm">
+                    {isRecalculating ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Recalculate Completions
+                </Button>
+            </div>
             <Card className="border-none shadow-sm overflow-hidden">
               <Table>
                 <TableHeader className="bg-muted/50">
@@ -654,6 +699,7 @@ export default function AdminDashboard() {
                     <TableHead>Type</TableHead>
                     <TableHead>Points</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Completions</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -664,6 +710,7 @@ export default function AdminDashboard() {
                       <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
                       <TableCell className="text-accent font-bold">+{c.pointsReward}</TableCell>
                       <TableCell><Badge variant={c.isActive ? 'default' : 'secondary'}>{c.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs text-center">{c.totalCompletions || 0}</TableCell>
                       <TableCell className="text-right flex justify-end gap-1">
                         {c.isActive ? (
                           <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleToggleChallenge(c, false)}>
