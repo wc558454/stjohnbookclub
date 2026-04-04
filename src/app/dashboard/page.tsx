@@ -16,6 +16,7 @@ import {
   DialogTitle, 
   DialogFooter,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -52,12 +53,6 @@ import {
   Settings,
   BellRing,
 } from "lucide-react";
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth, UserProfile, BadgeData } from "@/hooks/use-auth";
@@ -78,28 +73,33 @@ function UserBadgeList({ badges, size = "md" }: { badges?: BadgeData[], size?: "
 
   return (
     <div className="flex flex-wrap gap-1 mt-1">
-      <TooltipProvider>
-        {badges.map((badge) => {
-          const Icon = ICON_MAP[badge.iconName] || Award;
-          return (
-            <Tooltip key={badge.id}>
-              <TooltipTrigger asChild>
-                <div className={`rounded-full bg-accent/10 p-1 border border-accent/30 text-accent ${size === 'sm' ? 'scale-75' : ''}`}>
-                  <Icon className={size === 'sm' ? "h-3 w-3" : "h-4 w-4"} />
+      {badges.map((badge) => {
+        const Icon = ICON_MAP[badge.iconName] || Award;
+        return (
+          <Dialog key={badge.id}>
+            <DialogTrigger asChild>
+              <button className={`cursor-pointer rounded-full bg-accent/10 p-1 border border-accent/30 text-accent transition-transform hover:scale-110 ${size === 'sm' ? 'scale-75' : ''}`}>
+                <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xs">
+              <DialogHeader className="items-center text-center">
+                <div className="p-4 bg-accent/10 rounded-full inline-flex my-2">
+                   <Icon className="h-10 w-10 text-accent" />
                 </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[200px]">
-                <p className="font-bold text-xs">{badge.name}</p>
-                <p className="text-[10px] text-muted-foreground">{badge.description}</p>
+                <DialogTitle className="text-xl font-headline">{badge.name}</DialogTitle>
+                <DialogDescription className="text-sm px-4">{badge.description}</DialogDescription>
+              </DialogHeader>
+              <div className="text-center space-y-4 py-4">
                 {badge.message && (
-                  <p className="text-[10px] italic mt-1 border-t pt-1 border-border/50">"{badge.message}"</p>
+                  <blockquote className="text-sm italic border-l-2 pl-4 text-left bg-muted/30 p-3 rounded-r-lg mx-6">"{badge.message}"</blockquote>
                 )}
-                <p className="text-[8px] text-muted-foreground mt-1">Awarded on {new Date(badge.awardedAt).toLocaleDateString()}</p>
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </TooltipProvider>
+                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Awarded on {new Date(badge.awardedAt).toLocaleDateString()}</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })}
     </div>
   );
 }
