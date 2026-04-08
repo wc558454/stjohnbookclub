@@ -157,31 +157,36 @@ export default function ChallengesPage() {
   const renderChallengeItem = (chall: any) => {
     const completed = isChallengeCompleted(chall);
     return (
-      <Card key={chall.id} className="border shadow-sm flex flex-col justify-between group hover:border-accent/50 transition-colors bg-white">
-        <CardHeader className="p-4 pb-2 space-y-1">
-          <div className="flex justify-between items-start">
-            <h4 className="font-bold text-sm text-primary leading-tight">{chall.title}</h4>
-            <Badge variant="secondary" className="text-[10px] font-bold text-accent px-1.5 py-0">+{chall.pointsReward}</Badge>
+      <Card key={chall.id} className="border shadow-md flex flex-col justify-between group hover:border-accent transition-all duration-300 bg-white">
+        <CardHeader className="p-6 pb-2 space-y-2">
+          <div className="flex justify-between items-start gap-2">
+            <h4 className="font-bold text-lg text-primary leading-tight flex-1">{chall.title}</h4>
+            <Badge variant="secondary" className="text-xs font-bold text-accent px-2 py-1 shrink-0">+{chall.pointsReward}</Badge>
           </div>
-          <p className="text-[11px] text-muted-foreground line-clamp-3 hover:line-clamp-none transition-all">{chall.description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {chall.description}
+          </p>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <p className="text-[9px] text-muted-foreground italic font-medium">Target: {chall.completionCriteria}</p>
+        <CardContent className="p-6 pt-2">
+          <div className="bg-muted/30 p-3 rounded-md border border-muted">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Requirement</p>
+            <p className="text-xs text-primary font-medium italic">{chall.completionCriteria}</p>
+          </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 flex justify-end">
+        <CardFooter className="p-6 pt-0 flex justify-end">
           {completed ? (
-            <div className="flex items-center gap-1 text-green-600 font-bold text-[10px] uppercase">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Done</span>
+            <div className="flex items-center gap-2 text-green-600 font-bold text-sm uppercase tracking-wider">
+              <CheckCircle2 className="h-5 w-5" />
+              <span>Completed</span>
             </div>
           ) : (
             <Button 
               variant="outline" 
-              size="sm" 
-              className="h-8 text-[10px] rounded-full border-primary text-primary hover:bg-primary hover:text-white" 
+              size="default" 
+              className="w-full text-xs font-bold rounded-full border-primary text-primary hover:bg-primary hover:text-white transition-colors" 
               onClick={() => setCompletingChallenge(chall)}
             >
-              Complete Challenge
+              Take Action
             </Button>
           )}
         </CardFooter>
@@ -200,105 +205,122 @@ export default function ChallengesPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <main className="flex-1 container mx-auto px-4 py-8 space-y-8 max-w-6xl">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-             <Link href="/dashboard" className="text-xs text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors mb-2">
-                <ArrowLeft className="h-3 w-3" /> Back to Dashboard
+      <main className="flex-1 container mx-auto px-4 py-8 space-y-8 max-w-7xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+             <Link href="/dashboard" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 hover:text-primary transition-colors mb-4">
+                <ArrowLeft className="h-4 w-4" /> Back to Dashboard
              </Link>
-             <h1 className="text-3xl font-bold text-primary font-headline flex items-center gap-3">
-               <Zap className="h-8 w-8 text-accent fill-accent" /> Spiritual Challenges
+             <h1 className="text-4xl md:text-5xl font-bold text-primary font-headline flex items-center gap-4">
+               <Zap className="h-10 w-10 text-accent fill-accent" /> Spiritual Challenges
              </h1>
-             <p className="text-muted-foreground text-sm">Deepen your practice and earn spiritual points through consistent discipline.</p>
+             <p className="text-muted-foreground text-lg max-w-2xl">
+               Cultivate your spiritual discipline and earn points by engaging in daily, weekly, and special fellowship acts.
+             </p>
           </div>
-          <div className="hidden md:flex flex-col items-end">
-             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Earned</p>
-             <div className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-yellow-500" />
-                <span className="text-2xl font-bold text-primary">{profile.points?.toLocaleString()}</span>
+          <div className="flex flex-col items-start md:items-end bg-accent/10 p-4 rounded-2xl border border-accent/20">
+             <p className="text-xs uppercase font-black text-accent tracking-widest mb-1">Total Rewards Earned</p>
+             <div className="flex items-center gap-3">
+                <Trophy className="h-6 w-6 text-yellow-500" />
+                <span className="text-3xl font-black text-primary">{profile.points?.toLocaleString()}</span>
              </div>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8 items-start">
           {/* Daily Challenges Column */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b pb-2 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500 fill-orange-500" /> Daily Goals
-              <Badge variant="outline" className="ml-auto text-[9px] py-0 h-4">{dailyChallenges.length}</Badge>
-            </h3>
-            <div className="space-y-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b-2 border-orange-100 pb-3">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-orange-600 flex items-center gap-2">
+                <Flame className="h-5 w-5 fill-orange-500" /> Daily Rhythm
+              </h3>
+              <Badge variant="outline" className="text-xs bg-orange-50 border-orange-200 text-orange-700">{dailyChallenges.length} Active</Badge>
+            </div>
+            <div className="space-y-6">
               {dailyChallenges.length > 0 ? dailyChallenges.map(renderChallengeItem) : (
-                <p className="text-xs text-center text-muted-foreground italic py-10 bg-muted/20 rounded-lg">No daily goals active</p>
+                <div className="py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                   <p className="text-sm text-muted-foreground italic">No daily goals at the moment.</p>
+                </div>
               )}
             </div>
           </div>
 
           {/* Weekly Challenges Column */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b pb-2 flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-accent" /> Weekly Discipline
-              <Badge variant="outline" className="ml-auto text-[9px] py-0 h-4">{weeklyChallenges.length}</Badge>
-            </h3>
-            <div className="space-y-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b-2 border-blue-100 pb-3">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" /> Weekly Discipline
+              </h3>
+              <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">{weeklyChallenges.length} Active</Badge>
+            </div>
+            <div className="space-y-6">
               {weeklyChallenges.length > 0 ? weeklyChallenges.map(renderChallengeItem) : (
-                <p className="text-xs text-center text-muted-foreground italic py-10 bg-muted/20 rounded-lg">No weekly goals active</p>
+                <div className="py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                   <p className="text-sm text-muted-foreground italic">No weekly discipline tasks yet.</p>
+                </div>
               )}
             </div>
           </div>
 
           {/* Special Challenges Column */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b pb-2 flex items-center gap-2">
-              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> Special Quests
-              <Badge variant="outline" className="ml-auto text-[9px] py-0 h-4">{specialChallenges.length}</Badge>
-            </h3>
-            <div className="space-y-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b-2 border-yellow-100 pb-3">
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-yellow-600 flex items-center gap-2">
+                <Star className="h-5 w-5 fill-yellow-500" /> Special Quests
+              </h3>
+              <Badge variant="outline" className="text-xs bg-yellow-50 border-yellow-200 text-yellow-700">{specialChallenges.length} Active</Badge>
+            </div>
+            <div className="space-y-6">
               {specialChallenges.length > 0 ? specialChallenges.map(renderChallengeItem) : (
-                <p className="text-xs text-center text-muted-foreground italic py-10 bg-muted/20 rounded-lg">No special quests active</p>
+                <div className="py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                   <p className="text-sm text-muted-foreground italic">No special quests available.</p>
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {(!challenges || challenges.length === 0) && (
-          <div className="py-20 text-center space-y-4 bg-muted/10 rounded-3xl border border-dashed">
-             <Zap className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-             <p className="text-muted-foreground italic">The harbor is quiet. Check back later for new spiritual challenges.</p>
+          <div className="py-24 text-center space-y-6 bg-muted/10 rounded-[3rem] border-4 border-dashed border-muted/30">
+             <Zap className="h-20 w-20 text-muted-foreground/20 mx-auto" />
+             <div className="space-y-2">
+               <p className="text-2xl font-headline text-primary font-bold">The Harbor is Still</p>
+               <p className="text-muted-foreground max-w-sm mx-auto">Check back later for new spiritual opportunities and challenges from the fellowship.</p>
+             </div>
           </div>
         )}
 
         <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-accent" /> {completingChallenge?.title}
+              <DialogTitle className="text-2xl font-headline flex items-center gap-3">
+                <Zap className="h-6 w-6 text-accent fill-accent" /> {completingChallenge?.title}
               </DialogTitle>
-              <DialogDescription className="text-xs italic border-l-2 pl-3 py-1">
+              <DialogDescription className="text-base italic bg-accent/5 p-4 rounded-xl border-l-4 border-accent mt-2">
                 {completingChallenge?.description}
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4 space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="submission-text" className="text-xs font-bold uppercase text-muted-foreground">Your Meditation / Submission</Label>
+            <div className="py-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="submission-text" className="text-sm font-black uppercase text-primary tracking-widest">Your Spiritual Reflection</Label>
                 <Textarea 
                   id="submission-text" 
-                  placeholder="Record your thoughts, actions, or reflections here..." 
+                  placeholder="Share your experience, what you learned, or how you fulfilled this challenge..." 
                   value={submissionText} 
                   onChange={(e) => setSubmissionText(e.target.value)} 
-                  className="min-h-[150px] bg-white shadow-inner" 
+                  className="min-h-[200px] bg-white border-muted-foreground/20 text-base leading-relaxed p-4 focus-visible:ring-accent" 
                 />
               </div>
-              <div className="bg-accent/5 p-3 rounded-lg border border-accent/10">
-                 <p className="text-[10px] font-bold text-accent uppercase tracking-widest">Target Criteria</p>
-                 <p className="text-xs text-primary font-medium">{completingChallenge?.completionCriteria}</p>
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                 <p className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-1">Target Criteria</p>
+                 <p className="text-sm text-primary font-medium">{completingChallenge?.completionCriteria}</p>
               </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="ghost" onClick={() => setCompletingChallenge(null)}>Cancel</Button>
-              <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim() || isSubmitting} className="rounded-full px-8 bg-primary font-bold">
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                Submit and Earn +{completingChallenge?.pointsReward} pts
+            <DialogFooter className="flex-col sm:flex-row gap-3">
+              <Button variant="ghost" onClick={() => setCompletingChallenge(null)} className="font-bold">Cancel</Button>
+              <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim() || isSubmitting} className="rounded-full px-8 h-12 bg-primary font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20">
+                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <CheckCircle2 className="h-5 w-5 mr-2" />}
+                Complete and Claim +{completingChallenge?.pointsReward} pts
               </Button>
             </DialogFooter>
           </DialogContent>
