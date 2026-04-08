@@ -78,7 +78,7 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
 
   const userChallengesQuery = useMemoFirebase(() => {
     if (!userId || !db) return null;
-    return collection(db, "users", userId, "userChallenges");
+    return query(collection(db, "users", userId, "userChallenges"), orderBy("completedAt", "desc"));
   }, [db, userId]);
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
