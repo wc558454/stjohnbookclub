@@ -80,48 +80,49 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_') && !c.id.startsWith('dynamic_')) || [];
+  // Filter: Completed challenges are those that are NOT reflections and NOT discussion check-ins
+  const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_')) || [];
   const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
 
   const challengesCount = completedChallenges.length;
   const discussionsCount = attendedDiscussions.length;
 
   const getCompletedChallengeTitle = (userChallenge: any) => {
-    const { id, challengeId } = userChallenge;
-    if (id.startsWith('refl_')) return "Reflection of the Day";
-    
+    const { challengeId } = userChallenge;
     const chall = allChallenges?.find(c => c.id === challengeId);
     if (chall) return chall.title;
-    
-    return "Unknown Challenge";
+    return "Special Challenge";
   }
 
   const getAttendedDiscussionTopic = (userChallenge: any) => {
     const { challengeId } = userChallenge;
     const disc = allDiscussions?.find(d => d.id === challengeId);
-    return disc?.topic || "Unknown Discussion";
+    return disc?.topic || "Discussion Check-in";
   }
 
   return (
     <>
       <Dialog open={isChallengeDetailsOpen} onOpenChange={setIsChallengeDetailsOpen}>
         <DialogTrigger asChild>
-          <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50">
+          <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50 font-bold text-primary">
             {challengesCount}
           </TableCell>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Completed Challenges</DialogTitle>
-            <CardDescription>List of all challenges this member has completed.</CardDescription>
+            <CardDescription>Member has completed {challengesCount} challenges.</CardDescription>
           </DialogHeader>
           <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
             {completedChallenges.length > 0 ? (
               <ul className="space-y-4">
                 {completedChallenges.map(uc => (
                   <li key={uc.id} className="text-sm border-b pb-4 last:border-0 last:pb-0">
-                    <div className="font-medium text-primary">{getCompletedChallengeTitle(uc)}</div>
-                    <div className="text-muted-foreground text-xs mb-2">({new Date(uc.completedAt).toLocaleString()})</div>
+                    <div className="flex justify-between items-start">
+                      <div className="font-medium text-primary">{getCompletedChallengeTitle(uc)}</div>
+                      <Badge variant="outline" className="text-[10px]">+{uc.pointsEarned} pts</Badge>
+                    </div>
+                    <div className="text-muted-foreground text-[10px] mb-2">{new Date(uc.completedAt).toLocaleString()}</div>
                     {uc.submissionText && (
                       <blockquote className="mt-1 pl-2 text-xs italic border-l-2 text-muted-foreground bg-muted/20 p-2 rounded-r-md">
                         {uc.submissionText}
@@ -146,7 +147,7 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
         <DialogContent>
            <DialogHeader>
             <DialogTitle>Attended Discussions</DialogTitle>
-            <CardDescription>List of all discussions this member has checked into.</CardDescription>
+            <CardDescription>Check-ins for spiritual discussions.</CardDescription>
           </DialogHeader>
           <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
             {attendedDiscussions.length > 0 ? (
@@ -154,7 +155,7 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
                 {attendedDiscussions.map(uc => (
                   <li key={uc.id} className="text-sm">
                     {getAttendedDiscussionTopic(uc)}
-                    <span className="text-muted-foreground text-xs ml-2">({new Date(uc.completedAt).toLocaleDateString()})</span>
+                    <span className="text-muted-foreground text-[10px] ml-2">({new Date(uc.completedAt).toLocaleDateString()})</span>
                   </li>
                 ))}
               </ul>
@@ -478,7 +479,6 @@ export default function AdminDashboard() {
     updateDocumentNonBlocking(doc(db, "users", managingBadgesMember.id), { badges: updatedBadges });
     toast({ title: editingBadge ? "Badge Updated" : "Badge Awarded" });
     
-    // Update local state to reflect changes in dialog immediately
     setManagingBadgesMember({ ...managingBadgesMember, badges: updatedBadges });
     setEditingBadge(null);
     e.currentTarget.reset();
