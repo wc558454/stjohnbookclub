@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -564,7 +563,7 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <div className="w-3 h-3 bg-red-50 border rounded-sm" />
-                <span>Inactive (> 1 week)</span>
+                <span>Inactive (&gt; 1 week)</span>
               </div>
             </div>
             <Card className="border-none shadow-sm overflow-hidden">
