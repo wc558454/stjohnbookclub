@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock } from "lucide-react";
+import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -84,6 +84,9 @@ export function Navigation() {
           {user && (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-accent transition-colors">Dashboard</Link>
+              <Link href="/challenges" className="text-sm font-medium hover:text-accent transition-colors flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-accent" /> Challenges
+              </Link>
             </>
           )}
         </div>
@@ -178,6 +181,9 @@ export function Navigation() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard" className="cursor-pointer">Member Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/challenges" className="cursor-pointer">Spiritual Challenges</Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>

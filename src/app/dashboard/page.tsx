@@ -52,6 +52,7 @@ import {
   Sparkle,
   Settings,
   BellRing,
+  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -63,6 +64,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { requestNotificationPermission } from "@/firebase/messaging";
 import { FirebaseApp } from "firebase/app";
+import Link from "next/link";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -119,9 +121,6 @@ export default function Dashboard() {
   const [showReflectionHistory, setShowReflectionHistory] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [notificationPermissionStatus, setNotificationPermissionStatus] = useState<string>("default");
-
-  const [completingChallenge, setCompletingChallenge] = useState<any>(null);
-  const [submissionText, setSubmissionText] = useState("");
 
   const [editingReflection, setEditingReflection] = useState<any>(null);
   const [editReflectionText, setEditReflectionText] = useState("");
@@ -184,10 +183,6 @@ export default function Dashboard() {
     return query(collection(db, "users", user.uid, "userChallenges"), orderBy("completedAt", "desc"));
   }, [db, user?.uid]);
   const { data: userChallenges } = useCollection(userChallengesQuery);
-
-  const dailyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Daily') || [], [challenges]);
-  const weeklyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Weekly') || [], [challenges]);
-  const specialChallenges = useMemo(() => challenges?.filter(c => c.type === 'Special') || [], [challenges]);
 
   const reflections = useMemo(() => {
     return userChallenges?.filter(uc => uc.id.startsWith('refl_')) || [];
@@ -258,23 +253,15 @@ export default function Dashboard() {
     return discussions.filter(d => new Date(d.scheduledDateTime) >= cutOff);
   }, [discussions]);
 
-  const isChallengeCompleted = (chall: any) => {
-    return userChallenges?.some(uc => {
-      if (uc.challengeId !== chall.id) return false;
-      const completedAt = new Date(uc.completedAt);
-      const now = new Date();
-      if (chall.type === 'Daily') {
-        return completedAt.toDateString() === now.toDateString();
-      }
-      if (chall.type === 'Weekly') {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-        startOfWeek.setHours(0, 0, 0, 0);
-        return completedAt >= startOfWeek;
-      }
-      return true; // Special challenges are once-off
-    });
-  };
+  const completedTodayChallengesCount = useMemo(() => {
+    if (!challenges || !userChallenges) return 0;
+    const now = new Date().toDateString();
+    return userChallenges.filter(uc => {
+      const chall = challenges.find(c => c.id === uc.challengeId);
+      if (!chall || chall.type !== 'Daily') return false;
+      return new Date(uc.completedAt).toDateString() === now;
+    }).length;
+  }, [challenges, userChallenges]);
 
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -723,74 +710,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleSubmissionForChallenge = async () => {
-    if (!completingChallenge || !submissionText.trim() || !user) return;
-
-    const reward = completingChallenge.pointsReward;
-    let periodSuffix = "";
-    const now = new Date();
-    if (completingChallenge.type === 'Daily') {
-      periodSuffix = `_d_${now.toISOString().split('T')[0]}`;
-    } else if (completingChallenge.type === 'Weekly') {
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-      periodSuffix = `_w_${startOfWeek.toISOString().split('T')[0]}`;
-    }
-    
-    const userChallengeId = `dynamic_${completingChallenge.id}${periodSuffix}`;
-    const userChallengeData = {
-      id: userChallengeId,
-      challengeId: completingChallenge.id,
-      userId: user.uid,
-      status: "Completed",
-      completedAt: new Date().toISOString(),
-      pointsEarned: reward,
-      submissionText: submissionText
-    };
-
-    const userRef = doc(db, "users", user.uid);
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw "User does not exist";
-        const currentProfile = userSnap.data();
-
-        transaction.set(doc(db, "users", user.uid, "userChallenges", userChallengeId), userChallengeData);
-
-        const currentMonthStr = now.toISOString().slice(0, 7);
-        const lastMonday = new Date(now);
-        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-        lastMonday.setHours(0, 0, 0, 0);
-        const currentWeekStr = lastMonday.toISOString().split('T')[0];
-
-        const newMonthlyPoints =
-          currentProfile.currentMonth === currentMonthStr
-            ? (currentProfile.monthlyPoints || 0) + reward
-            : reward;
-
-        const newWeeklyPoints =
-          currentProfile.currentWeek === currentWeekStr
-            ? (currentProfile.weeklyPoints || 0) + reward
-            : reward;
-
-        transaction.update(userRef, {
-          points: (currentProfile.points || 0) + reward,
-          monthlyPoints: newMonthlyPoints,
-          currentMonth: currentMonthStr,
-          weeklyPoints: newWeeklyPoints,
-          currentWeek: currentWeekStr,
-        });
-      });
-      toast({ title: "Challenge Completed", description: `Challenge complete!` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Submission Failed" });
-    }
-    
-    setCompletingChallenge(null);
-    setSubmissionText("");
-  };
-
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.uid || !db) return;
@@ -819,37 +738,6 @@ export default function Dashboard() {
       setNotificationPermissionStatus("denied");
     }
   };
-
-  const renderChallengeItem = (chall: any) => {
-    const completed = isChallengeCompleted(chall);
-    return (
-      <div key={chall.id} className="p-3 rounded-lg border bg-card flex flex-col justify-between group hover:border-accent/50 transition-colors shadow-sm">
-        <div className="space-y-1">
-          <div className="flex justify-between items-start">
-            <p className="font-bold text-sm text-primary leading-tight">{chall.title}</p>
-            <Badge variant="secondary" className="text-[10px] font-bold text-accent px-1.5 py-0">+{chall.pointsReward}</Badge>
-          </div>
-          <p className="text-[11px] text-muted-foreground line-clamp-2 hover:line-clamp-none transition-all">{chall.description}</p>
-          <p className="text-[9px] text-muted-foreground italic font-medium">Target: {chall.completionCriteria}</p>
-        </div>
-        <div className="mt-3 flex justify-end">
-          {completed ? (
-            <div className="flex items-center gap-1 text-green-600 font-bold text-[10px] uppercase">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Done</span>
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" className="h-7 text-[10px] rounded-full border-primary text-primary hover:bg-primary hover:text-white" onClick={() => setCompletingChallenge(chall)}>
-              Complete
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
-  const editReflectionWordCount = editReflectionText.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1146,54 +1034,35 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm bg-accent/5">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-base flex items-center gap-2 font-headline">
-                    <Sparkles className="h-4 w-4 text-accent" /> Spiritual Challenges
-                  </CardTitle>
-                  <CardDescription className="text-xs">Go beyond the reading schedule and deepen your practice.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Daily Challenges Column */}
-                    <div className="space-y-4">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
-                        <Flame className="h-3 w-3 text-orange-500" /> Daily
-                      </h3>
-                      <div className="space-y-3">
-                        {dailyChallenges.length > 0 ? dailyChallenges.map(renderChallengeItem) : (
-                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
-                        )}
-                      </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2 font-headline">
+                        <Zap className="h-4 w-4 text-accent" /> Spiritual Challenges
+                      </CardTitle>
+                      <CardDescription className="text-xs">Deepen your practice beyond reading. Earn additional points!</CardDescription>
                     </div>
-
-                    {/* Weekly Challenges Column */}
-                    <div className="space-y-4">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
-                        <CalendarDays className="h-3 w-3 text-accent" /> Weekly
-                      </h3>
-                      <div className="space-y-3">
-                        {weeklyChallenges.length > 0 ? weeklyChallenges.map(renderChallengeItem) : (
-                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Special Challenges Column */}
-                    <div className="space-y-4">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
-                        <Star className="h-3 w-3 text-yellow-500" /> Special
-                      </h3>
-                      <div className="space-y-3">
-                        {specialChallenges.length > 0 ? specialChallenges.map(renderChallengeItem) : (
-                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
-                        )}
-                      </div>
-                    </div>
+                    <Button asChild variant="outline" size="sm" className="h-8 rounded-full border-accent text-accent font-bold">
+                       <Link href="/challenges">View All Challenges <ArrowRight className="h-3 w-3 ml-1" /></Link>
+                    </Button>
                   </div>
-                  {(!challenges || challenges.length === 0) && (
-                    <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
-                  )}
+                </CardHeader>
+                <CardContent className="pb-6">
+                  <div className="bg-white p-4 rounded-xl border flex items-center justify-between shadow-sm">
+                     <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-accent/10 rounded-full flex items-center justify-center">
+                           <Zap className="h-5 w-5 text-accent" />
+                        </div>
+                        <div>
+                           <p className="text-sm font-bold text-primary">Daily Goals Completed</p>
+                           <p className="text-xs text-muted-foreground">You finished {completedTodayChallengesCount} challenge(s) today.</p>
+                        </div>
+                     </div>
+                     <Link href="/challenges">
+                        <Button size="sm" variant="ghost" className="h-8 text-xs font-bold text-accent">Go to Dashboard</Button>
+                     </Link>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1371,22 +1240,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        <Dialog open={!!completingChallenge} onOpenChange={(open) => { if (!open) { setCompletingChallenge(null); setSubmissionText(""); } }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Complete: {completingChallenge?.title}</DialogTitle>
-              <DialogDescription>{completingChallenge?.description}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-              <Label htmlFor="submission-text" className="font-medium">Your Submission</Label>
-              <Textarea id="submission-text" placeholder="Share your thoughts..." value={submissionText} onChange={(e) => setSubmissionText(e.target.value)} className="min-h-[100px] bg-white" />
-            </div>
-            <DialogFooter>
-              <Button onClick={handleSubmissionForChallenge} disabled={!submissionText.trim()}>Submit and Complete</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <Dialog open={!!editingReflection} onOpenChange={(open) => { if (!open) { setEditingReflection(null); setEditReflectionText(""); } }}>
           <DialogContent>
