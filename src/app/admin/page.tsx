@@ -441,6 +441,52 @@ export default function AdminDashboard() {
     setEditingGroupMember(null);
   };
 
+  const handleSaveBadge = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!managingBadgesMember || !db) return;
+
+    const formData = new FormData(e.currentTarget);
+    const badgeData = {
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      iconName: formData.get("iconName") as string,
+      message: formData.get("message") as string,
+    };
+
+    let updatedBadges = managingBadgesMember.badges || [];
+    
+    if (editingBadge) {
+      updatedBadges = updatedBadges.map((b: any) => 
+        b.id === editingBadge.id ? { ...b, ...badgeData } : b
+      );
+    } else {
+      const newBadge = {
+        ...badgeData,
+        id: Math.random().toString(36).substring(7),
+        awardedAt: new Date().toISOString(),
+      };
+      updatedBadges = [...updatedBadges, newBadge];
+    }
+
+    updateDocumentNonBlocking(doc(db, "users", managingBadgesMember.id), { badges: updatedBadges });
+    toast({ title: editingBadge ? "Badge Updated" : "Badge Awarded" });
+    
+    // Update local state to reflect changes in dialog immediately
+    setManagingBadgesMember({ ...managingBadgesMember, badges: updatedBadges });
+    setEditingBadge(null);
+    e.currentTarget.reset();
+  };
+
+  const handleDeleteBadge = (badgeId: string) => {
+    if (!managingBadgesMember || !db) return;
+
+    const updatedBadges = (managingBadgesMember.badges || []).filter((b: any) => b.id !== badgeId);
+    updateDocumentNonBlocking(doc(db, "users", managingBadgesMember.id), { badges: updatedBadges });
+    
+    setManagingBadgesMember({ ...managingBadgesMember, badges: updatedBadges });
+    toast({ title: "Badge Removed" });
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
