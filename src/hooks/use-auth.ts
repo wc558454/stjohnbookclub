@@ -27,6 +27,7 @@ export type UserProfile = {
   points: number;
   level: number;
   streak: number;
+  longestStreak: number;
   status: string;
   role: string;
   profilePictureUrl?: string;

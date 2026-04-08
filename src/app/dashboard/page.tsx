@@ -250,10 +250,23 @@ export default function Dashboard() {
 
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    // Weekly Freeze Refill Logic: Every Monday at 12:00 AM
+    const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
+    const lastMonday = new Date(now);
+    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Get Monday of this week
+    lastMonday.setHours(0, 0, 0, 0);
+
+    let tempFreezeCount = currentProfile.freezeCount ?? 2;
+    let newRefillDate = currentProfile.lastFreezeRefill;
+
+    if (lastRefillAt.getTime() < lastMonday.getTime()) {
+      tempFreezeCount = 2; // Refill to 2
+      newRefillDate = now.toISOString();
+    }
 
     const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
     let newStreak = currentProfile.streak || 0;
-    let tempFreezeCount = currentProfile.freezeCount ?? 2;
     let streakToastInfo = { title: "Progress Recorded", description: "Keep going!" };
     let streakAlertNotif: { id: string, message: string, type: 'StreakProtection' | 'StreakReset' } | null = null;
 
@@ -263,54 +276,47 @@ export default function Dashboard() {
       const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
       const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
 
-      if (diffDays === 0) { // Activity already today, streak doesn't change
+      if (diffDays === 0) {
+        // Already active today, streak remains the same
         newStreak = currentProfile.streak || 1;
-      } else if (diffDays === 1) { // New day, extend streak
+      } else if (diffDays === 1) {
+        // Consecutive day
         newStreak += 1;
         streakToastInfo = { title: "Streak Extended!", description: `Your streak is now ${newStreak} days!` };
-      } else if (diffDays > 1) { // Missed days
+      } else if (diffDays > 1) {
+        // Missed days gap
         const missedDays = diffDays - 1;
         if (tempFreezeCount >= missedDays) {
+          // Use freezes to bridge the gap
           tempFreezeCount -= missedDays;
           newStreak += 1; 
-          streakToastInfo = { title: "Streak Preserved!", description: `You missed ${missedDays} day(s), but a freeze was used. Streak is now ${newStreak} days.` };
+          streakToastInfo = { title: "Streak Preserved!", description: `You missed ${missedDays} day(s), but freezes were used. Streak is now ${newStreak} days.` };
           
           streakAlertNotif = {
-            id: `streak_prot_${now.toISOString().split('T')[0]}`,
+            id: `streak_prot_${now.getTime()}`,
             message: `Streak Protection Alert! You missed ${missedDays} day(s), but your streak was saved using freezes.`,
             type: 'StreakProtection'
           };
-
         } else {
+          // Not enough freezes, reset
           newStreak = 1;
           streakToastInfo = { title: "Streak Reset", description: "You missed too many days. Starting fresh at 1." };
 
           streakAlertNotif = {
-            id: `streak_reset_${now.toISOString().split('T')[0]}`,
+            id: `streak_reset_${now.getTime()}`,
             message: `Your reading streak has been reset because you ran out of freezes. Let's start a new journey today!`,
             type: 'StreakReset'
           };
         }
       }
     }
-    
-    // Freeze refill logic
-    const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
-    const lastMonday = new Date(now);
-    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    lastMonday.setHours(0, 0, 0, 0);
 
-    let finalFreezeCount = tempFreezeCount;
-    let newRefillDate = currentProfile.lastFreezeRefill;
-
-    if (lastRefillAt.getTime() < lastMonday.getTime()) {
-      finalFreezeCount = 2; 
-      newRefillDate = now.toISOString();
-    }
+    const newLongestStreak = Math.max(currentProfile.longestStreak || 0, newStreak);
 
     return {
       streak: newStreak,
-      freezeCount: finalFreezeCount,
+      longestStreak: newLongestStreak,
+      freezeCount: tempFreezeCount,
       lastStreakActivityAt: now.toISOString(),
       lastFreezeRefill: newRefillDate,
       streakToastInfo,
@@ -466,6 +472,7 @@ export default function Dashboard() {
           personalBestPages: newPersonalBest,
           dailyPagesRead: currentDailyPagesSum,
           streak: streakUpdate.streak,
+          longestStreak: streakUpdate.longestStreak,
           freezeCount: streakUpdate.freezeCount,
           lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
@@ -541,12 +548,8 @@ export default function Dashboard() {
         });
 
         const streakUpdate = getStreakUpdate(currentProfile, now);
-        if (streakUpdate.streak !== currentProfile.streak) {
-            toastTitle = streakUpdate.streakToastInfo.title;
-            toastDescription = streakUpdate.streakToastInfo.description;
-        } else {
-            toastDescription += " Your streak is maintained."
-        }
+        toastTitle = streakUpdate.streakToastInfo.title;
+        toastDescription = streakUpdate.streakToastInfo.description;
 
         const currentMonthStr = new Date().toISOString().slice(0, 7);
         const newMonthlyPoints =
@@ -559,6 +562,7 @@ export default function Dashboard() {
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           streak: streakUpdate.streak,
+          longestStreak: streakUpdate.longestStreak,
           freezeCount: streakUpdate.freezeCount,
           lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
@@ -827,6 +831,13 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-orange-600" />
+              <div>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Longest Streak</p>
+                <p className="text-lg font-bold text-primary">{profile.longestStreak || 0}d</p>
+              </div>
+            </div>
+            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2 col-span-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
               <div>
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best per day</p>

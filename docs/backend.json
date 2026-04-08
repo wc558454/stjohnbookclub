@@ -45,7 +45,12 @@
         },
         "streak": {
           "type": "number",
-          "description": "The current consecutive daily reading streak of the user.",
+          "description": "The current consecutive daily activity streak of the user.",
+          "format": "int32"
+        },
+        "longestStreak": {
+          "type": "number",
+          "description": "The highest consecutive daily activity streak ever achieved by the user.",
           "format": "int32"
         },
         "status": {
@@ -77,7 +82,7 @@
         },
         "dailyPagesRead": {
           "type": "number",
-          "description": "Total pages read by the user today. Resets on first read of a new day.",
+          "description": "Total pages read by the user today. Resets on first activity of a new day.",
           "format": "int32"
         },
         "currentPagesRead": {
@@ -93,7 +98,8 @@
           "description": "A record of progress (pages read) for each book ID the user has engaged with."
         },
         "freezeCount": {
-          "type": "number"
+          "type": "number",
+          "description": "Remaining streak freezes for the current week."
         },
         "groupName": {
           "type": "string",
@@ -128,6 +134,7 @@
         },
         "lastFreezeRefill": {
           "type": "string",
+          "description": "Timestamp of the last time freezes were refilled (Mondays).",
           "format": "date-time"
         }
       },
