@@ -126,6 +126,9 @@ export default function Dashboard() {
   const [editReflectionText, setEditReflectionText] = useState("");
   const [userRank, setUserRank] = useState<number>(-1);
 
+  const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
+  const editReflectionWordCount = editReflectionText.trim().split(/\s+/).filter(Boolean).length;
+
   useEffect(() => {
     setHasMounted(true);
     if ("Notification" in window) {
