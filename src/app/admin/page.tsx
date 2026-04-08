@@ -410,16 +410,23 @@ export default function AdminDashboard() {
         const currentProfile = userSnap.data();
         if (!currentProfile) return;
         
-        const newMonthlyPoints = currentProfile.currentMonth === currentMonthStr
+        // Total points floor
+        const newTotalPoints = Math.max(0, (currentProfile.points || 0) + adjustment);
+        
+        // Monthly points floor
+        let newMonthlyPoints = currentProfile.currentMonth === currentMonthStr
           ? (currentProfile.monthlyPoints || 0) + adjustment
           : adjustment;
+        newMonthlyPoints = Math.max(0, newMonthlyPoints);
           
-        const newWeeklyPoints = currentProfile.currentWeek === currentWeekStr
+        // Weekly points floor
+        let newWeeklyPoints = currentProfile.currentWeek === currentWeekStr
           ? (currentProfile.weeklyPoints || 0) + adjustment
           : adjustment;
+        newWeeklyPoints = Math.max(0, newWeeklyPoints);
 
         transaction.update(userRef, { 
-          points: (currentProfile.points || 0) + adjustment,
+          points: newTotalPoints,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           weeklyPoints: newWeeklyPoints,
