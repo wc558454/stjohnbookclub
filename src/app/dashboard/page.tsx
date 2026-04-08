@@ -195,11 +195,17 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
-  const leaderboardMembersQuery = useMemoFirebase(() => {
+  const weeklyLeaderboardQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), orderBy("weeklyPoints", "desc"), limit(10));
+  }, [db, user]);
+  const { data: weeklyLeaderboardMembers } = useCollection(weeklyLeaderboardQuery);
+
+  const monthlyLeaderboardQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(10));
   }, [db, user]);
-  const { data: leaderboardMembers } = useCollection(leaderboardMembersQuery);
+  const { data: monthlyLeaderboardMembers } = useCollection(monthlyLeaderboardQuery);
 
   const allTimeLeaderboardQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -251,17 +257,16 @@ export default function Dashboard() {
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
-    // Weekly Freeze Refill Logic: Every Monday at 12:00 AM
-    const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
     const lastMonday = new Date(now);
-    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Get Monday of this week
+    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
     lastMonday.setHours(0, 0, 0, 0);
 
+    const lastRefillAt = currentProfile.lastFreezeRefill ? new Date(currentProfile.lastFreezeRefill) : new Date(0);
     let tempFreezeCount = currentProfile.freezeCount ?? 2;
     let newRefillDate = currentProfile.lastFreezeRefill;
 
     if (lastRefillAt.getTime() < lastMonday.getTime()) {
-      tempFreezeCount = 2; // Refill to 2
+      tempFreezeCount = 2;
       newRefillDate = now.toISOString();
     }
 
@@ -277,17 +282,13 @@ export default function Dashboard() {
       const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
 
       if (diffDays === 0) {
-        // Already active today, streak remains the same
         newStreak = currentProfile.streak || 1;
       } else if (diffDays === 1) {
-        // Consecutive day
         newStreak += 1;
         streakToastInfo = { title: "Streak Extended!", description: `Your streak is now ${newStreak} days!` };
       } else if (diffDays > 1) {
-        // Missed days gap
         const missedDays = diffDays - 1;
         if (tempFreezeCount >= missedDays) {
-          // Use freezes to bridge the gap
           tempFreezeCount -= missedDays;
           newStreak += 1; 
           streakToastInfo = { title: "Streak Preserved!", description: `You missed ${missedDays} day(s), but freezes were used. Streak is now ${newStreak} days.` };
@@ -298,7 +299,6 @@ export default function Dashboard() {
             type: 'StreakProtection'
           };
         } else {
-          // Not enough freezes, reset
           newStreak = 1;
           streakToastInfo = { title: "Streak Reset", description: "You missed too many days. Starting fresh at 1." };
 
@@ -387,7 +387,7 @@ export default function Dashboard() {
     toast({ 
       title: savedProgress > 0 ? "Study Resumed" : "Study Selected", 
       description: savedProgress > 0 
-        ? `Resuming from page ${savedProgress}.` 
+        ? `Resuming from page ${savedPages}.` 
         : "You have started a new book study." 
     });
   };
@@ -458,9 +458,19 @@ export default function Dashboard() {
         };
 
         const currentMonthStr = now.toISOString().slice(0, 7);
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
+        const currentWeekStr = lastMonday.toISOString().split('T')[0];
+
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
+            : ptsToAdd;
+
+        const newWeeklyPoints =
+          currentProfile.currentWeek === currentWeekStr
+            ? (currentProfile.weeklyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
         transaction.update(userRef, {
@@ -469,6 +479,8 @@ export default function Dashboard() {
           bookProgress: updatedBookProgress,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+          weeklyPoints: newWeeklyPoints,
+          currentWeek: currentWeekStr,
           personalBestPages: newPersonalBest,
           dailyPagesRead: currentDailyPagesSum,
           streak: streakUpdate.streak,
@@ -551,16 +563,28 @@ export default function Dashboard() {
         toastTitle = streakUpdate.streakToastInfo.title;
         toastDescription = streakUpdate.streakToastInfo.description;
 
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const currentMonthStr = now.toISOString().slice(0, 7);
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
+        const currentWeekStr = lastMonday.toISOString().split('T')[0];
+
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        const newWeeklyPoints =
+          currentProfile.currentWeek === currentWeekStr
+            ? (currentProfile.weeklyPoints || 0) + reward
             : reward;
 
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + reward,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+          weeklyPoints: newWeeklyPoints,
+          currentWeek: currentWeekStr,
           streak: streakUpdate.streak,
           longestStreak: streakUpdate.longestStreak,
           freezeCount: streakUpdate.freezeCount,
@@ -647,16 +671,28 @@ export default function Dashboard() {
           pointsEarned: reward
         });
 
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const currentMonthStr = now.toISOString().slice(0, 7);
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
+        const currentWeekStr = lastMonday.toISOString().split('T')[0];
+
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        const newWeeklyPoints =
+          currentProfile.currentWeek === currentWeekStr
+            ? (currentProfile.weeklyPoints || 0) + reward
             : reward;
         
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + reward,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+          weeklyPoints: newWeeklyPoints,
+          currentWeek: currentWeekStr,
         });
       });
       toast({ title: "Checked In", description: `Check-in successful!` });
@@ -700,16 +736,28 @@ export default function Dashboard() {
 
         transaction.set(doc(db, "users", user.uid, "userChallenges", userChallengeId), userChallengeData);
 
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const currentMonthStr = now.toISOString().slice(0, 7);
+        const lastMonday = new Date(now);
+        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        lastMonday.setHours(0, 0, 0, 0);
+        const currentWeekStr = lastMonday.toISOString().split('T')[0];
+
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + reward
+            : reward;
+
+        const newWeeklyPoints =
+          currentProfile.currentWeek === currentWeekStr
+            ? (currentProfile.weeklyPoints || 0) + reward
             : reward;
 
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + reward,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
+          weeklyPoints: newWeeklyPoints,
+          currentWeek: currentWeekStr,
         });
       });
       toast({ title: "Challenge Completed", description: `Challenge complete!` });
@@ -812,8 +860,10 @@ export default function Dashboard() {
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
               <Star className="h-4 w-4 text-accent fill-accent" />
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Total Points</p>
-                <p className="text-lg font-bold text-primary">{profile.points?.toLocaleString() || 0}</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Points (W / M / Total)</p>
+                <p className="text-base font-bold text-primary">
+                  {profile.weeklyPoints || 0} / {profile.monthlyPoints || 0} / {profile.points?.toLocaleString() || 0}
+                </p>
               </div>
             </div>
             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
@@ -1168,20 +1218,45 @@ export default function Dashboard() {
               </Card>
 
               <Card className="border-none shadow-sm overflow-hidden">
-                <Tabs defaultValue="monthly" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 h-auto p-0 rounded-none bg-accent/5">
-                    <TabsTrigger value="monthly" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                      <Award className="h-4 w-4 mr-2" /> Monthly
+                <Tabs defaultValue="weekly" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 h-auto p-0 rounded-none bg-accent/5">
+                    <TabsTrigger value="weekly" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      Weekly
                     </TabsTrigger>
-                    <TabsTrigger value="all-time" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                      <Trophy className="h-4 w-4 mr-2" /> All-Time
+                    <TabsTrigger value="monthly" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      Monthly
                     </TabsTrigger>
-                    <TabsTrigger value="streaks" className="py-3 text-sm rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                      <Flame className="h-4 w-4 mr-2" /> Streaks
+                    <TabsTrigger value="all-time" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      All-Time
+                    </TabsTrigger>
+                    <TabsTrigger value="streaks" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      Streaks
                     </TabsTrigger>
                   </TabsList>
+                  <TabsContent value="weekly" className="mt-0">
+                    {weeklyLeaderboardMembers?.length ? weeklyLeaderboardMembers.map((m, i) => {
+                      const mRank = getRank(m.points || 0);
+                      return (
+                        <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
+                          <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-bold">{m.name}</p>
+                              {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" />
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <p className="text-[10px] text-accent font-bold uppercase tracking-widest">{m.weeklyPoints || 0} WEEKLY POINTS</p>
+                              <p className="text-[9px] text-muted-foreground italic">Best: {m.personalBestPages || 0} pgs/day</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
+                  </TabsContent>
                   <TabsContent value="monthly" className="mt-0">
-                    {leaderboardMembers?.length ? leaderboardMembers.map((m, i) => {
+                    {monthlyLeaderboardMembers?.length ? monthlyLeaderboardMembers.map((m, i) => {
                       const mRank = getRank(m.points || 0);
                       return (
                         <div key={m.id} className={`flex items-center gap-3 p-3 border-t ${m.id === user.uid ? 'bg-accent/5' : ''}`}>
@@ -1194,7 +1269,7 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[9px] text-accent font-bold italic">Personal Best: {m.personalBestPages || 0} pgs</p>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest italic">Personal Best: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
                         </div>
@@ -1215,7 +1290,7 @@ export default function Dashboard() {
                               <UserBadgeList badges={m.badges} size="sm" />
                             </div>
                             <div className="flex justify-between items-end">
-                              <p className="text-[9px] text-accent font-bold italic">Personal Best: {m.personalBestPages || 0} pgs</p>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest italic">Personal Best: {m.personalBestPages || 0} pgs</p>
                             </div>
                           </div>
                         </div>

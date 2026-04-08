@@ -80,7 +80,7 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_')) || [];
+  const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_') && !c.id.startsWith('dynamic_')) || [];
   const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
 
   const challengesCount = completedChallenges.length;
@@ -251,7 +251,6 @@ export default function AdminDashboard() {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
     
-    // In a prototype with limited users, we can loop. In production, this would be a Cloud Function.
     const membersSnap = await getDocs(collection(db, "users"));
     membersSnap.forEach((memberDoc) => {
       const notifId = Math.random().toString(36).substring(7);
@@ -393,85 +392,41 @@ export default function AdminDashboard() {
     toast({ title: "Discussion Scheduled" });
   };
 
-  const handleSaveBadge = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!managingBadgesMember || !db) return;
-    const formData = new FormData(e.currentTarget);
-    const badgeData = {
-      id: editingBadge ? editingBadge.id : Math.random().toString(36).substring(7),
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      iconName: formData.get("iconName") as string,
-      awardedAt: editingBadge ? editingBadge.awardedAt : new Date().toISOString(),
-      message: formData.get("message") as string,
-    };
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", managingBadgesMember.id);
-        const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw new Error("User not found");
-        const userData = userSnap.data();
-        let currentBadges = userData.badges || [];
-        if (editingBadge) {
-          currentBadges = currentBadges.map((b: any) => b.id === editingBadge.id ? badgeData : b);
-        } else {
-          currentBadges = [...currentBadges, badgeData];
-        }
-        transaction.update(userRef, { badges: currentBadges });
-        
-        // Notify user about badge
-        if (!editingBadge) {
-          const notifId = Math.random().toString(36).substring(7);
-          const notifRef = doc(db, "users", managingBadgesMember.id, "notifications", notifId);
-          transaction.set(notifRef, {
-            id: notifId,
-            userId: managingBadgesMember.id,
-            type: "New Badge",
-            message: `Congratulations! You've been awarded the "${badgeData.name}" badge.`,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-          });
-        }
-      });
-      toast({ title: "Badge Saved" });
-      setEditingBadge(null);
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Action Failed" });
-    }
-  };
-
-  const handleDeleteBadge = async (badgeId: string) => {
-    if (!managingBadgesMember || !db) return;
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, "users", managingBadgesMember.id);
-        const userSnap = await transaction.get(userRef);
-        const userData = userSnap.data();
-        const currentBadges = (userData?.badges || []).filter((b: any) => b.id !== badgeId);
-        transaction.update(userRef, { badges: currentBadges });
-      });
-      toast({ title: "Badge Removed" });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Removal Failed" });
-    }
-  };
-
   const handleConfirmAdjustPoints = async () => {
     if (!adjustingMember || !db) return;
     const userRef = doc(db, "users", adjustingMember.id);
     const adjustment = pointsAdjustment || 0;
+    const now = new Date();
+    const currentMonthStr = now.toISOString().slice(0, 7);
+    
+    const lastMonday = new Date(now);
+    lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    lastMonday.setHours(0, 0, 0, 0);
+    const currentWeekStr = lastMonday.toISOString().split('T')[0];
+
     try {
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         const currentProfile = userSnap.data();
         if (!currentProfile) return;
+        
+        const newMonthlyPoints = currentProfile.currentMonth === currentMonthStr
+          ? (currentProfile.monthlyPoints || 0) + adjustment
+          : adjustment;
+          
+        const newWeeklyPoints = currentProfile.currentWeek === currentWeekStr
+          ? (currentProfile.weeklyPoints || 0) + adjustment
+          : adjustment;
+
         transaction.update(userRef, { 
           points: (currentProfile.points || 0) + adjustment,
-          monthlyPoints: (currentProfile.monthlyPoints || 0) + adjustment
+          monthlyPoints: newMonthlyPoints,
+          currentMonth: currentMonthStr,
+          weeklyPoints: newWeeklyPoints,
+          currentWeek: currentWeekStr
         });
       });
-      toast({ title: "Points Adjusted" });
+      toast({ title: "Points Adjusted", description: "Points synced across all leaderboards." });
       setAdjustingMember(null);
       setPointsAdjustment(0);
     } catch (error: any) {

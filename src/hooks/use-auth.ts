@@ -41,6 +41,8 @@ export type UserProfile = {
   spiritualGoal?: string;
   monthlyPoints?: number;
   currentMonth?: string;
+  weeklyPoints?: number;
+  currentWeek?: string;
   personalBestPages?: number;
   dailyPagesRead?: number;
   groupName?: string;

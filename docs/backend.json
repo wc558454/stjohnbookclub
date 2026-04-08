@@ -75,6 +75,15 @@
           "type": "string",
           "description": "The current month for which monthly points are being tracked, in YYYY-MM format."
         },
+        "weeklyPoints": {
+          "type": "number",
+          "description": "The total points earned by the user in the current week.",
+          "format": "int32"
+        },
+        "currentWeek": {
+          "type": "string",
+          "description": "The identifier for the current week, usually the date of the most recent Monday in YYYY-MM-DD format."
+        },
         "personalBestPages": {
           "type": "number",
           "description": "The highest number of pages read by the user in a single day.",
