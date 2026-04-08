@@ -35,7 +35,8 @@ import {
   UserCheck,
   Loader2,
   RefreshCw,
-  Clock
+  Clock,
+  Quote
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -68,9 +69,10 @@ const BADGE_ICONS = [
   { name: "Shield", icon: Shield },
 ];
 
-function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
+function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
   const db = useFirestore();
   const [isChallengeDetailsOpen, setIsChallengeDetailsOpen] = useState(false);
+  const [isReflectionDetailsOpen, setIsReflectionDetailsOpen] = useState(false);
   const [isDiscussionDetailsOpen, setIsDiscussionDetailsOpen] = useState(false);
 
   const userChallengesQuery = useMemoFirebase(() => {
@@ -80,11 +82,16 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  // Filter: Completed challenges are those that are NOT reflections and NOT discussion check-ins
+  // Filter: 
+  // 1. Completed challenges (NOT reflections, NOT discussion check-ins)
+  // 2. Reflections (prefix refl_)
+  // 3. Attended discussions (prefix att_)
   const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_')) || [];
+  const reflections = userChallenges?.filter(c => c.id.startsWith('refl_')) || [];
   const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
 
   const challengesCount = completedChallenges.length;
+  const reflectionsCount = reflections.length;
   const discussionsCount = attendedDiscussions.length;
 
   const getCompletedChallengeTitle = (userChallenge: any) => {
@@ -102,6 +109,7 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
 
   return (
     <>
+      {/* Challenges Column */}
       <Dialog open={isChallengeDetailsOpen} onOpenChange={setIsChallengeDetailsOpen}>
         <DialogTrigger asChild>
           <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50 font-bold text-primary">
@@ -137,7 +145,42 @@ function MemberChallengeStats({ userId, allChallenges, allDiscussions }: { userI
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Reflections Column */}
+      <Dialog open={isReflectionDetailsOpen} onOpenChange={setIsReflectionDetailsOpen}>
+        <DialogTrigger asChild>
+          <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50 font-bold text-accent">
+            {reflectionsCount}
+          </TableCell>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Daily Reflections</DialogTitle>
+            <CardDescription>Spiritual journal entries ({reflectionsCount}).</CardDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+            {reflections.length > 0 ? (
+              <ul className="space-y-4">
+                {reflections.map(refl => (
+                  <li key={refl.id} className="text-sm border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-bold text-accent uppercase tracking-tighter">
+                        {new Date(refl.completedAt).toLocaleString()}
+                      </span>
+                      <Badge variant="outline" className="text-[9px]">+5 pts</Badge>
+                    </div>
+                    <p className="text-xs italic text-muted-foreground">"{refl.submissionText}"</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm italic text-center py-4">No reflections submitted yet.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       
+      {/* Discussions Column */}
       <Dialog open={isDiscussionDetailsOpen} onOpenChange={setIsDiscussionDetailsOpen}>
         <DialogTrigger asChild>
            <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50">
@@ -578,6 +621,7 @@ export default function AdminDashboard() {
                     <TableHead className="text-center">Points</TableHead>
                     <TableHead className="text-center">Streak</TableHead>
                     <TableHead className="text-center">Challenges</TableHead>
+                    <TableHead className="text-center">Reflections</TableHead>
                     <TableHead className="text-center">Discussions</TableHead>
                     <TableHead className="text-center">Member Approval</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -648,7 +692,7 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-center font-bold">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
-                        <MemberChallengeStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
+                        <MemberStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
                         <TableCell className="text-center">
                           {m.status === "Pending Approval" ? (
                              <Button 
