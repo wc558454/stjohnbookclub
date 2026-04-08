@@ -35,13 +35,14 @@ import {
   EyeOff,
   UserCheck,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Clock
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc, where } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -551,14 +552,20 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search by name, email, or group..." 
-                className="pl-10" 
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-              />
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative max-w-sm flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by name, email, or group..." 
+                  className="pl-10" 
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <div className="w-3 h-3 bg-red-50 border rounded-sm" />
+                <span>Inactive (> 1 week)</span>
+              </div>
             </div>
             <Card className="border-none shadow-sm overflow-hidden">
               <Table>
@@ -585,15 +592,34 @@ export default function AdminDashboard() {
                     
                     const globalRank = (members?.findIndex(member => member.id === m.id) ?? i) + 1;
 
+                    // Inactivity Highlighting Logic
+                    const lastActivityDate = m.lastStreakActivityAt ? new Date(m.lastStreakActivityAt) : null;
+                    const accountCreatedDate = m.createdAt ? new Date(m.createdAt) : null;
+                    const oneWeekAgo = new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
+                    
+                    let isInactiveForWeek = false;
+                    if (m.status === "Active") {
+                      if (lastActivityDate) {
+                        isInactiveForWeek = lastActivityDate.getTime() < oneWeekAgo;
+                      } else if (accountCreatedDate) {
+                        isInactiveForWeek = accountCreatedDate.getTime() < oneWeekAgo;
+                      }
+                    }
+
                     return (
-                      <TableRow key={m.id}>
+                      <TableRow key={m.id} className={isInactiveForWeek ? "bg-red-50/50 hover:bg-red-100/50" : ""}>
                         <TableCell className="text-center font-headline font-bold text-muted-foreground">
                           #{globalRank}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div>
-                              <p className="font-bold text-sm leading-tight">{m.name}</p>
+                              <p className="font-bold text-sm leading-tight flex items-center gap-1.5">
+                                {m.name}
+                                {isInactiveForWeek && (
+                                  <Clock className="h-3 w-3 text-red-500" title="Inactive for over a week" />
+                                )}
+                              </p>
                               <p className="text-[10px] text-muted-foreground">{m.email}</p>
                             </div>
                             {m.badges && m.badges.length > 0 && (
