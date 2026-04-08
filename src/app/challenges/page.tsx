@@ -66,6 +66,12 @@ export default function ChallengesPage() {
   const weeklyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Weekly') || [], [challenges]);
   const specialChallenges = useMemo(() => challenges?.filter(c => c.type === 'Special') || [], [challenges]);
 
+  // Count challenges that are NOT reflections or discussion check-ins
+  const challengesCompletedCount = useMemo(() => {
+    if (!userChallenges) return 0;
+    return userChallenges.filter(uc => !uc.id.startsWith('refl_') && !uc.id.startsWith('att_')).length;
+  }, [userChallenges]);
+
   const isChallengeCompleted = (chall: any) => {
     return userChallenges?.some(uc => {
       if (uc.challengeId !== chall.id) return false;
@@ -160,17 +166,17 @@ export default function ChallengesPage() {
       <Card key={chall.id} className="border shadow-md flex flex-col justify-between group hover:border-accent transition-all duration-300 bg-white">
         <CardHeader className="p-6 pb-2 space-y-2">
           <div className="flex justify-between items-start gap-2">
-            <h4 className="font-bold text-lg text-primary leading-tight flex-1">{chall.title}</h4>
-            <Badge variant="secondary" className="text-xs font-bold text-accent px-2 py-1 shrink-0">+{chall.pointsReward}</Badge>
+            <h4 className="font-bold text-xl text-primary leading-tight flex-1">{chall.title}</h4>
+            <Badge variant="secondary" className="text-sm font-bold text-accent px-2 py-1 shrink-0">+{chall.pointsReward}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-base text-muted-foreground leading-relaxed">
             {chall.description}
           </p>
         </CardHeader>
         <CardContent className="p-6 pt-2">
-          <div className="bg-muted/30 p-3 rounded-md border border-muted">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Requirement</p>
-            <p className="text-xs text-primary font-medium italic">{chall.completionCriteria}</p>
+          <div className="bg-muted/30 p-4 rounded-xl border border-muted">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Target Criteria</p>
+            <p className="text-sm text-primary font-medium italic">{chall.completionCriteria}</p>
           </div>
         </CardContent>
         <CardFooter className="p-6 pt-0 flex justify-end">
@@ -182,8 +188,8 @@ export default function ChallengesPage() {
           ) : (
             <Button 
               variant="outline" 
-              size="default" 
-              className="w-full text-xs font-bold rounded-full border-primary text-primary hover:bg-primary hover:text-white transition-colors" 
+              size="lg" 
+              className="w-full text-sm font-bold rounded-full border-primary text-primary hover:bg-primary hover:text-white transition-colors" 
               onClick={() => setCompletingChallenge(chall)}
             >
               Take Action
@@ -207,22 +213,22 @@ export default function ChallengesPage() {
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8 max-w-7xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-             <Link href="/dashboard" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 hover:text-primary transition-colors mb-4">
-                <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+          <div className="space-y-1">
+             <Link href="/dashboard" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 hover:text-accent transition-colors mb-2">
+                <ArrowLeft className="h-3 w-3" /> Back to Dashboard
              </Link>
-             <h1 className="text-4xl md:text-5xl font-bold text-primary font-headline flex items-center gap-4">
-               <Zap className="h-10 w-10 text-accent fill-accent" /> Spiritual Challenges
+             <h1 className="text-3xl font-bold text-primary font-headline flex items-center gap-3">
+               <Zap className="h-8 w-8 text-accent fill-accent" /> Spiritual Challenges
              </h1>
-             <p className="text-muted-foreground text-lg max-w-2xl">
+             <p className="text-muted-foreground text-sm max-w-2xl">
                Cultivate your spiritual discipline and earn points by engaging in daily, weekly, and special fellowship acts.
              </p>
           </div>
-          <div className="flex flex-col items-start md:items-end bg-accent/10 p-4 rounded-2xl border border-accent/20">
-             <p className="text-xs uppercase font-black text-accent tracking-widest mb-1">Total Rewards Earned</p>
+          <div className="bg-white px-6 py-4 rounded-2xl border border-accent/10 shadow-sm flex flex-col items-center md:items-end justify-center min-w-[200px]">
+             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Challenges Completed</p>
              <div className="flex items-center gap-3">
-                <Trophy className="h-6 w-6 text-yellow-500" />
-                <span className="text-3xl font-black text-primary">{profile.points?.toLocaleString()}</span>
+                <CheckCircle2 className="h-6 w-6 text-accent" />
+                <span className="text-2xl font-bold text-primary">{challengesCompletedCount}</span>
              </div>
           </div>
         </div>
