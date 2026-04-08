@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -82,10 +83,10 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  // Filter: 
-  // 1. Completed challenges (NOT reflections, NOT discussion check-ins)
-  // 2. Reflections (prefix refl_)
-  // 3. Attended discussions (prefix att_)
+  // Separation Logic: 
+  // 1. Challenges: Anything that is NOT a reflection (refl_) and NOT a discussion check-in (att_)
+  // 2. Reflections: specifically prefixed with refl_
+  // 3. Discussions: specifically prefixed with att_
   const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_')) || [];
   const reflections = userChallenges?.filter(c => c.id.startsWith('refl_')) || [];
   const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
@@ -119,7 +120,7 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Completed Challenges</DialogTitle>
-            <CardDescription>Member has completed {challengesCount} challenges.</CardDescription>
+            <CardDescription>Member has completed {challengesCount} challenges (excluding reflections).</CardDescription>
           </DialogHeader>
           <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
             {completedChallenges.length > 0 ? (
@@ -258,7 +259,7 @@ export default function AdminDashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "discussions");
+    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "asc"));
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
@@ -454,7 +455,7 @@ export default function AdminDashboard() {
         const currentProfile = userSnap.data();
         if (!currentProfile) return;
         
-        // Total points floor
+        // Total points floor (no negative points)
         const newTotalPoints = Math.max(0, (currentProfile.points || 0) + adjustment);
         
         // Monthly points floor
@@ -524,7 +525,6 @@ export default function AdminDashboard() {
     
     setManagingBadgesMember({ ...managingBadgesMember, badges: updatedBadges });
     setEditingBadge(null);
-    e.currentTarget.reset();
   };
 
   const handleDeleteBadge = (badgeId: string) => {
