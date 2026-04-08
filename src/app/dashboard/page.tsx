@@ -185,6 +185,10 @@ export default function Dashboard() {
   }, [db, user?.uid]);
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
+  const dailyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Daily') || [], [challenges]);
+  const weeklyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Weekly') || [], [challenges]);
+  const specialChallenges = useMemo(() => challenges?.filter(c => c.type === 'Special') || [], [challenges]);
+
   const reflections = useMemo(() => {
     return userChallenges?.filter(uc => uc.id.startsWith('refl_')) || [];
   }, [userChallenges]);
@@ -253,6 +257,24 @@ export default function Dashboard() {
     const cutOff = new Date(now.getTime() - (24 * 60 * 60 * 1000));
     return discussions.filter(d => new Date(d.scheduledDateTime) >= cutOff);
   }, [discussions]);
+
+  const isChallengeCompleted = (chall: any) => {
+    return userChallenges?.some(uc => {
+      if (uc.challengeId !== chall.id) return false;
+      const completedAt = new Date(uc.completedAt);
+      const now = new Date();
+      if (chall.type === 'Daily') {
+        return completedAt.toDateString() === now.toDateString();
+      }
+      if (chall.type === 'Weekly') {
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        startOfWeek.setHours(0, 0, 0, 0);
+        return completedAt >= startOfWeek;
+      }
+      return true; // Special challenges are once-off
+    });
+  };
 
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -387,7 +409,7 @@ export default function Dashboard() {
     toast({ 
       title: savedProgress > 0 ? "Study Resumed" : "Study Selected", 
       description: savedProgress > 0 
-        ? `Resuming from page ${savedPages}.` 
+        ? `Resuming from page ${savedProgress}.` 
         : "You have started a new book study." 
     });
   };
@@ -798,6 +820,34 @@ export default function Dashboard() {
     }
   };
 
+  const renderChallengeItem = (chall: any) => {
+    const completed = isChallengeCompleted(chall);
+    return (
+      <div key={chall.id} className="p-3 rounded-lg border bg-card flex flex-col justify-between group hover:border-accent/50 transition-colors shadow-sm">
+        <div className="space-y-1">
+          <div className="flex justify-between items-start">
+            <p className="font-bold text-sm text-primary leading-tight">{chall.title}</p>
+            <Badge variant="secondary" className="text-[10px] font-bold text-accent px-1.5 py-0">+{chall.pointsReward}</Badge>
+          </div>
+          <p className="text-[11px] text-muted-foreground line-clamp-2 hover:line-clamp-none transition-all">{chall.description}</p>
+          <p className="text-[9px] text-muted-foreground italic font-medium">Target: {chall.completionCriteria}</p>
+        </div>
+        <div className="mt-3 flex justify-end">
+          {completed ? (
+            <div className="flex items-center gap-1 text-green-600 font-bold text-[10px] uppercase">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Done</span>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" className="h-7 text-[10px] rounded-full border-primary text-primary hover:bg-primary hover:text-white" onClick={() => setCompletingChallenge(chall)}>
+              Complete
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const reflectionWordCount = reflection.trim().split(/\s+/).filter(Boolean).length;
   const editReflectionWordCount = editReflectionText.trim().split(/\s+/).filter(Boolean).length;
 
@@ -989,9 +1039,7 @@ export default function Dashboard() {
 
               <Card className="border-none shadow-sm bg-accent/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2 font-headline">
-                    <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
-                  </CardTitle>
+                  <Target className="h-4 w-4 text-accent" /> Daily Progress Tracker
                   <CardDescription className="text-xs">Submit your reading to earn points. You can log progress multiple times a day!</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-3 pb-6">
@@ -1105,47 +1153,45 @@ export default function Dashboard() {
                   </CardTitle>
                   <CardDescription className="text-xs">Go beyond the reading schedule and deepen your practice.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {challenges?.length ? challenges.map(chall => {
-                    const completed = userChallenges?.some(uc => {
-                      if (uc.challengeId !== chall.id) return false;
-                      const completedDate = new Date(uc.completedAt);
-                      const now = new Date();
-                      if (chall.type === 'Daily') return completedDate.toDateString() === now.toDateString();
-                      if (chall.type === 'Weekly') {
-                        const startOfWeek = new Date(now);
-                        startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-                        startOfWeek.setHours(0, 0, 0, 0);
-                        return completedDate >= startOfWeek;
-                      }
-                      return true;
-                    });
-
-                    return (
-                      <div key={chall.id} className="p-4 rounded-xl border bg-card flex justify-between items-center group hover:border-accent/50 transition-colors">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-sm text-primary">{chall.title}</p>
-                            <Badge variant="outline" className="text-[9px] py-0">{chall.type}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{chall.description}</p>
-                          <p className="text-[10px] text-muted-foreground italic">Target: {chall.completionCriteria}</p>
-                        </div>
-                        <div className="ml-4">
-                          {completed ? (
-                            <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                              <CheckCircle2 className="h-5 w-5" />
-                              <span>Done</span>
-                            </div>
-                          ) : (
-                            <Button variant="outline" size="sm" className="rounded-full border-primary text-primary hover:bg-primary hover:text-white" onClick={() => setCompletingChallenge(chall)}>
-                              Complete
-                            </Button>
-                          )}
-                        </div>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Daily Challenges Column */}
+                    <div className="space-y-4">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
+                        <Flame className="h-3 w-3 text-orange-500" /> Daily
+                      </h3>
+                      <div className="space-y-3">
+                        {dailyChallenges.length > 0 ? dailyChallenges.map(renderChallengeItem) : (
+                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
+                        )}
                       </div>
-                    );
-                  }) : (
+                    </div>
+
+                    {/* Weekly Challenges Column */}
+                    <div className="space-y-4">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
+                        <CalendarDays className="h-3 w-3 text-accent" /> Weekly
+                      </h3>
+                      <div className="space-y-3">
+                        {weeklyChallenges.length > 0 ? weeklyChallenges.map(renderChallengeItem) : (
+                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Special Challenges Column */}
+                    <div className="space-y-4">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1 flex items-center gap-1.5">
+                        <Star className="h-3 w-3 text-yellow-500" /> Special
+                      </h3>
+                      <div className="space-y-3">
+                        {specialChallenges.length > 0 ? specialChallenges.map(renderChallengeItem) : (
+                          <p className="text-[10px] text-center text-muted-foreground italic py-4">None active</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {(!challenges || challenges.length === 0) && (
                     <p className="text-xs text-center text-muted-foreground py-8 italic">No active challenges at the moment. Check back soon!</p>
                   )}
                 </CardContent>
