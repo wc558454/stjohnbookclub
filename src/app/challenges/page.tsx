@@ -66,7 +66,6 @@ export default function ChallengesPage() {
   const weeklyChallenges = useMemo(() => challenges?.filter(c => c.type === 'Weekly') || [], [challenges]);
   const specialChallenges = useMemo(() => challenges?.filter(c => c.type === 'Special') || [], [challenges]);
 
-  // Count challenges that are NOT reflections or discussion check-ins
   const challengesCompletedCount = useMemo(() => {
     if (!userChallenges) return 0;
     return userChallenges.filter(uc => !uc.id.startsWith('refl_') && !uc.id.startsWith('att_')).length;
@@ -86,7 +85,7 @@ export default function ChallengesPage() {
         startOfWeek.setHours(0, 0, 0, 0);
         return completedAt >= startOfWeek;
       }
-      return true; // Special challenges are once-off
+      return true;
     });
   };
 
@@ -234,11 +233,10 @@ export default function ChallengesPage() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8 items-start">
-          {/* Daily Challenges Column */}
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b-2 border-orange-100 pb-3">
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-orange-600 flex items-center gap-2">
-                <Flame className="h-5 w-5 fill-orange-500" /> Daily Rhythm
+                <Flame className="h-5 w-5 fill-orange-500" /> Daily Habits
               </h3>
               <Badge variant="outline" className="text-xs bg-orange-50 border-orange-200 text-orange-700">{dailyChallenges.length} Active</Badge>
             </div>
@@ -251,7 +249,6 @@ export default function ChallengesPage() {
             </div>
           </div>
 
-          {/* Weekly Challenges Column */}
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b-2 border-blue-100 pb-3">
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
@@ -268,7 +265,6 @@ export default function ChallengesPage() {
             </div>
           </div>
 
-          {/* Special Challenges Column */}
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b-2 border-yellow-100 pb-3">
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-yellow-600 flex items-center gap-2">
