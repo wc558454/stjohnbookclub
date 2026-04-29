@@ -37,9 +37,7 @@ import {
   Loader2,
   RefreshCw,
   Clock,
-  Quote,
-  UserX,
-  UserCheck2
+  Quote
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -197,7 +195,7 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Completed Challenges</DialogTitle>
-            <CardDescription>Member has completed {challengesCount} challenges (excluding reflections).</CardDescription>
+            <CardDescription>Member has completed {challengesCount} challenges.</CardDescription>
           </DialogHeader>
           <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
             {completedChallenges.length > 0 ? (
@@ -695,7 +693,7 @@ export default function AdminDashboard() {
                     <TableHead className="text-center">Challenges</TableHead>
                     <TableHead className="text-center">Reflections</TableHead>
                     <TableHead className="text-center">Discussions</TableHead>
-                    <TableHead className="text-center">Member Approval</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -718,7 +716,7 @@ export default function AdminDashboard() {
                     }
 
                     return (
-                      <TableRow key={m.id} className={isInactiveForWeek ? "bg-red-50/50 hover:bg-red-100/50" : ""}>
+                      <TableRow key={m.id} className={isInactiveForWeek ? "bg-red-50/50 hover:bg-red-100/50" : (m.status === 'Deactivated' ? 'opacity-60 bg-muted/20' : '')}>
                         <TableCell className="text-center font-headline font-bold text-muted-foreground">
                           #{globalRank}
                         </TableCell>
@@ -771,8 +769,8 @@ export default function AdminDashboard() {
                               Restricted
                             </Badge>
                           ) : (
-                             <Badge variant="outline" className="text-[10px] py-0 px-3 h-6 rounded-full border-muted text-muted-foreground">
-                               Verified Member
+                             <Badge variant={m.status === 'Deactivated' ? 'destructive' : 'outline'} className={`text-[10px] py-0 px-3 h-6 rounded-full ${m.status !== 'Deactivated' ? 'border-muted text-muted-foreground' : ''}`}>
+                               {m.status === 'Deactivated' ? 'Deactivated' : 'Verified Member'}
                              </Badge>
                           )}
                         </TableCell>
@@ -781,25 +779,6 @@ export default function AdminDashboard() {
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
-                          {m.status === "Active" ? (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10" 
-                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Deactivated' })}
-                            >
-                              <UserX className="h-3 w-3 mr-1" /> Deactivate
-                            </Button>
-                          ) : (m.status === "Deactivated") ? (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-[10px] text-green-600 hover:text-green-600 hover:bg-green-50" 
-                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}
-                            >
-                              <UserCheck2 className="h-3 w-3 mr-1" /> Reactivate
-                            </Button>
-                          ) : null}
                         </TableCell>
                       </TableRow>
                     );
@@ -915,7 +894,6 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* Manage Badges Dialog */}
         <Dialog open={!!managingBadgesMember} onOpenChange={(open) => {
           if (!open) {
             setManagingBadgesMember(null);
@@ -976,7 +954,6 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Other Dialogs */}
         <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
           <DialogContent>
             <form onSubmit={handleSaveBook}>
@@ -1057,3 +1034,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

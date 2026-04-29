@@ -156,7 +156,6 @@ export default function Dashboard() {
         const snapshot = await getDocs(q);
         setUserRank(snapshot.size + 1);
       } catch (e) {
-        // Silently fail
       }
     }
     
@@ -338,6 +337,33 @@ export default function Dashboard() {
   };
 
   if (loading || !user || !profile) return null;
+
+  if (profile.status === "Deactivated") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+          <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-red-200">
+            <ShieldAlert className="h-20 w-20 text-red-500" />
+          </div>
+          <div className="max-w-xl space-y-4">
+             <Badge variant="destructive" className="px-4 py-1 text-xs font-bold uppercase tracking-widest">Membership Suspended</Badge>
+             <h1 className="text-4xl font-bold text-primary font-headline leading-tight">Access Restricted</h1>
+             <p className="text-lg text-muted-foreground leading-relaxed italic">
+               "Discipline is the root of all good things." — St. John Chrysostom
+             </p>
+             <p className="text-sm text-muted-foreground/80 font-medium">
+               Your access to the St. John Chrysostom Bookclub has been deactivated due to inactivity or admin review.
+               If you believe this is an error, please contact the fellowship administrators.
+             </p>
+          </div>
+          <Button variant="ghost" className="rounded-full px-8 h-12 text-muted-foreground" onClick={() => logout()}>
+            Sign Out
+          </Button>
+        </main>
+      </div>
+    );
+  }
 
   if (profile.status === "Pending Approval" || profile.status === "Deactivated") {
     const isDeactivated = profile.status === "Deactivated";
