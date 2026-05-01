@@ -53,6 +53,7 @@ import {
   Settings,
   BellRing,
   Zap,
+  ShieldAlert
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -338,7 +339,8 @@ export default function Dashboard() {
 
   if (loading || !user || !profile) return null;
 
-  if (profile.status === "Pending Approval") {
+  if (profile.status === "Pending Approval" || profile.status === "Deactivated") {
+    const isDeactivated = profile.status === "Deactivated";
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
@@ -346,25 +348,28 @@ export default function Dashboard() {
           <div className="relative">
             <div className="absolute inset-0 bg-accent/20 rounded-full blur-3xl animate-pulse" />
             <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-accent/20">
-              <Clock className="h-20 w-20 text-accent" />
+              {isDeactivated ? <ShieldAlert className="h-20 w-20 text-destructive" /> : <Clock className="h-20 w-20 text-accent" />}
             </div>
           </div>
           
           <div className="max-w-xl space-y-4">
-            <Badge variant="outline" className="text-accent border-accent px-4 py-1 text-xs font-bold uppercase tracking-widest bg-accent/5">
-              Verification in Progress
+            <Badge variant="outline" className={`${isDeactivated ? 'text-destructive border-destructive bg-destructive/5' : 'text-accent border-accent bg-accent/5'} px-4 py-1 text-xs font-bold uppercase tracking-widest`}>
+              {isDeactivated ? 'Account Restricted' : 'Verification in Progress'}
             </Badge>
             <h1 className="text-4xl font-bold text-primary font-headline leading-tight">
-              Welcome to the Harbor, <br />
-              <span className="text-accent italic">{profile.name}</span>
+              {isDeactivated ? 'Access Restrictred' : `Welcome to the Harbor, \n ${profile.name}`}
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed italic px-4">
-              "As a ship entering a harbor finds rest from the waves, so your soul will find peace in spiritual instruction."
+              {isDeactivated 
+                ? "Your account access has been restricted by an administrator. Please contact the fellowship leaders for more information."
+                : "As a ship entering a harbor finds rest from the waves, so your soul will find peace in spiritual instruction."}
             </p>
-            <p className="text-sm text-muted-foreground/80 font-medium">
-              Your application is currently being reviewed by the fellowship administrators. 
-              We'll have you reading and reflecting in no time!
-            </p>
+            {!isDeactivated && (
+              <p className="text-sm text-muted-foreground/80 font-medium">
+                Your application is currently being reviewed by the fellowship administrators. 
+                We'll have you reading and reflecting in no time!
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4">

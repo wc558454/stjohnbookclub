@@ -37,7 +37,9 @@ import {
   Loader2,
   RefreshCw,
   Clock,
-  Quote
+  Quote,
+  UserX,
+  UserCheck2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -662,6 +664,9 @@ export default function AdminDashboard() {
                                 {isInactiveForWeek && (
                                   <Clock className="h-3 w-3 text-red-500" title="Inactive for over a week" />
                                 )}
+                                {m.status === "Deactivated" && (
+                                  <UserX className="h-3 w-3 text-destructive" title="Account Deactivated" />
+                                )}
                               </p>
                               <p className="text-[10px] text-muted-foreground">{m.email}</p>
                             </div>
@@ -702,6 +707,10 @@ export default function AdminDashboard() {
                              >
                                <UserCheck className="h-3 w-3 mr-1" /> Approve Member
                              </Button>
+                          ) : m.status === "Deactivated" ? (
+                            <Badge variant="destructive" className="text-[10px] py-0 px-3 h-6 rounded-full">
+                              Restricted
+                            </Badge>
                           ) : (
                              <Badge variant="outline" className="text-[10px] py-0 px-3 h-6 rounded-full border-muted text-muted-foreground">
                                Verified Member
@@ -713,6 +722,25 @@ export default function AdminDashboard() {
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { streak: 0 })}>Reset</Button>
+                          {m.status === "Active" ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10" 
+                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Deactivated' })}
+                            >
+                              <UserX className="h-3 w-3 mr-1" /> Deactivate
+                            </Button>
+                          ) : (m.status === "Deactivated") ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-[10px] text-green-600 hover:text-green-600 hover:bg-green-50" 
+                              onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}
+                            >
+                              <UserCheck2 className="h-3 w-3 mr-1" /> Reactivate
+                            </Button>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     );
