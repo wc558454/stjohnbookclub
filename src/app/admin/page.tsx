@@ -52,7 +52,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +73,85 @@ const BADGE_ICONS = [
   { name: "Shield", icon: Shield },
 ];
 
+function MemberProgress({ member, allBooks }: { member: any, allBooks: any[] | null }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const history = useMemo(() => {
+    if (!member.bookProgress || !allBooks) return [];
+    return Object.entries(member.bookProgress).map(([bookId, pagesRead]) => {
+      const book = allBooks.find(b => b.id === bookId);
+      if (!book) return null;
+      const progress = Math.min(100, Math.round(((pagesRead as number) / book.totalPages) * 100));
+      return { ...book, pagesRead, progress };
+    }).filter(Boolean).sort((a: any, b: any) => {
+        // Current book first
+        if (a.id === member.currentBookId) return -1;
+        if (b.id === member.currentBookId) return 1;
+        return 0;
+    });
+  }, [member.bookProgress, allBooks, member.currentBookId]);
+
+  const currentBook = history.find(h => h.id === member.currentBookId);
+  const displayItem = currentBook || (history.length > 0 ? history[0] : null);
+
+  if (!displayItem) return <TableCell className="text-center text-muted-foreground text-[10px] italic">No activity</TableCell>;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <TableCell className="w-[180px] cursor-pointer hover:bg-muted/50 transition-colors group">
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="font-bold truncate max-w-[100px] group-hover:text-primary transition-colors">
+                {displayItem.title}
+              </span>
+              <span className="font-mono font-bold text-accent">{displayItem.progress}%</span>
+            </div>
+            <Progress value={displayItem.progress} className="h-1.5" />
+            {history.length > 1 && (
+              <p className="text-[9px] text-accent font-bold text-right uppercase tracking-tighter mt-1 animate-pulse">
+                + {history.length - 1} more studies
+              </p>
+            )}
+          </div>
+        </TableCell>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Study History: {member.name}</DialogTitle>
+          <DialogDescription>Viewing engagement across all selected study cycles.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+          {history.map((item: any) => (
+            <div key={item.id} className={`p-4 rounded-xl border space-y-3 transition-colors ${item.id === member.currentBookId ? 'bg-accent/5 border-accent/30 ring-1 ring-accent/20' : 'bg-muted/20 border-muted'}`}>
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-primary leading-tight">{item.title}</p>
+                  <div className="flex gap-1.5 items-center flex-wrap">
+                    <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase font-bold tracking-tighter">
+                      {item.status}
+                    </Badge>
+                    {item.id === member.currentBookId && (
+                      <Badge className="bg-accent text-primary text-[8px] h-3.5 px-1 font-black uppercase tracking-tighter">
+                        ACTIVE STUDY
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-primary">{item.progress}%</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">{item.pagesRead} / {item.totalPages} pgs</p>
+                </div>
+              </div>
+              <Progress value={item.progress} className="h-2 shadow-inner" />
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
   const db = useFirestore();
   const [isChallengeDetailsOpen, setIsChallengeDetailsOpen] = useState(false);
@@ -85,10 +165,6 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
-  // Separation Logic: 
-  // 1. Challenges: Anything that is NOT a reflection (refl_) and NOT a discussion check-in (att_)
-  // 2. Reflections: specifically prefixed with refl_
-  // 3. Discussions: specifically prefixed with att_
   const completedChallenges = userChallenges?.filter(c => !c.id.startsWith('att_') && !c.id.startsWith('refl_')) || [];
   const reflections = userChallenges?.filter(c => c.id.startsWith('refl_')) || [];
   const attendedDiscussions = userChallenges?.filter(c => c.id.startsWith('att_')) || [];
@@ -112,7 +188,6 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
 
   return (
     <>
-      {/* Challenges Column */}
       <Dialog open={isChallengeDetailsOpen} onOpenChange={setIsChallengeDetailsOpen}>
         <DialogTrigger asChild>
           <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50 font-bold text-primary">
@@ -149,7 +224,6 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
         </DialogContent>
       </Dialog>
 
-      {/* Reflections Column */}
       <Dialog open={isReflectionDetailsOpen} onOpenChange={setIsReflectionDetailsOpen}>
         <DialogTrigger asChild>
           <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50 font-bold text-accent">
@@ -183,7 +257,6 @@ function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string
         </DialogContent>
       </Dialog>
       
-      {/* Discussions Column */}
       <Dialog open={isDiscussionDetailsOpen} onOpenChange={setIsDiscussionDetailsOpen}>
         <DialogTrigger asChild>
            <TableCell className="font-mono text-xs text-center cursor-pointer hover:bg-muted/50">
@@ -457,16 +530,13 @@ export default function AdminDashboard() {
         const currentProfile = userSnap.data();
         if (!currentProfile) return;
         
-        // Total points floor (no negative points)
         const newTotalPoints = Math.max(0, (currentProfile.points || 0) + adjustment);
         
-        // Monthly points floor
         let newMonthlyPoints = currentProfile.currentMonth === currentMonthStr
           ? (currentProfile.monthlyPoints || 0) + adjustment
           : adjustment;
         newMonthlyPoints = Math.max(0, newMonthlyPoints);
           
-        // Weekly points floor
         let newWeeklyPoints = currentProfile.currentWeek === currentWeekStr
           ? (currentProfile.weeklyPoints || 0) + adjustment
           : adjustment;
@@ -619,7 +689,7 @@ export default function AdminDashboard() {
                     <TableHead>Member</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead>Current Study</TableHead>
-                    <TableHead>Progress</TableHead>
+                    <TableHead>Reading Progress (History)</TableHead>
                     <TableHead className="text-center">Points</TableHead>
                     <TableHead className="text-center">Streak</TableHead>
                     <TableHead className="text-center">Challenges</TableHead>
@@ -632,12 +702,8 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredMembers?.map((m, i) => {
                     const activeBook = m.currentBookId ? books?.find(b => b.id === m.currentBookId) : null;
-                    const pagesRead = m.currentPagesRead || 0;
-                    const progress = activeBook ? Math.min(100, Math.round((pagesRead / activeBook.totalPages) * 100)) : 0;
-                    
                     const globalRank = (members?.findIndex(member => member.id === m.id) ?? i) + 1;
 
-                    // Inactivity Highlighting Logic
                     const lastActivityDate = m.lastStreakActivityAt ? new Date(m.lastStreakActivityAt) : null;
                     const accountCreatedDate = m.createdAt ? new Date(m.createdAt) : null;
                     const oneWeekAgo = new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
@@ -687,14 +753,7 @@ export default function AdminDashboard() {
                         <TableCell className="max-w-[150px]">
                            <p className="text-xs font-medium truncate">{activeBook?.title || "Not started"}</p>
                         </TableCell>
-                        <TableCell className="w-[150px]">
-                          {activeBook ? (
-                             <div className="space-y-1">
-                                <Progress value={progress} className="h-1.5" />
-                                <p className="text-[10px] text-muted-foreground">{pagesRead} / {activeBook.totalPages} pgs ({progress}%)</p>
-                             </div>
-                          ) : <span className="text-muted-foreground text-[10px]">-</span>}
-                        </TableCell>
+                        <MemberProgress member={m} allBooks={books} />
                         <TableCell className="font-mono text-xs text-center font-bold">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
                         <MemberStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
