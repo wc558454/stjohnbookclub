@@ -34,6 +34,7 @@ import {
   Eye,
   EyeOff,
   UserCheck,
+  UserX,
   Loader2,
   RefreshCw,
   Clock,
@@ -775,6 +776,15 @@ export default function AdminDashboard() {
                           )}
                         </TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
+                          {m.status === "Deactivated" ? (
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] text-green-600" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Active' })}>
+                              <UserCheck className="h-3 w-3 mr-1" /> Activate
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] text-destructive" onClick={() => updateDocumentNonBlocking(doc(db, "users", m.id), { status: 'Deactivated' })}>
+                              <UserX className="h-3 w-3 mr-1" /> Deactivate
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setManagingBadgesMember(m)}>Badges</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setEditingGroupMember(m); setGroupName(m.groupName || ""); }}>Edit Group</Button>
                           <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => { setAdjustingMember(m); setPointsAdjustment(0); }}>+/- Pts</Button>
@@ -1034,4 +1044,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

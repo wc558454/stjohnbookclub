@@ -343,8 +343,11 @@ export default function Dashboard() {
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
         <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in fade-in zoom-in duration-500">
-          <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-red-200">
-            <ShieldAlert className="h-20 w-20 text-red-500" />
+          <div className="relative">
+            <div className="absolute inset-0 bg-destructive/10 rounded-full blur-3xl animate-pulse" />
+            <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-destructive/20">
+              <ShieldAlert className="h-20 w-20 text-destructive" />
+            </div>
           </div>
           <div className="max-w-xl space-y-4">
              <Badge variant="destructive" className="px-4 py-1 text-xs font-bold uppercase tracking-widest">Membership Suspended</Badge>
@@ -353,8 +356,8 @@ export default function Dashboard() {
                "Discipline is the root of all good things." — St. John Chrysostom
              </p>
              <p className="text-sm text-muted-foreground/80 font-medium">
-               Your access to the St. John Chrysostom Bookclub has been deactivated due to inactivity or admin review.
-               If you believe this is an error, please contact the fellowship administrators.
+               Your access to the St. John Chrysostom Bookclub has been deactivated by an administrator.
+               If you believe this is an error or wish to appeal, please contact the fellowship leadership.
              </p>
           </div>
           <Button variant="ghost" className="rounded-full px-8 h-12 text-muted-foreground" onClick={() => logout()}>
@@ -365,8 +368,7 @@ export default function Dashboard() {
     );
   }
 
-  if (profile.status === "Pending Approval" || profile.status === "Deactivated") {
-    const isDeactivated = profile.status === "Deactivated";
+  if (profile.status === "Pending Approval") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
@@ -374,28 +376,24 @@ export default function Dashboard() {
           <div className="relative">
             <div className="absolute inset-0 bg-accent/20 rounded-full blur-3xl animate-pulse" />
             <div className="relative bg-white p-10 rounded-full shadow-xl border-2 border-accent/20">
-              {isDeactivated ? <ShieldAlert className="h-20 w-20 text-destructive" /> : <Clock className="h-20 w-20 text-accent" />}
+              <Clock className="h-20 w-20 text-accent" />
             </div>
           </div>
           
           <div className="max-w-xl space-y-4">
-            <Badge variant="outline" className={`${isDeactivated ? 'text-destructive border-destructive bg-destructive/5' : 'text-accent border-accent bg-accent/5'} px-4 py-1 text-xs font-bold uppercase tracking-widest`}>
-              {isDeactivated ? 'Account Restricted' : 'Verification in Progress'}
+            <Badge variant="outline" className="text-accent border-accent bg-accent/5 px-4 py-1 text-xs font-bold uppercase tracking-widest">
+              Verification in Progress
             </Badge>
             <h1 className="text-4xl font-bold text-primary font-headline leading-tight">
-              {isDeactivated ? 'Access Restrictred' : `Welcome to the Harbor, \n ${profile.name}`}
+              Welcome to the Harbor, <br /> {profile.name}
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed italic px-4">
-              {isDeactivated 
-                ? "Your account access has been restricted by an administrator. Please contact the fellowship leaders for more information."
-                : "As a ship entering a harbor finds rest from the waves, so your soul will find peace in spiritual instruction."}
+              "As a ship entering a harbor finds rest from the waves, so your soul will find peace in spiritual instruction."
             </p>
-            {!isDeactivated && (
-              <p className="text-sm text-muted-foreground/80 font-medium">
-                Your application is currently being reviewed by the fellowship administrators. 
-                We'll have you reading and reflecting in no time!
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground/80 font-medium">
+              Your application is currently being reviewed by the fellowship administrators. 
+              We'll have you reading and reflecting in no time!
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -405,12 +403,6 @@ export default function Dashboard() {
             <Button variant="ghost" className="rounded-full px-8 h-12 text-muted-foreground" onClick={() => logout()}>
               Sign Out
             </Button>
-          </div>
-
-          <div className="pt-12 flex items-center gap-2 text-muted-foreground/40">
-             <Sparkle className="h-4 w-4" />
-             <p className="text-[10px] font-bold uppercase tracking-widest">St. Paul Hospital Medical College Campus Fellowship</p>
-             <Sparkle className="h-4 w-4" />
           </div>
         </main>
       </div>
