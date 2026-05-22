@@ -198,29 +198,29 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
-  const weeklyLeaderboardQuery = useMemoFirebase(() => {
+  const weeklyLeaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("weeklyPoints", "desc"), limit(10));
   }, [db, user]);
-  const { data: weeklyLeaderboardMembers } = useCollection(weeklyLeaderboardQuery);
+  const { data: weeklyLeaderboardMembers } = useCollection(weeklyLeaderboardMembersQuery);
 
-  const monthlyLeaderboardQuery = useMemoFirebase(() => {
+  const monthlyLeaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("monthlyPoints", "desc"), limit(10));
   }, [db, user]);
-  const { data: monthlyLeaderboardMembers } = useCollection(monthlyLeaderboardQuery);
+  const { data: monthlyLeaderboardMembers } = useCollection(monthlyLeaderboardMembersQuery);
 
-  const allTimeLeaderboardQuery = useMemoFirebase(() => {
+  const allTimeLeaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("points", "desc"), limit(10));
   }, [db, user]);
-  const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardQuery);
+  const { data: allTimeLeaderboardMembers } = useCollection(allTimeLeaderboardMembersQuery);
 
-  const streakLeaderboardQuery = useMemoFirebase(() => {
+  const streakLeaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(collection(db, "users"), orderBy("streak", "desc"), limit(10));
   }, [db, user]);
-  const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardQuery);
+  const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardMembersQuery);
 
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
@@ -480,7 +480,7 @@ export default function Dashboard() {
         
         if (lastActivityAt) {
             const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
-            const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * length * 60 * 60 * 24));
             if (diffDays === 0) { 
                  currentDailyPagesSum = (currentProfile.dailyPagesRead || 0) + pagesReadToday;
                  finalToastTitle = "Progress Updated"; 
@@ -1119,9 +1119,9 @@ export default function Dashboard() {
                       <Button 
                         onClick={handleRequestPermission} 
                         disabled={notificationPermissionStatus === 'denied'}
-                        className="w-full"
+                        className="w-full bg-accent text-primary hover:bg-accent/90"
                       >
-                        <BellRing className="h-4 w-4 mr-2" /> Enable Notifications
+                        <Zap className="h-4 w-4 mr-2" /> Turn on Push Notifications
                       </Button>
                       {notificationPermissionStatus === 'denied' && (
                         <p className="text-[10px] text-destructive text-center">You have blocked notifications. Please enable them in your browser settings.</p>
