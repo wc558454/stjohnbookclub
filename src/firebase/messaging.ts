@@ -1,9 +1,25 @@
-
 'use client';
 
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
+import { getMessaging, getToken, Messaging } from 'firebase/messaging';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, updateDoc } from 'firebase/firestore';
+
+/**
+ * Registers the service worker for messaging.
+ */
+export async function registerServiceWorker() {
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      // Register the native service worker
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      return registration;
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+      return null;
+    }
+  }
+  return null;
+}
 
 /**
  * Initializes messaging and returns the instance.
@@ -26,24 +42,39 @@ export async function requestNotificationPermission(
   db: Firestore,
   userId: string
 ): Promise<string | null> {
-  try {
-    const messaging = initializeMessaging(app);
-    if (!messaging) return null;
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.warn('Notifications not supported in this environment.');
+    return null;
+  }
 
-    const permission = await Notification.requestPermission();
+  try {
+    // 1. Check existing permission status
+    let permission = Notification.permission;
+    
+    // 2. Only request if status is 'default' to avoid redundant pop-ups
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+
     if (permission !== 'granted') {
-      console.warn('Notification permission denied.');
+      console.warn('Notification permission was denied or not granted.');
       return null;
     }
 
-    // Get the FCM token
+    const messaging = initializeMessaging(app);
+    if (!messaging) return null;
+
+    // 3. Ensure Service Worker is registered before getting token
+    await registerServiceWorker();
+
+    // 4. Get the FCM token using VAPID key
+    // NOTE: Replace 'BPE_YOUR_VAPID_KEY_HERE' with your actual key from Firebase Console
     const token = await getToken(messaging, {
-      // VAPID key is required. Replace with your actual VAPID key from the Firebase Console.
       vapidKey: 'BPE_YOUR_VAPID_KEY_HERE' 
     });
 
     if (token) {
-      // Save the token to the user's profile in Firestore
+      // 5. Automatically save the token to the user's profile in Firestore
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, { fcmToken: token });
       return token;
@@ -52,14 +83,7 @@ export async function requestNotificationPermission(
       return null;
     }
   } catch (error) {
-    console.error('Error getting notification permission:', error);
+    console.error('Error in requestNotificationPermission:', error);
     return null;
   }
-}
-
-/**
- * Sets up a listener for foreground messages.
- */
-export function onForegroundMessage(messaging: Messaging, callback: (payload: any) => void) {
-  return onMessage(messaging, callback);
 }
