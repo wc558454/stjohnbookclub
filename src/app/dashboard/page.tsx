@@ -63,7 +63,6 @@ import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking
 import { collection, query, orderBy, limit, doc, setDoc, where, runTransaction, getDocs } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { requestNotificationPermission } from "@/firebase/messaging";
 import { FirebaseApp } from "firebase/app";
 import Link from "next/link";
 import { sendPushOnlyAction } from "@/app/actions/notifications";
@@ -122,7 +121,6 @@ export default function Dashboard() {
   const [showCompletionCelebration, setShowCompletionCelebration] = useState(false);
   const [showReflectionHistory, setShowReflectionHistory] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [notificationPermissionStatus, setNotificationPermissionStatus] = useState<string>("default");
 
   const [editingReflection, setEditingReflection] = useState<any>(null);
   const [editReflectionText, setEditReflectionText] = useState("");
@@ -133,9 +131,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     setHasMounted(true);
-    if ("Notification" in window) {
-      setNotificationPermissionStatus(Notification.permission);
-    }
   }, []);
 
   useEffect(() => {
@@ -480,7 +475,7 @@ export default function Dashboard() {
         
         if (lastActivityAt) {
             const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
-            const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * length * 60 * 60 * 24));
+            const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
             if (diffDays === 0) { 
                  currentDailyPagesSum = (currentProfile.dailyPagesRead || 0) + pagesReadToday;
                  finalToastTitle = "Progress Updated"; 
@@ -758,18 +753,6 @@ export default function Dashboard() {
     updateDocumentNonBlocking(doc(db, "users", user.uid), updatedData);
     toast({ title: "Profile Updated", description: "Your spiritual profile has been refreshed." });
     setIsEditProfileOpen(false);
-  };
-
-  const handleRequestPermission = async () => {
-    if (!user || !app) return;
-    const token = await requestNotificationPermission(app, db, user.uid);
-    if (token) {
-      toast({ title: "Notifications Enabled!", description: "You'll now receive updates on your device." });
-      setNotificationPermissionStatus("granted");
-    } else {
-      toast({ variant: "destructive", title: "Permission Denied", description: "You can enable notifications in your browser settings." });
-      setNotificationPermissionStatus("denied");
-    }
   };
 
   return (
@@ -1101,36 +1084,6 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-6">
-               <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-accent" /> Notification Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {notificationPermissionStatus === 'granted' ? (
-                    <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span>Push notifications are enabled.</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">Enable push notifications to get reminders and updates directly on your device.</p>
-                      <Button 
-                        onClick={handleRequestPermission} 
-                        disabled={notificationPermissionStatus === 'denied'}
-                        className="w-full bg-accent text-primary hover:bg-accent/90"
-                      >
-                        <Zap className="h-4 w-4 mr-2" /> Turn on Push Notifications
-                      </Button>
-                      {notificationPermissionStatus === 'denied' && (
-                        <p className="text-[10px] text-destructive text-center">You have blocked notifications. Please enable them in your browser settings.</p>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
               <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-4 border-b bg-accent/5">
                   <CardTitle className="text-sm flex items-center gap-2">
