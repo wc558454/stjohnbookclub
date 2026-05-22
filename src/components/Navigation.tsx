@@ -3,7 +3,25 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, User, Menu, LogOut, Info, UserPlus, LogIn, Shield, Bell, CheckCheck, Clock, Zap } from "lucide-react";
+import { 
+  BookOpen, 
+  User, 
+  Menu, 
+  LogOut, 
+  Info, 
+  UserPlus, 
+  LogIn, 
+  Shield, 
+  Bell, 
+  CheckCheck, 
+  Clock, 
+  Zap, 
+  Award, 
+  Trophy, 
+  PartyPopper, 
+  CalendarDays, 
+  Flame 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +38,18 @@ import Image from "next/image";
 import AddToHomeScreen from "./AddToHomeScreen";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+
+const NOTIFICATION_ICONS: Record<string, any> = {
+  "Book Activated": BookOpen,
+  "New Book Added": BookOpen,
+  "New Challenge": Zap,
+  "Discussion Scheduled": CalendarDays,
+  "Badge Awarded!": Award,
+  "Book Finished!": PartyPopper,
+  "Level Up!": Trophy,
+  "Streak Protection Alert": Flame,
+  "Streak Reset": Flame,
+};
 
 export function Navigation() {
   const { user, profile, isAdmin, logout, loading } = useAuth();
@@ -46,7 +76,6 @@ export function Navigation() {
   const notifications = useMemo(() => {
     if (!allNotifications) return [];
     const now = new Date();
-    // Filter out notifications that have expired (48 hours expiry logic)
     return allNotifications.filter(n => new Date(n.expiresAt) > now).slice(0, 15);
   }, [allNotifications]);
   
@@ -65,6 +94,11 @@ export function Navigation() {
         updateDocumentNonBlocking(doc(db, "users", user.uid, "notifications", n.id), { isRead: true });
       }
     });
+  };
+
+  const getNotifIcon = (type: string) => {
+    const IconComp = NOTIFICATION_ICONS[type] || Bell;
+    return <IconComp className="h-3.5 w-3.5" />;
   };
 
   return (
@@ -107,21 +141,21 @@ export function Navigation() {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="relative group">
+                  <Bell className="h-5 w-5 group-hover:text-accent transition-colors" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-accent text-primary text-[10px] border-none">
+                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-accent text-primary text-[10px] border-none animate-pulse">
                       {unreadCount}
                     </Badge>
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden">
+              <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl border-accent/20">
                 <div className="p-4 font-bold border-b bg-muted/50 flex justify-between items-center">
-                  <span className="text-sm flex items-center gap-2"><Bell className="h-4 w-4" /> Fellowship Alerts</span>
+                  <span className="text-sm flex items-center gap-2"><Bell className="h-4 w-4 text-accent" /> Fellowship Alerts</span>
                   {unreadCount > 0 && (
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-accent hover:bg-accent/10" onClick={handleMarkAllAsRead}>
-                      <CheckCheck className="h-3 w-3 mr-1" /> Clear All
+                      <CheckCheck className="h-3 w-3 mr-1" /> Mark All Read
                     </Button>
                   )}
                 </div>
@@ -129,21 +163,22 @@ export function Navigation() {
                   {notifications.length > 0 ? notifications.map(n => (
                     <div 
                       key={n.id} 
-                      className={`p-4 border-b text-xs hover:bg-muted transition-colors cursor-pointer relative group ${!n.isRead ? 'bg-accent/5' : ''}`}
+                      className={`p-4 border-b text-xs hover:bg-accent/5 transition-colors cursor-pointer relative group ${!n.isRead ? 'bg-accent/5' : ''}`}
                       onClick={() => handleMarkAsRead(n.id)}
                     >
-                      <div className="flex justify-between items-start mb-1">
-                         <p className={`font-bold uppercase tracking-widest text-[9px] ${!n.isRead ? 'text-accent' : 'text-muted-foreground'}`}>
+                      <div className="flex justify-between items-start mb-1.5">
+                         <div className={`flex items-center gap-1.5 font-bold uppercase tracking-widest text-[9px] ${!n.isRead ? 'text-accent' : 'text-muted-foreground'}`}>
+                           {getNotifIcon(n.type)}
                            {n.type}
-                         </p>
-                         <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                         </div>
+                         <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-mono">
                             <Clock className="h-2.5 w-2.5" />
                             {hasMounted ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
                          </div>
                       </div>
-                      <p className={`text-xs leading-relaxed ${!n.isRead ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{n.message}</p>
+                      <p className={`text-xs leading-relaxed pr-2 ${!n.isRead ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{n.message}</p>
                       {!n.isRead && (
-                        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-accent rounded-full" />
+                        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-0.5 h-10 bg-accent rounded-full" />
                       )}
                     </div>
                   )) : (
@@ -154,8 +189,8 @@ export function Navigation() {
                   )}
                 </div>
                 {notifications.length > 0 && (
-                  <div className="p-2 text-center bg-muted/20">
-                     <p className="text-[10px] text-muted-foreground italic">Alerts expire automatically after 48 hours.</p>
+                  <div className="p-3 text-center bg-muted/20 border-t">
+                     <p className="text-[10px] text-muted-foreground italic leading-tight">These alerts will depart your harbor <br/> after 48 hours of presence.</p>
                   </div>
                 )}
               </DropdownMenuContent>
@@ -173,27 +208,36 @@ export function Navigation() {
                   </div>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <div className="flex flex-col space-y-1 p-4">
-                  <p className="font-bold text-sm leading-none">{profile?.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+              <DropdownMenuContent align="end" className="w-64 shadow-xl border-accent/10">
+                <div className="flex flex-col space-y-1.5 p-4 bg-accent/5">
+                  <p className="font-bold text-sm leading-none text-primary">{profile?.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">{profile?.email}</p>
+                  {profile?.groupName && (
+                    <Badge variant="outline" className="w-fit text-[9px] h-4 border-accent/30 text-accent font-bold mt-1 uppercase">
+                      {profile.groupName}
+                    </Badge>
+                  )}
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">Member Dashboard</Link>
+                  <Link href="/dashboard" className="cursor-pointer font-medium py-2.5">
+                    <User className="mr-2 h-4 w-4 text-accent" /> Member Dashboard
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/challenges" className="cursor-pointer">Spiritual Challenges</Link>
+                  <Link href="/challenges" className="cursor-pointer font-medium py-2.5">
+                    <Zap className="mr-2 h-4 w-4 text-accent" /> Spiritual Challenges
+                  </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild>
-                    <Link href="/admin" className="cursor-pointer flex items-center gap-2">
-                      <Shield className="h-4 w-4" /> Admin Panel
+                    <Link href="/admin" className="cursor-pointer flex items-center gap-2 font-bold py-2.5 text-primary">
+                      <Shield className="h-4 w-4 text-accent" /> Admin Panel
                     </Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                <DropdownMenuItem onClick={logout} className="cursor-pointer py-2.5 text-destructive font-medium focus:bg-destructive/5 focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
