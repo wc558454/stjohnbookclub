@@ -5,13 +5,33 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, updateDoc } from 'firebase/firestore';
 
 /**
- * Registers the service worker for messaging.
+ * Registers the service worker for messaging and sets up an immediate update strategy.
  */
 export async function registerServiceWorker() {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    // Force a page reload when a new service worker takes control.
+    // This works in tandem with self.skipWaiting() in the service worker.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+
     try {
       // Register the native service worker
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      
+      // Check for updates periodically or on registration
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // A new service worker is available and skipWaiting() will trigger controllerchange
+              console.log('New service worker version detected. Update is imminent.');
+            }
+          });
+        }
+      });
+
       return registration;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
@@ -68,7 +88,7 @@ export async function requestNotificationPermission(
     await registerServiceWorker();
 
     // 4. Get the FCM token using VAPID key
-    // NOTE: Replace 'BPE_YOUR_VAPID_KEY_HERE' with your actual key from Firebase Console
+    // NOTE: Ensure your VAPID key is configured in the Firebase Console
     const token = await getToken(messaging, {
       vapidKey: 'BHVGtvLto6RBbItlcBuZA7vJWJGpe15fr9N5tWSTZfKmMq-NG8mChl5S0Zh0lpbdXcOk6Wf1PrPaTVv9YEE_dEo' 
     });
