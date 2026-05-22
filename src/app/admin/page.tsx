@@ -373,7 +373,7 @@ export default function AdminDashboard() {
   const handleSetCurrentBook = async (bookToSet: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
-    await broadcastNotificationAction("New Book", `A new book study has been added: "${bookToSet.title}". Begin your journey now!`);
+    await broadcastNotificationAction("Book Activated", `The study cycle for "${bookToSet.title}" is now active! Begin your journey.`);
     toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
   };
 
@@ -404,8 +404,9 @@ export default function AdminDashboard() {
   const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const title = formData.get("title") as string;
     const data = {
-      title: formData.get("title") as string,
+      title,
       description: formData.get("description") as string,
       totalPages: parseInt(formData.get("pages") as string),
       currentReadingPlanDueDate: formData.get("due") as string,
@@ -417,13 +418,14 @@ export default function AdminDashboard() {
       const id = Math.random().toString(36).substring(7);
       const newBook = { ...data, id, createdAt: new Date().toISOString(), status: 'pending' };
       await setDoc(doc(db, "books", id), newBook);
+      await broadcastNotificationAction("New Book Added", `"${title}" has been added to our library. Stay tuned for activation!`);
       toast({ title: "New Book Added" });
     }
     setIsBookOpen(false);
     setEditingBook(null);
   };
 
-  const handleSaveChallenge = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveChallenge = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
@@ -438,7 +440,8 @@ export default function AdminDashboard() {
       updateDocumentNonBlocking(doc(db, "challenges", editingChall.id), data);
     } else {
       const id = Math.random().toString(36).substring(7);
-      setDoc(doc(db, "challenges", id), { ...data, id, isActive: true, totalCompletions: 0 });
+      await setDoc(doc(db, "challenges", id), { ...data, id, isActive: true, totalCompletions: 0 });
+      await broadcastNotificationAction("New Challenge", `A new challenge "${title}" has been created! Check your challenges dashboard.`);
     }
     setIsChallOpen(false);
     setEditingChall(null);

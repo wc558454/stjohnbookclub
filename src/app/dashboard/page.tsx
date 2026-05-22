@@ -332,6 +332,24 @@ export default function Dashboard() {
     };
   };
 
+  const getRank = (pts: number) => {
+    if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-muted-foreground" };
+    if (pts <= 3000) return { title: "Golden Seeker", level: 2, icon: Footprints, color: "text-accent" };
+    if (pts <= 5000) return { title: "Pilgrim", level: 3, icon: Milestone, color: "text-primary" };
+    if (pts <= 7000) return { title: "Golden Pilgrim", level: 4, icon: Mountain, color: "text-accent" };
+    if (pts <= 10000) return { title: "Beacon", level: 5, icon: Sunrise, color: "text-primary" };
+    return { title: "Golden Beacon", level: 6, icon: Award, color: "text-accent" };
+  };
+
+  const getLevel = (pts: number) => {
+    if (pts <= 1000) return 1;
+    if (pts <= 3000) return 2;
+    if (pts <= 5000) return 3;
+    if (pts <= 7000) return 4;
+    if (pts <= 10000) return 5;
+    return 6;
+  };
+
   if (loading || !user || !profile) return null;
 
   if (profile.status === "Deactivated") {
@@ -423,15 +441,6 @@ export default function Dashboard() {
     });
   };
 
-  const getRank = (pts: number) => {
-    if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-muted-foreground" };
-    if (pts <= 3000) return { title: "Golden Seeker", level: 2, icon: Footprints, color: "text-accent" };
-    if (pts <= 5000) return { title: "Pilgrim", level: 3, icon: Milestone, color: "text-primary" };
-    if (pts <= 7000) return { title: "Golden Pilgrim", level: 4, icon: Mountain, color: "text-accent" };
-    if (pts <= 10000) return { title: "Beacon", level: 5, icon: Sunrise, color: "text-primary" };
-    return { title: "Golden Beacon", level: 6, icon: Award, color: "text-accent" };
-  };
-
   const rank = getRank(profile.points || 0);
   const readingTotal = profile.currentPagesRead || 0;
   const progressPercent = currentBook ? Math.min(100, Math.round((readingTotal / currentBook.totalPages) * 100)) : 0;
@@ -456,6 +465,8 @@ export default function Dashboard() {
       let finalToastTitle = "Progress Recorded";
       let finalToastDescription = `Progress recorded! Keep going.`;
       let alertNotif: any = null;
+      let levelUpNotif: any = null;
+      let bookFinishedNotif: any = null;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -468,6 +479,20 @@ export default function Dashboard() {
         alertNotif = streakUpdate.streakAlertNotif;
         
         const ptsToAdd = pagesReadToday * 2;
+        const oldPoints = currentProfile.points || 0;
+        const newTotalPoints = oldPoints + ptsToAdd;
+
+        // Check Level Up
+        const oldLevel = getLevel(oldPoints);
+        const newLevel = getLevel(newTotalPoints);
+        if (newLevel > oldLevel) {
+          const newRank = getRank(newTotalPoints);
+          levelUpNotif = {
+            id: `lvl_up_${now.getTime()}`,
+            type: "Level Up!",
+            message: `Congratulations! You've reached Level ${newLevel} and earned the rank of ${newRank.title}!`,
+          };
+        }
         
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
@@ -490,6 +515,14 @@ export default function Dashboard() {
           [currentProfile.currentBookId!]: newPagesReadTotal
         };
 
+        if (newPagesReadTotal >= currentBook.totalPages) {
+          bookFinishedNotif = {
+            id: `bk_fin_${now.getTime()}`,
+            type: "Book Finished!",
+            message: `You've successfully completed "${currentBook.title}"! May the wisdom you gained guide your steps.`,
+          };
+        }
+
         const currentMonthStr = now.toISOString().slice(0, 7);
         const lastMonday = new Date(now);
         lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
@@ -507,7 +540,7 @@ export default function Dashboard() {
             : ptsToAdd;
 
         transaction.update(userRef, {
-          points: (currentProfile.points || 0) + ptsToAdd,
+          points: newTotalPoints,
           currentPagesRead: newPagesReadTotal,
           bookProgress: updatedBookProgress,
           monthlyPoints: newMonthlyPoints,
@@ -523,9 +556,11 @@ export default function Dashboard() {
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
 
-        if (alertNotif) {
-          transaction.set(doc(db, "users", user.uid, "notifications", alertNotif.id), {
-            ...alertNotif,
+        // Batch all notifications
+        const pendingNotifs = [alertNotif, levelUpNotif, bookFinishedNotif].filter(Boolean);
+        for (const n of pendingNotifs) {
+          transaction.set(doc(db, "users", user.uid, "notifications", n.id), {
+            ...n,
             userId: user.uid,
             isRead: false,
             createdAt: now.toISOString(),
@@ -536,13 +571,9 @@ export default function Dashboard() {
       
       toast({ title: finalToastTitle, description: finalToastDescription });
       
-      // If there was an alert notification, trigger push
-      if (alertNotif) {
-        await sendPushOnlyAction(user.uid, alertNotif.type, alertNotif.message);
-      }
-
       if (readingTotal + pagesReadToday >= currentBook.totalPages) {
         setShowCompletionCelebration(true);
+        await sendPushOnlyAction(user.uid, "Book Finished!", `You've completed "${currentBook.title}"! Glory to God.`);
       }
 
       setPagesReadToday(0);
@@ -576,6 +607,7 @@ export default function Dashboard() {
       let toastTitle = "Reflection Shared";
       let toastDescription = `Reflection saved!`;
       let alertNotif: any = null;
+      let levelUpNotif: any = null;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -600,6 +632,21 @@ export default function Dashboard() {
         toastDescription = streakUpdate.streakToastInfo.description;
         alertNotif = streakUpdate.streakAlertNotif;
 
+        const oldPoints = currentProfile.points || 0;
+        const newTotalPoints = oldPoints + reward;
+
+        // Check Level Up
+        const oldLevel = getLevel(oldPoints);
+        const newLevel = getLevel(newTotalPoints);
+        if (newLevel > oldLevel) {
+          const newRank = getRank(newTotalPoints);
+          levelUpNotif = {
+            id: `lvl_up_${now.getTime()}`,
+            type: "Level Up!",
+            message: `Glory to God! You've leveled up to Level ${newLevel} (${newRank.title}) through your meditations.`,
+          };
+        }
+
         const currentMonthStr = now.toISOString().slice(0, 7);
         const lastMonday = new Date(now);
         lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
@@ -617,7 +664,7 @@ export default function Dashboard() {
             : reward;
 
         transaction.update(userRef, {
-          points: (currentProfile.points || 0) + reward,
+          points: newTotalPoints,
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           weeklyPoints: newWeeklyPoints,
@@ -629,9 +676,10 @@ export default function Dashboard() {
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
         
-        if (alertNotif) {
-          transaction.set(doc(db, "users", user.uid, "notifications", alertNotif.id), {
-            ...alertNotif,
+        const pendingNotifs = [alertNotif, levelUpNotif].filter(Boolean);
+        for (const n of pendingNotifs) {
+          transaction.set(doc(db, "users", user.uid, "notifications", n.id), {
+            ...n,
             userId: user.uid,
             isRead: false,
             createdAt: now.toISOString(),
@@ -642,8 +690,8 @@ export default function Dashboard() {
 
       setReflection("");
       toast({ title: toastTitle, description: toastDescription });
-      if (alertNotif) {
-        await sendPushOnlyAction(user.uid, alertNotif.type, alertNotif.message);
+      if (levelUpNotif) {
+        await sendPushOnlyAction(user.uid, "Level Up!", levelUpNotif.message);
       }
     } catch(e) {
       console.error(e);
@@ -1262,10 +1310,13 @@ export default function Dashboard() {
             </div>
             <DialogHeader>
               <DialogTitle className="text-3xl font-headline text-primary mb-2">Congratulations!</DialogTitle>
-              <DialogDescription className="text-lg">
-                You have finished reading <span className="font-bold">"{currentBook?.title}"</span>.
-                Your discipline and commitment to spiritual growth are a beacon for the whole fellowship.
-              </DialogDescription>
+              <DialogHeader>
+                <DialogTitle className="text-3xl font-headline text-primary mb-2">Congratulations!</DialogTitle>
+                <DialogDescription className="text-lg">
+                  You have finished reading <span className="font-bold">"{currentBook?.title}"</span>.
+                  Your discipline and commitment to spiritual growth are a beacon for the whole fellowship.
+                </DialogDescription>
+              </DialogHeader>
             </DialogHeader>
             <div className="py-6 flex justify-center gap-4">
               <div className="text-center">
