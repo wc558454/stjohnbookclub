@@ -66,6 +66,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { requestNotificationPermission } from "@/firebase/messaging";
 import { FirebaseApp } from "firebase/app";
 import Link from "next/link";
+import { sendPushOnlyAction } from "@/app/actions/notifications";
 
 const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
@@ -459,6 +460,7 @@ export default function Dashboard() {
     try {
       let finalToastTitle = "Progress Recorded";
       let finalToastDescription = `Progress recorded! Keep going.`;
+      let alertNotif: any = null;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -468,6 +470,7 @@ export default function Dashboard() {
         const streakUpdate = getStreakUpdate(currentProfile, now);
         finalToastTitle = streakUpdate.streakToastInfo.title;
         finalToastDescription = streakUpdate.streakToastInfo.description;
+        alertNotif = streakUpdate.streakAlertNotif;
         
         const ptsToAdd = pagesReadToday * 2;
         
@@ -525,13 +528,10 @@ export default function Dashboard() {
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
 
-        if (streakUpdate.streakAlertNotif) {
-          const { id, message, type } = streakUpdate.streakAlertNotif;
-          transaction.set(doc(db, "users", user.uid, "notifications", id), {
-            id,
+        if (alertNotif) {
+          transaction.set(doc(db, "users", user.uid, "notifications", alertNotif.id), {
+            ...alertNotif,
             userId: user.uid,
-            type,
-            message,
             isRead: false,
             createdAt: now.toISOString(),
             expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
@@ -541,6 +541,11 @@ export default function Dashboard() {
       
       toast({ title: finalToastTitle, description: finalToastDescription });
       
+      // If there was an alert notification, trigger push
+      if (alertNotif) {
+        await sendPushOnlyAction(user.uid, alertNotif.type, alertNotif.message);
+      }
+
       if (readingTotal + pagesReadToday >= currentBook.totalPages) {
         setShowCompletionCelebration(true);
       }
@@ -575,6 +580,7 @@ export default function Dashboard() {
     try {
       let toastTitle = "Reflection Shared";
       let toastDescription = `Reflection saved!`;
+      let alertNotif: any = null;
 
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -597,6 +603,7 @@ export default function Dashboard() {
         const streakUpdate = getStreakUpdate(currentProfile, now);
         toastTitle = streakUpdate.streakToastInfo.title;
         toastDescription = streakUpdate.streakToastInfo.description;
+        alertNotif = streakUpdate.streakAlertNotif;
 
         const currentMonthStr = now.toISOString().slice(0, 7);
         const lastMonday = new Date(now);
@@ -627,13 +634,10 @@ export default function Dashboard() {
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
         
-        if (streakUpdate.streakAlertNotif) {
-          const { id, message, type } = streakUpdate.streakAlertNotif;
-          transaction.set(doc(db, "users", user.uid, "notifications", id), {
-            id,
+        if (alertNotif) {
+          transaction.set(doc(db, "users", user.uid, "notifications", alertNotif.id), {
+            ...alertNotif,
             userId: user.uid,
-            type,
-            message,
             isRead: false,
             createdAt: now.toISOString(),
             expiresAt: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
@@ -643,6 +647,9 @@ export default function Dashboard() {
 
       setReflection("");
       toast({ title: toastTitle, description: toastDescription });
+      if (alertNotif) {
+        await sendPushOnlyAction(user.uid, alertNotif.type, alertNotif.message);
+      }
     } catch(e) {
       console.error(e);
       toast({ variant: "destructive", title: "Submission Failed", description: e === "Already submitted today" ? e : "Could not save reflection." });

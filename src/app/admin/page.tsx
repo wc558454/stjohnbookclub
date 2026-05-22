@@ -37,14 +37,13 @@ import {
   UserX,
   Loader2,
   RefreshCw,
-  Clock,
-  Quote
+  Clock
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc, where } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -60,6 +59,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { broadcastNotificationAction, sendNotificationAction } from "@/app/actions/notifications";
 
 const BADGE_ICONS = [
   { name: "Award", icon: Award },
@@ -83,7 +83,6 @@ function MemberProgress({ member, allBooks }: { member: any, allBooks: any[] | n
       const progress = Math.min(100, Math.round(((pagesRead as number) / book.totalPages) * 100));
       return { ...book, pagesRead, progress };
     }).filter(Boolean).sort((a: any, b: any) => {
-        // Current book first
         if (a.id === member.currentBookId) return -1;
         if (b.id === member.currentBookId) return 1;
         return 0;
@@ -366,24 +365,7 @@ export default function AdminDashboard() {
   }, [members, books]);
 
   const notifyAllMembers = async (type: string, message: string) => {
-    if (!db) return;
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
-    
-    const membersSnap = await getDocs(collection(db, "users"));
-    membersSnap.forEach((memberDoc) => {
-      const notifId = Math.random().toString(36).substring(7);
-      const notifRef = doc(db, "users", memberDoc.id, "notifications", notifId);
-      setDoc(notifRef, {
-        id: notifId,
-        userId: memberDoc.id,
-        type,
-        message,
-        isRead: false,
-        createdAt: now.toISOString(),
-        expiresAt
-      });
-    });
+    await broadcastNotificationAction(type, message);
   };
 
   if (loading || !user || !isAdmin) return null;
@@ -391,7 +373,7 @@ export default function AdminDashboard() {
   const handleSetCurrentBook = async (bookToSet: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "books", bookToSet.id), { status: 'current' });
-    notifyAllMembers("New Book", `A new book study has been added: "${bookToSet.title}". Begin your journey now!`);
+    await broadcastNotificationAction("New Book", `A new book study has been added: "${bookToSet.title}". Begin your journey now!`);
     toast({ title: "Book Activated", description: `${bookToSet.title} is now available for members to select.` });
   };
 
@@ -407,11 +389,11 @@ export default function AdminDashboard() {
     toast({ title: "Book Finished" });
   };
 
-  const handleToggleChallenge = (challenge: any, isActive: boolean) => {
+  const handleToggleChallenge = async (challenge: any, isActive: boolean) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "challenges", challenge.id), { isActive });
     if (isActive) {
-      notifyAllMembers("New Challenge", `A new challenge is active: "${challenge.title}". Complete it to earn points!`);
+      await broadcastNotificationAction("New Challenge", `A new challenge is active: "${challenge.title}". Complete it to earn points!`);
     }
     toast({ 
       title: isActive ? "Challenge Activated" : "Challenge Deactivated",
@@ -499,14 +481,14 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSaveDiscussion = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveDiscussion = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const topic = formData.get("topic") as string;
     const dateTime = formData.get("dateTime") as string;
     const id = Math.random().toString(36).substring(7);
-    setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
-    notifyAllMembers("Discussion Scheduled", `A new discussion on "${topic}" has been scheduled for ${new Date(dateTime).toLocaleString()}.`);
+    await setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
+    await broadcastNotificationAction("Discussion Scheduled", `A new discussion on "${topic}" has been scheduled for ${new Date(dateTime).toLocaleString()}.`);
     setIsDiscOpen(false);
     toast({ title: "Discussion Scheduled" });
   };
@@ -589,6 +571,8 @@ export default function AdminDashboard() {
         awardedAt: new Date().toISOString(),
       };
       updatedBadges = [...updatedBadges, newBadge];
+      // Notify about the new badge
+      await sendNotificationAction(managingBadgesMember.id, "Badge Awarded!", `You've been awarded the "${badgeData.name}" badge!`);
     }
 
     updateDocumentNonBlocking(doc(db, "users", managingBadgesMember.id), { badges: updatedBadges });

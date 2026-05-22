@@ -70,7 +70,7 @@ export async function requestNotificationPermission(
     // 4. Get the FCM token using VAPID key
     // NOTE: Replace 'BPE_YOUR_VAPID_KEY_HERE' with your actual key from Firebase Console
     const token = await getToken(messaging, {
-      vapidKey: 'BPE_YOUR_VAPID_KEY_HERE' 
+      vapidKey: 'BHVGtvLto6RBbItlcBuZA7vJWJGpe15fr9N5tWSTZfKmMq-NG8mChl5S0Zh0lpbdXcOk6Wf1PrPaTVv9YEE_dEo' 
     });
 
     if (token) {
