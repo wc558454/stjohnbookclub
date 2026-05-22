@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useEffect, type ReactNode } from 'react';
@@ -17,7 +18,12 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
 
   useEffect(() => {
     // Register the service worker immediately when the app loads
-    registerServiceWorker();
+    // This ensures background push is ready as soon as possible
+    if (typeof window !== 'undefined') {
+      registerServiceWorker().then(reg => {
+        if (reg) console.log('Background Push infrastructure initialized.');
+      });
+    }
   }, []);
 
   return (

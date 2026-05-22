@@ -1,33 +1,29 @@
-// Native Service Worker for St. John Chrysostom Bookclub
-// Handles immediate updates and background push notifications
 
-self.addEventListener('install', (event) => {
-  // Force the waiting service worker to become the active service worker
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  // Ensure the new service worker takes control of all open clients immediately
-  event.waitUntil(clients.claim());
-});
+/*
+ * Native Service Worker for St. John Chrysostom Bookclub
+ * Handles background push notifications.
+ */
 
 self.addEventListener('push', (event) => {
-  let payload = {};
+  console.log('[Service Worker] Push Received.');
+  let data = {};
+  
   try {
-    payload = event.data ? event.data.json() : {};
+    data = event.data ? event.data.json() : {};
   } catch (e) {
-    console.error('Failed to parse push payload:', e);
+    console.warn('[Service Worker] Push event data was not JSON:', event.data.text());
+    data = { notification: { title: 'Bookclub Update', body: event.data.text() } };
   }
 
-  const title = payload.notification?.title || 'St. John Chrysostom Bookclub';
+  const title = data.notification?.title || 'St. John Chrysostom Bookclub';
   const options = {
-    body: payload.notification?.body || 'New spiritual update from the fellowship!',
+    body: data.notification?.body || 'New message from the fellowship.',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
+    data: data.fcmOptions?.link || data.data?.link || '/dashboard',
     vibrate: [100, 50, 100],
-    data: payload.data || {},
     actions: [
-      { action: 'open', title: 'Open Dashboard' }
+      { action: 'open', title: 'Open App' }
     ]
   };
 
@@ -35,19 +31,32 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
+  console.log('[Service Worker] Notification click Received.');
   event.notification.close();
 
-  // Handle notification click: focus existing window or open new one
+  const urlToOpen = event.notification.data || '/dashboard';
+
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === '/' && 'focus' in client) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (var i = 0; i < windowClients.length; i++) {
+        var client = windowClients[i];
+        if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow('/dashboard');
+        return clients.openWindow(urlToOpen);
       }
     })
   );
+});
+
+self.addEventListener('install', (event) => {
+  console.log('[Service Worker] Installing...');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[Service Worker] Activating...');
+  event.waitUntil(clients.claim());
 });
