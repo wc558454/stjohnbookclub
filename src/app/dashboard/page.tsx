@@ -960,6 +960,9 @@ export default function Dashboard() {
                         </Button>
                       </div>
                       <CardTitle className="text-xl font-headline">{currentBook.title}</CardTitle>
+                      <CardDescription className="text-white/70 line-clamp-2 mt-1">
+                        {currentBook.description}
+                      </CardDescription>
                     </div>
                     <BookOpen className="h-6 w-6 text-accent/50" />
                   </div>
