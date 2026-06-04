@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -960,7 +959,7 @@ export default function Dashboard() {
                         </Button>
                       </div>
                       <CardTitle className="text-xl font-headline">{currentBook.title}</CardTitle>
-                      <CardDescription className="text-white/70 line-clamp-2 mt-1">
+                      <CardDescription className="text-white/70 mt-1 whitespace-pre-wrap">
                         {currentBook.description}
                       </CardDescription>
                     </div>
