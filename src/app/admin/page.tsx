@@ -297,6 +297,7 @@ export default function AdminDashboard() {
   const [isChallOpen, setIsChallOpen] = useState(false);
   const [editingChall, setEditingChall] = useState<any>(null);
   const [isDiscOpen, setIsDiscOpen] = useState(false);
+  const [editingDisc, setEditingDisc] = useState<any>(null);
   const [adjustingMember, setAdjustingMember] = useState<any>(null);
   const [pointsAdjustment, setPointsAdjustment] = useState<number>(0);
   const [editingGroupMember, setEditingGroupMember] = useState<any>(null);
@@ -401,6 +402,15 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleToggleDiscussion = (discussion: any, isActive: boolean) => {
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "discussions", discussion.id), { isActive });
+    toast({ 
+      title: isActive ? "Discussion Activated" : "Discussion Deactivated",
+      description: `${discussion.topic} is now ${isActive ? 'visible' : 'hidden'} to members.`
+    });
+  };
+
   const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -489,11 +499,19 @@ export default function AdminDashboard() {
     const formData = new FormData(e.currentTarget);
     const topic = formData.get("topic") as string;
     const dateTime = formData.get("dateTime") as string;
-    const id = Math.random().toString(36).substring(7);
-    await setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
-    await broadcastNotificationAction("Discussion Scheduled", `A new discussion on "${topic}" has been scheduled for ${new Date(dateTime).toLocaleString()}.`);
+    
+    if (editingDisc) {
+      updateDocumentNonBlocking(doc(db, "discussions", editingDisc.id), { topic, scheduledDateTime: dateTime });
+      toast({ title: "Discussion Updated" });
+    } else {
+      const id = Math.random().toString(36).substring(7);
+      await setDoc(doc(db, "discussions", id), { id, topic, scheduledDateTime: dateTime, isActive: true });
+      await broadcastNotificationAction("Discussion Scheduled", `A new discussion on "${topic}" has been scheduled for ${new Date(dateTime).toLocaleString()}.`);
+      toast({ title: "Discussion Scheduled" });
+    }
+    
     setIsDiscOpen(false);
-    toast({ title: "Discussion Scheduled" });
+    setEditingDisc(null);
   };
 
   const handleConfirmAdjustPoints = async () => {
@@ -873,17 +891,34 @@ export default function AdminDashboard() {
 
           <TabsContent value="discussions">
             <Card className="border-none shadow-sm p-6">
-              <Button onClick={() => setIsDiscOpen(true)} className="mb-6 rounded-full bg-primary"><Plus className="h-4 w-4 mr-2" /> Schedule New Discussion</Button>
+              <Button onClick={() => { setEditingDisc(null); setIsDiscOpen(true); }} className="mb-6 rounded-full bg-primary"><Plus className="h-4 w-4 mr-2" /> Schedule New Discussion</Button>
               <div className="grid md:grid-cols-2 gap-4">
                 {discussions?.map(d => (
-                  <div key={d.id} className="flex justify-between items-center p-4 border rounded-xl bg-accent/5">
+                  <div key={d.id} className={`flex justify-between items-center p-4 border rounded-xl transition-all ${d.isActive ? 'bg-accent/5 border-accent/20' : 'bg-muted/20 border-muted opacity-60'}`}>
                     <div>
-                      <p className="font-bold text-sm text-primary">{d.topic}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-primary">{d.topic}</p>
+                        {!d.isActive && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 font-bold uppercase">Inactive</Badge>}
+                      </div>
                       <p className="text-[10px] text-muted-foreground">{new Date(d.scheduledDateTime).toLocaleString()}</p>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}>
-                      <Trash className="h-4 w-4"/>
-                    </Button>
+                    <div className="flex gap-1">
+                      {d.isActive ? (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="Deactivate" onClick={() => handleToggleDiscussion(d, false)}>
+                          <EyeOff className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" title="Activate" onClick={() => handleToggleDiscussion(d, true)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingDisc(d); setIsDiscOpen(true); }}>
+                        <Edit className="h-4 w-4"/>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "discussions", d.id))}>
+                        <Trash className="h-4 w-4"/>
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -988,15 +1023,15 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isDiscOpen} onOpenChange={setIsDiscOpen}>
+        <Dialog open={isDiscOpen} onOpenChange={(open) => { setIsDiscOpen(open); if (!open) setEditingDisc(null); }}>
           <DialogContent>
             <form onSubmit={handleSaveDiscussion}>
-              <DialogHeader><DialogTitle>Schedule Discussion</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingDisc ? "Edit Discussion" : "Schedule Discussion"}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-1"><Label>Topic</Label><Input name="topic" required /></div>
-                <div className="space-y-1"><Label>Date & Time</Label><Input name="dateTime" type="datetime-local" required /></div>
+                <div className="space-y-1"><Label>Topic</Label><Input name="topic" defaultValue={editingDisc?.topic} required /></div>
+                <div className="space-y-1"><Label>Date & Time</Label><Input name="dateTime" type="datetime-local" defaultValue={editingDisc?.scheduledDateTime ? editingDisc.scheduledDateTime.slice(0, 16) : ""} required /></div>
               </div>
-              <DialogFooter><Button type="submit" className="w-full">Schedule</Button></DialogFooter>
+              <DialogFooter><Button type="submit" className="w-full">{editingDisc ? "Save Changes" : "Schedule"}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
