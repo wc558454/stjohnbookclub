@@ -48,11 +48,11 @@ import {
   History,
   Edit,
   Clock,
-  Sparkle,
   Settings,
   BellRing,
   Zap,
-  ShieldAlert
+  ShieldAlert,
+  Users
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -215,6 +215,30 @@ export default function Dashboard() {
     return query(collection(db, "users"), orderBy("streak", "desc"), limit(10));
   }, [db, user]);
   const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardMembersQuery);
+
+  // Group Aggregation Query
+  const groupMembersQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "users"), limit(500)); // Fetch enough users for accurate group totals
+  }, [db, user]);
+  const { data: allMembersForGroups } = useCollection(groupMembersQuery);
+
+  const groupLeaderboard = useMemo(() => {
+    if (!allMembersForGroups) return [];
+    const groupMap: Record<string, { name: string, totalPoints: number, memberCount: number }> = {};
+    
+    allMembersForGroups.forEach(m => {
+      if (m.groupName) {
+        if (!groupMap[m.groupName]) {
+          groupMap[m.groupName] = { name: m.groupName, totalPoints: 0, memberCount: 0 };
+        }
+        groupMap[m.groupName].totalPoints += (m.points || 0);
+        groupMap[m.groupName].memberCount += 1;
+      }
+    });
+
+    return Object.values(groupMap).sort((a, b) => b.totalPoints - a.totalPoints);
+  }, [allMembersForGroups]);
 
   const pagesPerDayToFinish = useMemo(() => {
     if (!currentBook || !profile || !currentBook.currentReadingPlanDueDate) return 0;
@@ -819,6 +843,7 @@ export default function Dashboard() {
                   <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
                   <UserBadgeList badges={profile.badges} />
                   <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-accent" onClick={() => setIsEditProfileOpen(true)}>
+                    <LogOut className="h-3 w-3" /> {/* Using LogOut since Edit is similar, actually better to use Edit if available, using Edit icon from lucide */}
                     <Edit className="h-3 w-3" />
                   </Button>
                 </div>
@@ -1170,7 +1195,7 @@ export default function Dashboard() {
 
               <Card className="border-none shadow-sm overflow-hidden">
                 <Tabs defaultValue="weekly" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 h-auto p-0 rounded-none bg-accent/5">
+                  <TabsList className="grid w-full grid-cols-5 h-auto p-0 rounded-none bg-accent/5">
                     <TabsTrigger value="weekly" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
                       Weekly
                     </TabsTrigger>
@@ -1178,10 +1203,13 @@ export default function Dashboard() {
                       Monthly
                     </TabsTrigger>
                     <TabsTrigger value="all-time" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                      All-Time
+                      Global
+                    </TabsTrigger>
+                    <TabsTrigger value="groups" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
+                      Groups
                     </TabsTrigger>
                     <TabsTrigger value="streaks" className="py-3 text-[10px] rounded-none data-[state=active]:bg-accent/10 data-[state=active]:text-primary font-semibold">
-                      Streaks
+                      🔥
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="weekly" className="mt-0">
@@ -1248,6 +1276,28 @@ export default function Dashboard() {
                       );
                     }) : <p className="text-sm text-center text-muted-foreground italic p-6">No rankings yet.</p>}
                   </TabsContent>
+                  <TabsContent value="groups" className="mt-0">
+                    {groupLeaderboard.length ? groupLeaderboard.map((g, i) => (
+                      <div key={g.name} className={`flex items-center gap-3 p-4 border-t ${profile.groupName === g.name ? 'bg-accent/5' : ''}`}>
+                        <span className="font-headline font-bold text-muted-foreground text-base w-8 text-center">#{i + 1}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                             <Users className="h-3.5 w-3.5 text-accent" />
+                             <p className="text-sm font-bold text-primary">{g.name}</p>
+                          </div>
+                          <div className="flex justify-between items-center mt-0.5">
+                             <p className="text-[10px] text-accent font-black uppercase tracking-widest">{g.totalPoints.toLocaleString()} TOTAL POINTS</p>
+                             <p className="text-[9px] text-muted-foreground font-medium">{g.memberCount} members</p>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="p-12 text-center text-xs text-muted-foreground italic flex flex-col items-center gap-2">
+                        <Users className="h-8 w-8 opacity-20" />
+                        No fellowship groups ranked yet.
+                      </div>
+                    )}
+                  </TabsContent>
                   <TabsContent value="streaks" className="mt-0">
                     {streakLeaderboardMembers?.length ? streakLeaderboardMembers.map((m, i) => {
                       const mRank = getRank(m.points || 0);
@@ -1312,13 +1362,10 @@ export default function Dashboard() {
             </div>
             <DialogHeader>
               <DialogTitle className="text-3xl font-headline text-primary mb-2">Congratulations!</DialogTitle>
-              <DialogHeader>
-                <DialogTitle className="text-3xl font-headline text-primary mb-2">Congratulations!</DialogTitle>
-                <DialogDescription className="text-lg">
-                  You have finished reading <span className="font-bold">"{currentBook?.title}"</span>.
-                  Your discipline and commitment to spiritual growth are a beacon for the whole fellowship.
-                </DialogDescription>
-              </DialogHeader>
+              <DialogDescription className="text-lg">
+                You have finished reading <span className="font-bold">"{currentBook?.title}"</span>.
+                Your discipline and commitment to spiritual growth are a beacon for the whole fellowship.
+              </DialogDescription>
             </DialogHeader>
             <div className="py-6 flex justify-center gap-4">
               <div className="text-center">
