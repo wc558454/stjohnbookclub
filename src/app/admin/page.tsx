@@ -37,13 +37,14 @@ import {
   UserX,
   Loader2,
   RefreshCw,
-  Clock
+  Clock,
+  Users
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, runTransaction, getDocs, updateDoc, where } from "firebase/firestore";
 import { 
   Dialog, 
   DialogContent, 
@@ -365,10 +366,6 @@ export default function AdminDashboard() {
     return countedMembers > 0 ? Math.round(totalProgress / countedMembers) : 0;
   }, [members, books]);
 
-  const notifyAllMembers = async (type: string, message: string) => {
-    await broadcastNotificationAction(type, message);
-  };
-
   if (loading || !user || !isAdmin) return null;
 
   const handleSetCurrentBook = async (bookToSet: any) => {
@@ -645,7 +642,7 @@ export default function AdminDashboard() {
           </Card>
           <Card className="border-none shadow-sm bg-accent/5">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Reading Progress</CardTitle>
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Avg. Reading Progress</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <p className="text-3xl font-bold text-primary">{avgReadingProgress}%</p>
@@ -653,7 +650,7 @@ export default function AdminDashboard() {
           </Card>
           <Card className="border-none shadow-sm bg-accent/5">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">System Health</CardTitle>
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground">System Status</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <p className="text-3xl font-bold text-green-600">Active</p>
@@ -776,7 +773,7 @@ export default function AdminDashboard() {
                             </Badge>
                           ) : (
                              <Badge variant={m.status === 'Deactivated' ? 'destructive' : 'outline'} className={`text-[10px] py-0 px-3 h-6 rounded-full ${m.status !== 'Deactivated' ? 'border-muted text-muted-foreground' : ''}`}>
-                               {m.status === 'Deactivated' ? 'Deactivated' : 'Verified Member'}
+                               Verified Member
                              </Badge>
                           )}
                         </TableCell>
@@ -811,6 +808,8 @@ export default function AdminDashboard() {
                     <TableHead>Book Title</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Total Pages</TableHead>
+                    <TableHead className="text-center">Reading</TableHead>
+                    <TableHead className="text-center">Finished</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -820,6 +819,12 @@ export default function AdminDashboard() {
                       <TableCell className="font-bold">{b.title}</TableCell>
                       <TableCell><Badge variant={b.status === 'current' ? 'default' : 'secondary'}>{b.status}</Badge></TableCell>
                       <TableCell>{b.totalPages} pgs</TableCell>
+                      <TableCell className="text-center font-mono text-xs font-bold text-accent">
+                        {members?.filter(m => m.currentBookId === b.id).length || 0}
+                      </TableCell>
+                      <TableCell className="text-center font-mono text-xs font-bold text-green-600">
+                        {members?.filter(m => (m.bookProgress?.[b.id] || 0) >= b.totalPages).length || 0}
+                      </TableCell>
                       <TableCell className="text-right space-x-1">
                         {b.status !== 'current' && (
                           <Button size="sm" className="h-7 text-[10px]" onClick={() => handleSetCurrentBook(b)}>Activate</Button>
