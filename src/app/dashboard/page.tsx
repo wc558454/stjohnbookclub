@@ -843,7 +843,6 @@ export default function Dashboard() {
                   <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
                   <UserBadgeList badges={profile.badges} />
                   <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-accent" onClick={() => setIsEditProfileOpen(true)}>
-                    <LogOut className="h-3 w-3" /> {/* Using LogOut since Edit is similar, actually better to use Edit if available, using Edit icon from lucide */}
                     <Edit className="h-3 w-3" />
                   </Button>
                 </div>
