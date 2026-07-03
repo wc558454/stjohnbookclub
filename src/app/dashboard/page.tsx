@@ -286,12 +286,6 @@ export default function Dashboard() {
     }).length;
   }, [challenges, userChallenges]);
 
-  // Weekly Goal Calculation
-  const weeklyPagesRead = profile.weeklyPagesRead || 0;
-  const weeklyGoal = profile.pagesPerWeek || 35;
-  const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / weeklyGoal) * 100));
-  const isWeeklyGoalAchieved = weeklyPagesRead >= weeklyGoal;
-
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
@@ -381,6 +375,12 @@ export default function Dashboard() {
   };
 
   if (loading || !user || !profile) return null;
+
+  // Weekly Goal Calculation (Safe after profile check)
+  const weeklyPagesRead = profile.weeklyPagesRead || 0;
+  const weeklyGoal = profile.pagesPerWeek || 35;
+  const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / (weeklyGoal || 1)) * 100));
+  const isWeeklyGoalAchieved = weeklyPagesRead >= weeklyGoal;
 
   if (profile.status === "Deactivated") {
     return (
