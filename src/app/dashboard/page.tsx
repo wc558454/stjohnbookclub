@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -188,14 +189,21 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
+    // Simple query to avoid composite index requirements which can surface as permission errors
     return query(
       collection(db, "discussions"),
       where("isActive", "==", true),
-      orderBy("scheduledDateTime", "asc"),
       limit(50)
     );
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
+
+  const sortedDiscussions = useMemo(() => {
+    if (!discussions) return [];
+    return [...discussions].sort((a, b) => 
+      new Date(a.scheduledDateTime).getTime() - new Date(b.scheduledDateTime).getTime()
+    );
+  }, [discussions]);
 
   const weeklyLeaderboardMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -273,9 +281,9 @@ export default function Dashboard() {
 
   const hasReflectedToday = !!todayReflection;
 
-  const activeDiscussions = useMemo(() => {
-    return discussions || [];
-  }, [discussions]);
+  const activeDiscussionsList = useMemo(() => {
+    return sortedDiscussions || [];
+  }, [sortedDiscussions]);
 
   const completedTodayChallengesCount = useMemo(() => {
     if (!challenges || !userChallenges) return 0;
@@ -1202,7 +1210,7 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3 min-h-[200px]">
-                  {activeDiscussions.length > 0 ? activeDiscussions.map(disc => {
+                  {activeDiscussionsList.length > 0 ? activeDiscussionsList.map(disc => {
                     const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
                     return (
                       <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start shadow-sm hover:border-accent/20 transition-colors">

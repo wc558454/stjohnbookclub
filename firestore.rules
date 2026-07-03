@@ -15,19 +15,18 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    // Global Challenges: All members can read, only admins manage.
+    // Global Collections (Books, Challenges, Discussions)
+    // All signed-in members can read these to participate.
     match /challenges/{challengeId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
-    // Global Library: All members can read, only admins manage.
     match /books/{bookId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
-    // Scheduled Discussions: All members can read to check-in, only admins manage.
     match /discussions/{discussionId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
