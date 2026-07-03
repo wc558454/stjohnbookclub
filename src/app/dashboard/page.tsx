@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -285,6 +286,12 @@ export default function Dashboard() {
     }).length;
   }, [challenges, userChallenges]);
 
+  // Weekly Goal Calculation
+  const weeklyPagesRead = profile.weeklyPagesRead || 0;
+  const weeklyGoal = profile.pagesPerWeek || 35;
+  const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / weeklyGoal) * 100));
+  const isWeeklyGoalAchieved = weeklyPagesRead >= weeklyGoal;
+
   const getStreakUpdate = (currentProfile: UserProfile, now: Date) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     
@@ -562,6 +569,11 @@ export default function Dashboard() {
             ? (currentProfile.weeklyPoints || 0) + ptsToAdd
             : ptsToAdd;
 
+        const newWeeklyPagesRead =
+          currentProfile.currentWeek === currentWeekStr
+            ? (currentProfile.weeklyPagesRead || 0) + pagesReadToday
+            : pagesReadToday;
+
         transaction.update(userRef, {
           points: newTotalPoints,
           currentPagesRead: newPagesReadTotal,
@@ -569,6 +581,7 @@ export default function Dashboard() {
           monthlyPoints: newMonthlyPoints,
           currentMonth: currentMonthStr,
           weeklyPoints: newWeeklyPoints,
+          weeklyPagesRead: newWeeklyPagesRead,
           currentWeek: currentWeekStr,
           personalBestPages: newPersonalBest,
           dailyPagesRead: currentDailyPagesSum,
@@ -990,14 +1003,34 @@ export default function Dashboard() {
                     <BookOpen className="h-6 w-6 text-accent/50" />
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">
-                      <span>Progress</span>
+                      <span>Book Progress</span>
                       <span>{progressPercent}%</span>
                     </div>
                     <Progress value={progressPercent} className="h-2 bg-white/10" />
                   </div>
+                  
+                  {/* Weekly Progress Bar */}
+                  <div className="space-y-1 bg-white/5 p-4 rounded-xl border border-white/10">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">
+                      <span className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> Weekly Progress</span>
+                      <span className="flex items-center gap-1.5">
+                        {isWeeklyGoalAchieved ? (
+                          <span className="text-accent flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Goal Achieved</span>
+                        ) : (
+                          <span>{weeklyProgressPercent}%</span>
+                        )}
+                      </span>
+                    </div>
+                    <Progress value={weeklyProgressPercent} className="h-3 bg-white/10" />
+                    <div className="flex justify-between items-center mt-1">
+                       <p className="text-[10px] text-primary-foreground/40 font-bold">{weeklyPagesRead} / {weeklyGoal} pages read this week</p>
+                       {isWeeklyGoalAchieved && <Sparkles className="h-3 w-3 text-accent animate-pulse" />}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-white/5 p-3 rounded-md text-center">
                       <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><BookUp className="h-3 w-3" /> Current Page</p>

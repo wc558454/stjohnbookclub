@@ -42,6 +42,7 @@ export type UserProfile = {
   monthlyPoints?: number;
   currentMonth?: string;
   weeklyPoints?: number;
+  weeklyPagesRead?: number;
   currentWeek?: string;
   personalBestPages?: number;
   dailyPagesRead?: number;

@@ -80,6 +80,11 @@
           "description": "The total points earned by the user in the current week.",
           "format": "int32"
         },
+        "weeklyPagesRead": {
+          "type": "number",
+          "description": "The total pages read by the user in the current week.",
+          "format": "int32"
+        },
         "currentWeek": {
           "type": "string",
           "description": "The identifier for the current week, usually the date of the most recent Monday in YYYY-MM-DD format."

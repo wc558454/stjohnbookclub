@@ -12,7 +12,7 @@ const adminDb = getFirestore();
 
 /**
  * Weekly Reset Task (Cron: 0 0 * * 1)
- * Resets weeklyPoints for all users and updates the currentWeek identifier.
+ * Resets weeklyPoints and weeklyPagesRead for all users and updates the currentWeek identifier.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -45,6 +45,7 @@ export async function GET(request: Request) {
     for (const doc of usersSnap.docs) {
       batch.update(doc.ref, { 
         weeklyPoints: 0,
+        weeklyPagesRead: 0,
         currentWeek: currentWeekStr
       });
       count++;
