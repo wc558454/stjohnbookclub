@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -274,11 +273,8 @@ export default function Dashboard() {
 
   const hasReflectedToday = !!todayReflection;
 
-  const upcomingDiscussions = useMemo(() => {
-    if (!discussions) return [];
-    const now = new Date();
-    const cutOff = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    return discussions.filter(d => new Date(d.scheduledDateTime) >= cutOff);
+  const activeDiscussions = useMemo(() => {
+    return discussions || [];
   }, [discussions]);
 
   const completedTodayChallengesCount = useMemo(() => {
@@ -773,8 +769,9 @@ export default function Dashboard() {
     const now = new Date();
     const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
 
-    if (diffHours < 0 || diffHours > 24) {
-      toast({ variant: "destructive", title: "Check-in Not Available", description: "Check-in within 24 hours of start." });
+    // Only prevent check-in if it's more than an hour before the discussion
+    if (diffHours < -1) {
+      toast({ variant: "destructive", title: "Check-in Not Available", description: "Check-in is available once the discussion begins." });
       return;
     }
 
@@ -1201,11 +1198,11 @@ export default function Dashboard() {
               <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-4 border-b bg-accent/5">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-accent" /> Upcoming Discussions
+                    <CalendarDays className="h-4 w-4 text-accent" /> Active Discussions
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3 min-h-[200px]">
-                  {upcomingDiscussions.length > 0 ? upcomingDiscussions.map(disc => {
+                  {activeDiscussions.length > 0 ? activeDiscussions.map(disc => {
                     const attended = userChallenges?.some(uc => uc.challengeId === disc.id);
                     return (
                       <div key={disc.id} className="p-3 bg-white rounded-md border border-accent/5 flex justify-between items-start shadow-sm hover:border-accent/20 transition-colors">
@@ -1226,7 +1223,7 @@ export default function Dashboard() {
                   }) : (
                     <div className="flex flex-col items-center justify-center h-48 text-center opacity-40">
                        <Clock className="h-8 w-8 mb-2" />
-                       <p className="text-xs italic">No upcoming discussions scheduled.</p>
+                       <p className="text-xs italic">No active discussions scheduled.</p>
                     </div>
                   )}
                 </CardContent>
