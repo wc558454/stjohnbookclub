@@ -376,10 +376,10 @@ export default function Dashboard() {
 
   if (loading || !user || !profile) return null;
 
-  // Weekly Goal Calculation (Safe after profile check)
+  // Weekly Goal Calculation
   const weeklyPagesRead = profile.weeklyPagesRead || 0;
   const weeklyGoal = profile.pagesPerWeek || 35;
-  const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / (weeklyGoal || 1)) * 100));
+  const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / weeklyGoal) * 100));
   const isWeeklyGoalAchieved = weeklyPagesRead >= weeklyGoal;
 
   if (profile.status === "Deactivated") {
@@ -985,64 +985,66 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <Card className="border-none shadow-sm bg-primary text-white overflow-hidden">
-                <CardHeader className="pb-4">
+              <Card className="border shadow-lg bg-white overflow-hidden">
+                <CardHeader className="pb-4 border-b border-accent/10">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-white/10 text-accent">MY CURRENT STUDY</Badge>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/60 hover:text-white hover:bg-white/10" onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}>
+                        <Badge className="bg-accent/10 text-accent border-accent/20">MY CURRENT STUDY</Badge>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}>
                           Change Book
                         </Button>
                       </div>
-                      <CardTitle className="text-xl font-headline">{currentBook.title}</CardTitle>
-                      <CardDescription className="text-white/70 mt-1 whitespace-pre-wrap">
+                      <CardTitle className="text-2xl font-headline text-primary">{currentBook.title}</CardTitle>
+                      <CardDescription className="text-muted-foreground mt-1 whitespace-pre-wrap">
                         {currentBook.description}
                       </CardDescription>
                     </div>
-                    <BookOpen className="h-6 w-6 text-accent/50" />
+                    <div className="p-2 bg-accent/10 rounded-full">
+                       <BookOpen className="h-6 w-6 text-accent" />
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 pt-6">
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-blue-600">
                       <span>Book Progress</span>
-                      <span>{progressPercent}%</span>
+                      <span className="text-accent">{progressPercent}%</span>
                     </div>
-                    <Progress value={progressPercent} className="h-2 bg-white/10" />
+                    <Progress value={progressPercent} className="h-2 bg-accent/5" />
                   </div>
                   
                   {/* Weekly Progress Bar */}
-                  <div className="space-y-1 bg-white/5 p-4 rounded-xl border border-white/10">
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">
-                      <span className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> Weekly Progress</span>
+                  <div className="space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-blue-700">
+                      <span className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> Weekly Goal Progress</span>
                       <span className="flex items-center gap-1.5">
                         {isWeeklyGoalAchieved ? (
-                          <span className="text-accent flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Goal Achieved</span>
+                          <span className="text-accent font-black flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Goal Achieved</span>
                         ) : (
-                          <span>{weeklyProgressPercent}%</span>
+                          <span className="text-primary">{weeklyProgressPercent}%</span>
                         )}
                       </span>
                     </div>
-                    <Progress value={weeklyProgressPercent} className="h-3 bg-white/10" />
+                    <Progress value={weeklyProgressPercent} className="h-3 bg-white" />
                     <div className="flex justify-between items-center mt-1">
-                       <p className="text-[10px] text-primary-foreground/40 font-bold">{weeklyPagesRead} / {weeklyGoal} pages read this week</p>
+                       <p className="text-[10px] text-muted-foreground font-bold">{weeklyPagesRead} / {weeklyGoal} pages read this week</p>
                        {isWeeklyGoalAchieved && <Sparkles className="h-3 w-3 text-accent animate-pulse" />}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-white/5 p-3 rounded-md text-center">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><BookUp className="h-3 w-3" /> Current Page</p>
-                      <p className="text-sm font-bold">{readingTotal} <span className="text-primary-foreground/60">of {currentBook.totalPages}</span></p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
+                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><BookUp className="h-3 w-3" /> Current Page</p>
+                      <p className="text-lg font-black text-primary">{readingTotal} <span className="text-muted-foreground text-xs font-normal">/ {currentBook.totalPages}</span></p>
                     </div>
-                    <div className="bg-white/5 p-3 rounded-md text-center">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><GaugeCircle className="h-3 w-3" /> Pace to Finish</p>
-                      <p className="text-sm font-bold">{pagesPerDayToFinish} pgs/day</p>
+                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
+                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><GaugeCircle className="h-3 w-3" /> Pace</p>
+                      <p className="text-lg font-black text-primary">{pagesPerDayToFinish} <span className="text-muted-foreground text-[10px] font-normal">pgs/day</span></p>
                     </div>
-                    <div className="bg-white/5 p-3 rounded-md text-center">
-                      <p className="text-[10px] text-primary-foreground/40 font-bold uppercase flex items-center justify-center gap-1"><CalendarDays className="h-3 w-3" /> Due Date</p>
-                      <p className="text-sm font-bold">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
+                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
+                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><CalendarDays className="h-3 w-3" /> Finish By</p>
+                      <p className="text-xs font-black text-primary">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
                 </CardContent>
