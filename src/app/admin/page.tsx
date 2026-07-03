@@ -151,16 +151,17 @@ function MemberProgress({ member, allBooks }: { member: any, allBooks: any[] | n
   );
 }
 
-function MemberStats({ userId, allChallenges, allDiscussions }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null }) {
+function MemberStats({ userId, allChallenges, allDiscussions, isActiveAdmin }: { userId: string, allChallenges: any[] | null, allDiscussions: any[] | null, isActiveAdmin: boolean }) {
   const db = useFirestore();
   const [isChallengeDetailsOpen, setIsChallengeDetailsOpen] = useState(false);
   const [isReflectionDetailsOpen, setIsReflectionDetailsOpen] = useState(false);
   const [isDiscussionDetailsOpen, setIsDiscussionDetailsOpen] = useState(false);
 
   const userChallengesQuery = useMemoFirebase(() => {
-    if (!userId || !db) return null;
+    // Only attempt to list other users' challenges if we are confirmed admin to avoid permission noise
+    if (!userId || !db || !isActiveAdmin) return null;
     return query(collection(db, "users", userId, "userChallenges"), orderBy("completedAt", "desc"));
-  }, [db, userId]);
+  }, [db, userId, isActiveAdmin]);
 
   const { data: userChallenges } = useCollection(userChallengesQuery);
 
@@ -315,27 +316,27 @@ export default function AdminDashboard() {
   }, [user, loading, isAdmin, router]);
 
   const membersQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !isAdmin) return null;
     return query(collection(db, "users"), orderBy("points", "desc"));
-  }, [db, user]);
+  }, [db, user, isAdmin]);
   const { data: members } = useCollection(membersQuery);
 
   const booksQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !isAdmin) return null;
     return query(collection(db, "books"), orderBy("createdAt", "desc"));
-  }, [db, user]);
+  }, [db, user, isAdmin]);
   const { data: books } = useCollection(booksQuery);
 
   const challengesQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !isAdmin) return null;
     return collection(db, "challenges");
-  }, [db, user]);
+  }, [db, user, isAdmin]);
   const { data: challenges } = useCollection(challengesQuery);
 
   const discussionsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !isAdmin) return null;
     return query(collection(db, "discussions"), orderBy("scheduledDateTime", "asc"));
-  }, [db, user]);
+  }, [db, user, isAdmin]);
   const { data: discussions } = useCollection(discussionsQuery);
 
   const filteredMembers = useMemo(() => {
@@ -757,7 +758,7 @@ export default function AdminDashboard() {
                         <MemberProgress member={m} allBooks={books} />
                         <TableCell className="font-mono text-xs text-center font-bold">{m.points || 0}</TableCell>
                         <TableCell className="text-xs text-center">{m.streak || 0}d</TableCell>
-                        <MemberStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} />
+                        <MemberStats userId={m.id} allChallenges={challenges} allDiscussions={discussions} isActiveAdmin={isAdmin} />
                         <TableCell className="text-center">
                           {m.status === "Pending Approval" ? (
                              <Button 
