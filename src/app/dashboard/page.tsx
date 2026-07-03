@@ -189,7 +189,12 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "discussions"), orderBy("scheduledDateTime", "asc"), limit(50));
+    return query(
+      collection(db, "discussions"),
+      where("isActive", "==", true),
+      orderBy("scheduledDateTime", "asc"),
+      limit(50)
+    );
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
 
