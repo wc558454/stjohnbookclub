@@ -959,9 +959,15 @@ export default function Dashboard() {
               <p className="text-2xl font-black text-primary">{profile.monthlyPoints || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pts</span></p>
             </div>
             <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
-              <div className="flex items-center gap-2">
-                <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
-                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
+                  <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
+                </div>
+                <div className="text-right flex flex-col">
+                   <span className="text-[8px] font-black text-accent uppercase leading-none">Longest</span>
+                   <span className="text-[10px] font-black text-primary">{profile.longestStreak || 0}d</span>
+                </div>
               </div>
               <p className="text-2xl font-black text-primary">{profile.streak || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">days</span></p>
             </div>
