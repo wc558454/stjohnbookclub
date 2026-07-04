@@ -964,8 +964,8 @@ export default function Dashboard() {
                   <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
                 </div>
                 <div className="text-right flex flex-col">
-                   <span className="text-[8px] font-black text-accent uppercase leading-none">Longest</span>
-                   <span className="text-[10px] font-black text-primary">{profile.longestStreak || 0}d</span>
+                   <span className="text-[9px] font-black text-accent uppercase leading-none">Longest</span>
+                   <span className="text-sm font-black text-primary">{profile.longestStreak || 0}d</span>
                 </div>
               </div>
               <p className="text-2xl font-black text-primary">{profile.streak || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">days</span></p>
