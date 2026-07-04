@@ -36,10 +36,15 @@ export default function Home() {
 
           <div className="container relative z-10 mx-auto px-4 text-center">
             <div className="max-w-3xl mx-auto space-y-8">
-              <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary leading-tight tracking-tight">
-                St. John Chrysostom <br />
-                <span className="text-accent italic">Bookclub</span>
-              </h1>
+              <div className="relative inline-block">
+                <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary leading-tight tracking-tight">
+                  St. John Chrysostom <br />
+                  <span className="text-accent italic">Bookclub</span>
+                </h1>
+                <span className="absolute -bottom-4 right-0 text-[8px] text-muted-foreground/20 font-black uppercase tracking-[0.2em] pointer-events-none select-none">
+                  By William
+                </span>
+              </div>
               <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed font-medium">
                 “A community of spiritual reading students committed to disciplined study and growth.”
               </p>
