@@ -381,6 +381,7 @@ export default function Dashboard() {
 
   if (loading || !user || !profile) return null;
 
+  // Weekly Goal Calculation
   const weeklyPagesRead = profile.weeklyPagesRead || 0;
   const weeklyGoal = profile.pagesPerWeek || 35;
   const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / weeklyGoal) * 100));
@@ -938,7 +939,7 @@ export default function Dashboard() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-primary/10 text-primary border-primary/20 backdrop-blur-sm px-3 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase">
-                          Active Study Phase
+                          current reading
                         </Badge>
                         <Button 
                           variant="ghost" 
@@ -946,7 +947,7 @@ export default function Dashboard() {
                           className="h-6 text-[10px] text-blue-600 hover:text-blue-700 font-bold uppercase tracking-tighter"
                           onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}
                         >
-                          Switch Trajectory
+                          switch book
                         </Button>
                       </div>
                       <CardTitle className="text-3xl font-headline font-bold text-primary tracking-tight leading-none">
@@ -969,7 +970,7 @@ export default function Dashboard() {
                   {/* Progress Visualization */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-end">
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">Completion Matrix</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">reading progress</p>
                       <p className="text-2xl font-black text-accent font-mono">{progressPercent}%</p>
                     </div>
                     <div className="h-3 w-full bg-primary/5 rounded-full overflow-hidden p-0.5 border border-primary/5 shadow-inner">
@@ -991,11 +992,11 @@ export default function Dashboard() {
                         <div className="p-1.5 bg-white/60 rounded-lg shadow-sm">
                           <CalendarDays className="h-4 w-4 text-blue-600" />
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-primary/80">Weekly Discipline Flow</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-primary/80">weekly reading</span>
                       </div>
                       {isWeeklyGoalAchieved ? (
                         <Badge className="bg-accent text-primary font-black animate-bounce shadow-lg border-none">
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> ASCENDED
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> ACHIEVED
                         </Badge>
                       ) : (
                         <span className="text-xs font-bold text-blue-600">{weeklyProgressPercent}% toward target</span>
@@ -1010,7 +1011,7 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="mt-3 flex justify-between items-center text-[10px] font-bold text-primary/60">
-                      <p>{weeklyPagesRead} / {weeklyGoal} UNITS PROCESSED</p>
+                      <p>{weeklyPagesRead} / {weeklyGoal} PAGES READ THIS WEEK</p>
                       <p className="italic uppercase tracking-widest">Ongoing Cycle</p>
                     </div>
                   </div>
@@ -1018,9 +1019,9 @@ export default function Dashboard() {
                   {/* Metric Grid */}
                   <div className="grid grid-cols-3 gap-4">
                     {[
-                      { label: 'Current Loc', val: readingTotal, sub: `/ ${currentBook.totalPages}`, icon: Footprints },
-                      { label: 'Momentum', val: pagesPerDayToFinish, sub: 'pg/d', icon: GaugeCircle },
-                      { label: 'Target Horizon', val: currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A', sub: '', icon: Milestone },
+                      { label: 'current book', val: readingTotal, sub: `/ ${currentBook.totalPages}`, icon: Footprints },
+                      { label: 'pace', val: pagesPerDayToFinish, sub: 'pg/d', icon: GaugeCircle },
+                      { label: 'Due date', val: currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A', sub: '', icon: Milestone },
                     ].map((stat, i) => (
                       <div key={i} className="flex flex-col items-center justify-center p-4 bg-white/30 backdrop-blur-sm rounded-2xl border border-white/50 hover:bg-white/50 transition-colors duration-300 shadow-sm group/stat">
                         <stat.icon className="h-4 w-4 text-accent/60 mb-2 group-hover/stat:scale-110 transition-transform" />
@@ -1181,7 +1182,7 @@ export default function Dashboard() {
               <Card className="border-none shadow-sm overflow-hidden">
                 <CardHeader className="pb-4 border-b bg-accent/5">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-accent" /> Active Discussions
+                    <CalendarDays className="h-4 w-4 text-accent" /> Upcoming Discussions
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3 min-h-[200px]">
