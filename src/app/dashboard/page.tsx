@@ -907,30 +907,23 @@ export default function Dashboard() {
             <div className="p-1 bg-accent/5 border-b border-accent/10">
                <p className="text-[10px] text-accent font-black uppercase tracking-[0.4em] text-center py-1">Achievements & Standing</p>
             </div>
-            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-accent/10">
-               {/* Rank Card */}
-               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
-                  <div className={`p-4 rounded-3xl bg-primary shadow-lg ring-4 ring-primary/10 ${rank.color}`}>
-                     <rank.icon className="h-8 w-8" />
+            <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-accent/10">
+               {/* Merged Rank & Points Card */}
+               <div className="p-8 flex items-center gap-10 group hover:bg-accent/5 transition-colors">
+                  <div className={`p-6 rounded-[2.5rem] bg-primary shadow-2xl ring-8 ring-primary/5 ${rank.color}`}>
+                     <rank.icon className="h-10 w-10" />
                   </div>
-                  <div>
-                     <p className={`text-2xl font-black font-headline ${rank.color === 'text-accent' ? 'text-accent' : 'text-primary'}`}>{rank.title}</p>
-                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Spiritual Standing</p>
-                  </div>
-               </div>
-
-               {/* Level Card */}
-               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
-                  <div className="p-4 rounded-3xl bg-accent text-primary shadow-lg ring-4 ring-accent/10">
-                     <Sunrise className="h-8 w-8" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                     <p className="text-2xl font-black font-headline text-primary">Level {rank.level}</p>
-                     <div className="space-y-1.5">
-                        <Progress value={(profile.points % 1000) / 10} className="h-1.5 bg-accent/20" />
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
-                          {profile.points?.toLocaleString()} Total Points
-                        </p>
+                  <div className="flex-1 space-y-4">
+                     <div>
+                        <p className={`text-3xl font-black font-headline leading-tight ${rank.color === 'text-accent' ? 'text-accent' : 'text-primary'}`}>{rank.title}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em]">Spiritual Standing</p>
+                     </div>
+                     <div className="space-y-2 border-t border-accent/10 pt-3">
+                        <div className="flex justify-between items-end">
+                           <p className="text-lg font-black text-primary">{profile.points?.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">pts</span></p>
+                           <p className="text-[10px] font-black text-accent uppercase tracking-tighter">Total Points</p>
+                        </div>
+                        <Progress value={(profile.points % 1000) / 10} className="h-2 bg-accent/10" />
                      </div>
                   </div>
                </div>
