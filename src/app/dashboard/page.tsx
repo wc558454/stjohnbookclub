@@ -53,7 +53,8 @@ import {
   BellRing,
   Zap,
   ShieldAlert,
-  Users
+  Users,
+  MoreHorizontal
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -71,38 +72,74 @@ const ICON_MAP: Record<string, any> = {
   Award, Star, Trophy, Medal, Flame, Sparkles, Heart, Shield
 };
 
-function UserBadgeList({ badges, size = "md" }: { badges?: BadgeData[], size?: "sm" | "md" }) {
+function UserBadgeList({ badges, size = "md", maxDisplay = 3 }: { badges?: BadgeData[], size?: "sm" | "md", maxDisplay?: number }) {
+  const [showAllOpen, setShowAllOpen] = useState(false);
   if (!badges || badges.length === 0) return null;
 
+  const displayBadges = badges.slice(0, maxDisplay);
+  const remainingCount = badges.length - maxDisplay;
+
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
-      {badges.map((badge) => {
-        const Icon = ICON_MAP[badge.iconName] || Award;
-        return (
-          <Dialog key={badge.id}>
-            <DialogTrigger asChild>
-              <button className={`cursor-pointer rounded-full bg-accent/10 p-1 border border-accent/30 text-accent transition-transform hover:scale-110 ${size === 'sm' ? 'scale-75' : ''}`}>
-                <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xs">
-              <DialogHeader className="items-center text-center">
-                <div className="p-4 bg-accent/10 rounded-full inline-flex my-2">
-                   <Icon className="h-10 w-10 text-accent" />
+    <div className="flex items-center gap-1.5">
+      <div className="flex -space-x-2">
+        {displayBadges.map((badge) => {
+          const Icon = ICON_MAP[badge.iconName] || Award;
+          return (
+            <Dialog key={badge.id}>
+              <DialogTrigger asChild>
+                <button className={`cursor-pointer rounded-full bg-white p-1.5 border-2 border-accent text-accent shadow-sm transition-transform hover:scale-110 hover:z-10 relative ${size === 'sm' ? 'scale-90' : ''}`}>
+                  <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'} />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xs border-accent/20">
+                <DialogHeader className="items-center text-center">
+                  <div className="p-4 bg-accent/10 rounded-full inline-flex my-2">
+                     <Icon className="h-10 w-10 text-accent" />
+                  </div>
+                  <DialogTitle className="text-xl font-headline text-primary">{badge.name}</DialogTitle>
+                  <DialogDescription className="text-sm px-4">{badge.description}</DialogDescription>
+                </DialogHeader>
+                <div className="text-center space-y-4 py-4">
+                  {badge.message && (
+                    <blockquote className="text-sm italic border-l-2 border-accent pl-4 text-left bg-accent/5 p-3 rounded-r-lg mx-6 text-primary/80">"{badge.message}"</blockquote>
+                  )}
+                  <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Awarded on {new Date(badge.awardedAt).toLocaleDateString()}</p>
                 </div>
-                <DialogTitle className="text-xl font-headline">{badge.name}</DialogTitle>
-                <DialogDescription className="text-sm px-4">{badge.description}</DialogDescription>
-              </DialogHeader>
-              <div className="text-center space-y-4 py-4">
-                {badge.message && (
-                  <blockquote className="text-sm italic border-l-2 pl-4 text-left bg-muted/30 p-3 rounded-r-lg mx-6">"{badge.message}"</blockquote>
-                )}
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Awarded on {new Date(badge.awardedAt).toLocaleDateString()}</p>
-              </div>
-            </DialogContent>
-          </Dialog>
-        );
-      })}
+              </DialogContent>
+            </Dialog>
+          );
+        })}
+      </div>
+      
+      {remainingCount > 0 && (
+        <Dialog open={showAllOpen} onOpenChange={setShowAllOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] font-black text-accent uppercase tracking-widest hover:bg-accent/10">
+              +{remainingCount} More
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md border-accent/20">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-headline text-primary">Fellowship Badges</DialogTitle>
+              <DialogDescription>A collection of your spiritual milestones.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-6 max-h-[60vh] overflow-y-auto">
+              {badges.map((badge) => {
+                const Icon = ICON_MAP[badge.iconName] || Award;
+                return (
+                  <div key={badge.id} className="p-4 rounded-2xl border border-accent/10 bg-accent/5 flex flex-col items-center text-center space-y-2 group hover:bg-accent/10 transition-colors">
+                    <div className="p-3 bg-white rounded-full border border-accent/20 shadow-sm text-accent group-hover:scale-110 transition-transform">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <p className="text-xs font-bold text-primary">{badge.name}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{badge.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -362,11 +399,11 @@ export default function Dashboard() {
   };
 
   const getRank = (pts: number) => {
-    if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-muted-foreground" };
+    if (pts <= 1000) return { title: "Seeker", level: 1, icon: Search, color: "text-white" };
     if (pts <= 3000) return { title: "Golden Seeker", level: 2, icon: Footprints, color: "text-accent" };
-    if (pts <= 5000) return { title: "Pilgrim", level: 3, icon: Milestone, color: "text-primary" };
+    if (pts <= 5000) return { title: "Pilgrim", level: 3, icon: Milestone, color: "text-white" };
     if (pts <= 7000) return { title: "Golden Pilgrim", level: 4, icon: Mountain, color: "text-accent" };
-    if (pts <= 10000) return { title: "Beacon", level: 5, icon: Sunrise, color: "text-primary" };
+    if (pts <= 10000) return { title: "Beacon", level: 5, icon: Sunrise, color: "text-white" };
     return { title: "Golden Beacon", level: 6, icon: Award, color: "text-accent" };
   };
 
@@ -554,7 +591,7 @@ export default function Dashboard() {
             ? (currentProfile.weeklyPoints || 0) + ptsToAdd
             : ptsToAdd;
         const newWeeklyPagesRead =
-          currentProfile.currentWeek === currentWeekStr
+          currentWeekStr === currentProfile.currentWeek
             ? (currentProfile.weeklyPagesRead || 0) + pagesReadToday
             : pagesReadToday;
         transaction.update(userRef, {
@@ -676,7 +713,7 @@ export default function Dashboard() {
           lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
-        const pendingNotifs = [alertNotif, levelUpNotif].filter(Boolean);
+        const pendingNotifs = [alertNotif, levelUpNotif, bookFinishedNotif].filter(Boolean);
         for (const n of pendingNotifs) {
           transaction.set(doc(db, "users", user.uid, "notifications", n.id), {
             ...n,
@@ -785,97 +822,163 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-        <div className="grid md:grid-cols-4 gap-6 items-start">
-          <div className="md:col-span-2 flex items-start gap-6">
-            <div className="relative h-20 w-20 rounded-full border-2 border-accent overflow-hidden shadow-sm bg-primary flex items-center justify-center text-white text-2xl font-bold shrink-0">
-              {profile.profilePictureUrl ? (
-                <Image src={profile.profilePictureUrl} alt={profile.name} fill className="object-cover" />
-              ) : profile.name?.charAt(0)}
-            </div>
-            <div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-primary font-headline">{profile.name}</h1>
-                  <UserBadgeList badges={profile.badges} />
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-accent" onClick={() => setIsEditProfileOpen(true)}>
-                    <Edit className="h-3 w-3" />
+      <main className="flex-1 container mx-auto px-4 py-8 space-y-10">
+        
+        {/* Luxury Premium Profile Section */}
+        <section className="space-y-6">
+          <Card className="border-none shadow-2xl bg-primary overflow-hidden relative group">
+            {/* Elegant Background Accents */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+            
+            <CardContent className="p-8 md:p-12 relative z-10">
+              <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
+                {/* Avatar with Luxury Gold Ring */}
+                <div className="relative shrink-0">
+                  <div className="absolute inset-0 bg-accent/20 rounded-full blur-md animate-pulse" />
+                  <div className="relative h-32 w-32 rounded-full border-4 border-accent p-1 bg-white shadow-xl overflow-hidden">
+                    <div className="h-full w-full rounded-full overflow-hidden bg-primary flex items-center justify-center text-white text-4xl font-black shadow-inner">
+                      {profile.profilePictureUrl ? (
+                        <Image src={profile.profilePictureUrl} alt={profile.name} fill className="object-cover" />
+                      ) : profile.name?.charAt(0)}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    className="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-accent text-primary border-4 border-primary hover:bg-accent/90 shadow-lg"
+                    onClick={() => setIsEditProfileOpen(true)}
+                  >
+                    <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {profile.groupName && <Badge variant="secondary">{profile.groupName}</Badge>}
-                  {profile.guidingSaint && <Badge variant="outline" className="border-accent text-accent">Guided by {profile.guidingSaint}</Badge>}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 font-medium">Goal: {profile.pagesPerWeek || 0} pages per week</p>
-                {profile.spiritualGoal && (
-                  <div className="mt-2 max-w-sm">
-                    <p className="text-[10px] uppercase font-bold text-accent flex items-center gap-1">
-                       <Quote className="h-3 w-3" /> My Spiritual Goal
-                    </p>
-                    <p className="text-xs text-muted-foreground italic leading-snug mt-0.5 line-clamp-2 hover:line-clamp-none transition-all cursor-default">
-                      "{profile.spiritualGoal}"
+
+                {/* Profile Details */}
+                <div className="flex-1 space-y-6 text-center md:text-left">
+                  <div className="space-y-2">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-center md:justify-start">
+                      <h1 className="text-4xl md:text-5xl font-black text-white font-headline tracking-tight">
+                        {profile.name}
+                      </h1>
+                      <div className="flex items-center gap-2 justify-center">
+                        <Badge className="bg-accent text-primary font-black uppercase tracking-widest text-[10px] px-3 py-1 border-none shadow-lg">
+                          {profile.role === 'admin' ? 'Admin' : 'Member'}
+                        </Badge>
+                        {profile.groupName && (
+                          <Badge variant="outline" className="text-accent border-accent/40 bg-accent/5 font-bold uppercase tracking-tighter text-[10px]">
+                            {profile.groupName}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-accent font-bold tracking-[0.2em] uppercase text-xs flex items-center justify-center md:justify-start gap-2">
+                      <Shield className="h-3 w-3" /> Guided by {profile.guidingSaint}
                     </p>
                   </div>
-                )}
-                <div className="mt-3 flex items-center gap-3">
-                  <div className={`inline-flex items-center gap-3 p-2 pr-4 rounded-full bg-card border shadow-sm`}>
-                     <div className={`p-2 rounded-full bg-accent/10 ${rank.color}`}>
-                          <rank.icon className="h-5 w-5" />
-                     </div>
-                     <div>
-                         <p className={`font-bold text-lg leading-tight ${rank.color}`}>{rank.title}</p>
-                         <p className="text-xs font-medium text-muted-foreground">Level {rank.level}</p>
-                     </div>
+
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 pt-2">
+                    <div className="flex items-center gap-2 text-white/70">
+                       <Target className="h-4 w-4 text-accent" />
+                       <span className="text-sm font-medium">Goal: <strong className="text-white">{profile.pagesPerWeek || 0}</strong> pages per week</span>
+                    </div>
+                    {userRank !== -1 && (
+                      <div className="flex items-center gap-2 text-white/70">
+                         <Trophy className="h-4 w-4 text-accent" />
+                         <span className="text-sm font-medium">Rank <strong className="text-white">#{userRank}</strong> in Fellowship</span>
+                      </div>
+                    )}
                   </div>
-                  {userRank !== -1 && (
-                    <div className="bg-accent/5 px-3 py-1 rounded-full border border-accent/20 flex items-center gap-1.5 shadow-sm">
-                       <Trophy className="h-3.5 w-3.5 text-accent" />
-                       <span className="text-[10px] font-bold text-primary uppercase tracking-tight">Rank #{userRank}</span>
+
+                  {profile.spiritualGoal && (
+                    <div className="max-w-2xl relative">
+                      <Quote className="absolute -top-3 -left-3 h-8 w-8 text-accent/20" />
+                      <p className="text-lg md:text-xl text-white/90 italic font-medium leading-relaxed pl-6 border-l-2 border-accent/30 py-1">
+                        "{profile.spiritualGoal}"
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Standalone Achievements Section */}
+          <div className="bg-white/50 backdrop-blur-md rounded-[2rem] border border-accent/10 shadow-xl overflow-hidden">
+            <div className="p-1 bg-accent/5 border-b border-accent/10">
+               <p className="text-[10px] text-accent font-black uppercase tracking-[0.4em] text-center py-1">Achievements & Standing</p>
+            </div>
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-accent/10">
+               {/* Rank Card */}
+               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
+                  <div className={`p-4 rounded-3xl bg-primary shadow-lg ring-4 ring-primary/10 ${rank.color}`}>
+                     <rank.icon className="h-8 w-8" />
+                  </div>
+                  <div>
+                     <p className={`text-2xl font-black font-headline ${rank.color === 'text-accent' ? 'text-accent' : 'text-primary'}`}>{rank.title}</p>
+                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Spiritual Standing</p>
+                  </div>
+               </div>
+
+               {/* Level Card */}
+               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
+                  <div className="p-4 rounded-3xl bg-accent text-primary shadow-lg ring-4 ring-accent/10">
+                     <Sunrise className="h-8 w-8" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                     <p className="text-2xl font-black font-headline text-primary">Level {rank.level}</p>
+                     <div className="space-y-1.5">
+                        <Progress value={(profile.points % 1000) / 10} className="h-1.5 bg-accent/20" />
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                          {profile.points?.toLocaleString()} Total Points
+                        </p>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Badges Card */}
+               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
+                  <div className="p-4 rounded-3xl bg-white border-2 border-accent text-accent shadow-md">
+                     <Award className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-2">
+                     <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Earned Badges</p>
+                     <UserBadgeList badges={profile.badges} maxDisplay={3} />
+                  </div>
+               </div>
             </div>
           </div>
-          <div className="md:col-span-2 grid grid-cols-2 gap-3">
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
-              <Star className="h-4 w-4 text-accent fill-accent" />
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Points (W / M / Total)</p>
-                <p className="text-base font-bold text-primary">
-                  {profile.weeklyPoints || 0} / {profile.monthlyPoints || 0} / {profile.points?.toLocaleString() || 0}
-                </p>
+        </section>
+
+        {/* Dynamic Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-accent fill-accent" />
+                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Weekly</span>
               </div>
+              <p className="text-2xl font-black text-primary">{profile.weeklyPoints || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pts</span></p>
             </div>
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
-              <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Streak</p>
-                <p className="text-lg font-bold text-primary">{profile.streak || 0}d</p>
+            <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
+                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
               </div>
+              <p className="text-2xl font-black text-primary">{profile.streak || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">days</span></p>
             </div>
-             <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
-              <Snowflake className={`h-4 w-4 ${(profile.freezeCount ?? 0) > 0 ? 'text-blue-400' : 'text-muted-foreground'}`} />
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Freezes</p>
-                <p className="text-lg font-bold text-primary">{profile.freezeCount ?? 0}</p>
+             <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Snowflake className={`h-4 w-4 ${(profile.freezeCount ?? 0) > 0 ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Freezes</span>
               </div>
+              <p className="text-2xl font-black text-primary">{profile.freezeCount ?? 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">left</span></p>
             </div>
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-600" />
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Longest Streak</p>
-                <p className="text-lg font-bold text-primary">{profile.longestStreak || 0}d</p>
+            <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-yellow-500" />
+                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Best Day</span>
               </div>
+              <p className="text-2xl font-black text-primary">{profile.personalBestPages || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pgs</span></p>
             </div>
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-accent/10 flex items-center gap-2 col-span-2">
-              <Trophy className="h-4 w-4 text-yellow-500" />
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Personal Best per day</p>
-                <p className="text-lg font-bold text-primary">{profile.personalBestPages || 0} pgs</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {!currentBook ? (
@@ -928,7 +1031,7 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              {/* Redesigned Glassmorphic Current Study Card */}
+              {/* Futuristic Glassmorphic Current Study Card */}
               <Card className="relative border shadow-2xl bg-white/40 backdrop-blur-xl border-white/20 overflow-hidden group transition-all duration-500 hover:shadow-accent/20">
                 {/* Abstract Digital Art Background Elements */}
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-colors duration-700" />
@@ -981,7 +1084,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* Weekly Goal - Glass Panel */}
+                  {/* Weekly Reading Goal - Glass Panel */}
                   <div className="relative group/weekly p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-accent/5 border border-white/40 shadow-lg overflow-hidden">
                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover/weekly:opacity-20 transition-opacity">
                       <Sparkles className="h-12 w-12 text-accent" />
@@ -1242,8 +1345,8 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="text-sm font-bold">{m.name}</p>
                               {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
-                              <UserBadgeList badges={m.badges} size="sm" />
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color === 'text-white' ? 'text-primary border-primary' : mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" maxDisplay={2} />
                             </div>
                             <div className="flex justify-between items-center">
                               <p className="text-[10px] text-accent font-bold uppercase tracking-widest">{m.weeklyPoints || 0} WEEKLY POINTS</p>
@@ -1264,8 +1367,8 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="text-sm font-bold">{m.name}</p>
                               {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
-                              <UserBadgeList badges={m.badges} size="sm" />
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color === 'text-white' ? 'text-primary border-primary' : mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" maxDisplay={2} />
                             </div>
                             <div className="flex justify-between items-end">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-widest italic">Personal Best: {m.personalBestPages || 0} pgs</p>
@@ -1285,8 +1388,8 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="text-sm font-bold">{m.name}</p>
                               {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
-                              <UserBadgeList badges={m.badges} size="sm" />
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color === 'text-white' ? 'text-primary border-primary' : mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" maxDisplay={2} />
                             </div>
                             <div className="flex justify-between items-end">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-widest italic">Personal Best: {m.personalBestPages || 0} pgs</p>
@@ -1328,8 +1431,8 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="text-sm font-bold">{m.name}</p>
                               {m.groupName && <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0">{m.groupName}</Badge>}
-                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color}`}>{mRank.title}</Badge>
-                              <UserBadgeList badges={m.badges} size="sm" />
+                              <Badge variant="outline" className={`text-[8px] h-3.5 px-1 py-0 border-current ${mRank.color === 'text-white' ? 'text-primary border-primary' : mRank.color}`}>{mRank.title}</Badge>
+                              <UserBadgeList badges={m.badges} size="sm" maxDisplay={2} />
                             </div>
                             <div className="flex justify-between items-center">
                               <p className="text-[10px] text-muted-foreground uppercase font-bold">{m.streak || 0} DAY STREAK</p>
@@ -1405,11 +1508,11 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
-          <DialogContent>
+        <Dialog open={isEditProfileOpen} onOpenChange={isEditProfileOpen => setIsEditProfileOpen(isEditProfileOpen)}>
+          <DialogContent className="border-accent/20">
             <form onSubmit={handleUpdateProfile}>
               <DialogHeader>
-                <DialogTitle>Edit Spiritual Profile</DialogTitle>
+                <DialogTitle className="text-2xl font-headline text-primary">Edit Spiritual Profile</DialogTitle>
                 <DialogDescription>Update your registration details and spiritual goals.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -1431,7 +1534,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" className="w-full">Save Changes</Button>
+                <Button type="submit" className="w-full bg-primary font-bold">Save Changes</Button>
               </DialogFooter>
             </form>
           </DialogContent>
