@@ -189,7 +189,6 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    // Simple query to avoid composite index requirements which can surface as permission errors
     return query(
       collection(db, "discussions"),
       where("isActive", "==", true),
@@ -229,10 +228,9 @@ export default function Dashboard() {
   }, [db, user]);
   const { data: streakLeaderboardMembers } = useCollection(streakLeaderboardMembersQuery);
 
-  // Group Aggregation Query
   const groupMembersQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users"), limit(500)); // Fetch enough users for accurate group totals
+    return query(collection(db, "users"), limit(500));
   }, [db, user]);
   const { data: allMembersForGroups } = useCollection(groupMembersQuery);
 
@@ -314,7 +312,7 @@ export default function Dashboard() {
     const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
     let newStreak = currentProfile.streak || 0;
     let streakToastInfo = { title: "Progress Recorded", description: "Keep going!" };
-    let streakAlertNotif: { id: string, message: string, type: 'StreakProtection' | 'StreakReset' } | null = null;
+    let streakAlertNotif: any = null;
 
     if (!lastActivityAt) {
       newStreak = 1;
@@ -333,7 +331,6 @@ export default function Dashboard() {
           tempFreezeCount -= missedDays;
           newStreak += 1; 
           streakToastInfo = { title: "Streak Preserved!", description: `You missed ${missedDays} day(s), but freezes were used. Streak is now ${newStreak} days.` };
-          
           streakAlertNotif = {
             id: `streak_prot_${now.getTime()}`,
             message: `Streak Protection Alert! You missed ${missedDays} day(s), but your streak was saved using freezes.`,
@@ -342,7 +339,6 @@ export default function Dashboard() {
         } else {
           newStreak = 1;
           streakToastInfo = { title: "Streak Reset", description: "You missed too many days. Starting fresh at 1." };
-
           streakAlertNotif = {
             id: `streak_reset_${now.getTime()}`,
             message: `Your reading streak has been reset because you ran out of freezes. Let's start a new journey today!`,
@@ -385,7 +381,6 @@ export default function Dashboard() {
 
   if (loading || !user || !profile) return null;
 
-  // Weekly Goal Calculation
   const weeklyPagesRead = profile.weeklyPagesRead || 0;
   const weeklyGoal = profile.pagesPerWeek || 35;
   const weeklyProgressPercent = Math.min(100, Math.round((weeklyPagesRead / weeklyGoal) * 100));
@@ -432,7 +427,6 @@ export default function Dashboard() {
               <Clock className="h-20 w-20 text-accent" />
             </div>
           </div>
-          
           <div className="max-w-xl space-y-4">
             <Badge variant="outline" className="text-accent border-accent bg-accent/5 px-4 py-1 text-xs font-bold uppercase tracking-widest">
               Verification in Progress
@@ -448,7 +442,6 @@ export default function Dashboard() {
               We'll have you reading and reflecting in no time!
             </p>
           </div>
-
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button variant="outline" className="rounded-full px-8 h-12" onClick={() => window.location.reload()}>
               Refresh Status
@@ -464,14 +457,11 @@ export default function Dashboard() {
 
   const handleSelectBook = (bookId: string) => {
     if (!user?.uid || !db || !profile) return;
-    
     const savedProgress = profile.bookProgress?.[bookId] || 0;
-    
     updateDocumentNonBlocking(doc(db, "users", user.uid), {
       currentBookId: bookId,
       currentPagesRead: savedProgress
     });
-    
     toast({ 
       title: savedProgress > 0 ? "Study Resumed" : "Study Selected", 
       description: savedProgress > 0 
@@ -490,38 +480,30 @@ export default function Dashboard() {
       toast({ variant: "destructive", title: "Invalid Input", description: "Please enter a positive number of pages." });
       return;
     }
-
     if ((readingTotal + pagesReadToday) > currentBook.totalPages) {
       toast({ variant: "destructive", title: "Page Limit Exceeded", description: `Cannot log more than ${currentBook.totalPages} pages.` });
       return;
     }
-
     setIsSubmitting(true);
     const userRef = doc(db, "users", user.uid);
     const now = new Date();
-    
     try {
       let finalToastTitle = "Progress Recorded";
       let finalToastDescription = `Progress recorded! Keep going.`;
       let alertNotif: any = null;
       let levelUpNotif: any = null;
       let bookFinishedNotif: any = null;
-
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
-
         const streakUpdate = getStreakUpdate(currentProfile, now);
         finalToastTitle = streakUpdate.streakToastInfo.title;
         finalToastDescription = streakUpdate.streakToastInfo.description;
         alertNotif = streakUpdate.streakAlertNotif;
-        
         const ptsToAdd = pagesReadToday * 2;
         const oldPoints = currentProfile.points || 0;
         const newTotalPoints = oldPoints + ptsToAdd;
-
-        // Check Level Up
         const oldLevel = getLevel(oldPoints);
         const newLevel = getLevel(newTotalPoints);
         if (newLevel > oldLevel) {
@@ -532,11 +514,9 @@ export default function Dashboard() {
             message: `Congratulations! You've reached Level ${newLevel} and earned the rank of ${newRank.title}!`,
           };
         }
-        
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const lastActivityAt = currentProfile.lastStreakActivityAt ? new Date(currentProfile.lastStreakActivityAt) : null;
         let currentDailyPagesSum = pagesReadToday;
-        
         if (lastActivityAt) {
             const lastActivityStart = new Date(lastActivityAt.getFullYear(), lastActivityAt.getMonth(), lastActivityAt.getDate()).getTime();
             const diffDays = Math.round((todayStart - lastActivityStart) / (1000 * 60 * 60 * 24));
@@ -546,14 +526,12 @@ export default function Dashboard() {
                  finalToastDescription = `You've read ${currentDailyPagesSum} pages today.`
             }
         }
-        
         const newPersonalBest = Math.max(currentProfile.personalBestPages || 0, currentDailyPagesSum);
         const newPagesReadTotal = (currentProfile.currentPagesRead || 0) + pagesReadToday;
         const updatedBookProgress = {
           ...(currentProfile.bookProgress || {}),
           [currentProfile.currentBookId!]: newPagesReadTotal
         };
-
         if (newPagesReadTotal >= currentBook.totalPages) {
           bookFinishedNotif = {
             id: `bk_fin_${now.getTime()}`,
@@ -561,28 +539,23 @@ export default function Dashboard() {
             message: `You've successfully completed "${currentBook.title}"! May the wisdom you gained guide your steps.`,
           };
         }
-
         const currentMonthStr = now.toISOString().slice(0, 7);
         const lastMonday = new Date(now);
         lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
         lastMonday.setHours(0, 0, 0, 0);
         const currentWeekStr = lastMonday.toISOString().split('T')[0];
-
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + ptsToAdd
             : ptsToAdd;
-
         const newWeeklyPoints =
           currentProfile.currentWeek === currentWeekStr
             ? (currentProfile.weeklyPoints || 0) + ptsToAdd
             : ptsToAdd;
-
         const newWeeklyPagesRead =
           currentProfile.currentWeek === currentWeekStr
             ? (currentProfile.weeklyPagesRead || 0) + pagesReadToday
             : pagesReadToday;
-
         transaction.update(userRef, {
           points: newTotalPoints,
           currentPagesRead: newPagesReadTotal,
@@ -600,8 +573,6 @@ export default function Dashboard() {
           lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
-
-        // Batch all notifications
         const pendingNotifs = [alertNotif, levelUpNotif, bookFinishedNotif].filter(Boolean);
         for (const n of pendingNotifs) {
           transaction.set(doc(db, "users", user.uid, "notifications", n.id), {
@@ -613,14 +584,11 @@ export default function Dashboard() {
           });
         }
       });
-      
       toast({ title: finalToastTitle, description: finalToastDescription });
-      
       if (readingTotal + pagesReadToday >= currentBook.totalPages) {
         setShowCompletionCelebration(true);
         await sendPushOnlyAction(user.uid, "Book Finished!", `You've completed "${currentBook.title}"! Glory to God.`);
       }
-
       setPagesReadToday(0);
     } catch (e: any) {
       console.error(e);
@@ -640,11 +608,9 @@ export default function Dashboard() {
       toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 30 words long." });
       return;
     }
-
     const reward = 5;
     const reflectionId = `refl_${new Date().toISOString().split('T')[0]}`;
     const challRef = doc(db, "users", user.uid, "userChallenges", reflectionId);
-    
     setIsSubmitting(true);
     const userRef = doc(db, "users", user.uid);
     const now = new Date();
@@ -653,15 +619,12 @@ export default function Dashboard() {
       let toastDescription = `Reflection saved!`;
       let alertNotif: any = null;
       let levelUpNotif: any = null;
-
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data() as UserProfile;
-
         const existingRefl = await transaction.get(challRef);
         if (existingRefl.exists()) throw "Already submitted today";
-
         transaction.set(challRef, {
           id: reflectionId,
           challengeId: "reflection_daily",
@@ -671,16 +634,12 @@ export default function Dashboard() {
           pointsEarned: reward,
           submissionText: reflection
         });
-
         const streakUpdate = getStreakUpdate(currentProfile, now);
         toastTitle = streakUpdate.streakToastInfo.title;
         toastDescription = streakUpdate.streakToastInfo.description;
         alertNotif = streakUpdate.streakAlertNotif;
-
         const oldPoints = currentProfile.points || 0;
         const newTotalPoints = oldPoints + reward;
-
-        // Check Level Up
         const oldLevel = getLevel(oldPoints);
         const newLevel = getLevel(newTotalPoints);
         if (newLevel > oldLevel) {
@@ -691,23 +650,19 @@ export default function Dashboard() {
             message: `Glory to God! You've leveled up to Level ${newLevel} (${newRank.title}) through your meditations.`,
           };
         }
-
         const currentMonthStr = now.toISOString().slice(0, 7);
         const lastMonday = new Date(now);
         lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
         lastMonday.setHours(0, 0, 0, 0);
         const currentWeekStr = lastMonday.toISOString().split('T')[0];
-
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + reward
             : reward;
-
         const newWeeklyPoints =
           currentProfile.currentWeek === currentWeekStr
             ? (currentProfile.weeklyPoints || 0) + reward
             : reward;
-
         transaction.update(userRef, {
           points: newTotalPoints,
           monthlyPoints: newMonthlyPoints,
@@ -720,7 +675,6 @@ export default function Dashboard() {
           lastStreakActivityAt: streakUpdate.lastStreakActivityAt,
           lastFreezeRefill: streakUpdate.lastFreezeRefill,
         });
-        
         const pendingNotifs = [alertNotif, levelUpNotif].filter(Boolean);
         for (const n of pendingNotifs) {
           transaction.set(doc(db, "users", user.uid, "notifications", n.id), {
@@ -732,7 +686,6 @@ export default function Dashboard() {
           });
         }
       });
-
       setReflection("");
       toast({ title: toastTitle, description: toastDescription });
       if (levelUpNotif) {
@@ -752,12 +705,9 @@ export default function Dashboard() {
       toast({ variant: "destructive", title: "Invalid Reflection", description: "Reflection must be at least 30 words long." });
       return;
     }
-
     if (!editingReflection || !user) return;
-
     setIsSubmitting(true);
     const reflectionRef = doc(db, "users", user.uid, "userChallenges", editingReflection.id);
-    
     try {
       updateDocumentNonBlocking(reflectionRef, {
         submissionText: editReflectionText
@@ -773,26 +723,14 @@ export default function Dashboard() {
   };
 
   const handleCheckIn = async (discussion: any) => {
-    const discDate = new Date(discussion.scheduledDateTime);
-    const now = new Date();
-    const diffHours = (now.getTime() - discDate.getTime()) / (1000 * 60 * 60);
-
-    // Only prevent check-in if it's more than an hour before the discussion
-    if (diffHours < -1) {
-      toast({ variant: "destructive", title: "Check-in Not Available", description: "Check-in is available once the discussion begins." });
-      return;
-    }
-
     const reward = 20;
     const checkInId = `att_${discussion.id}`;
     const userRef = doc(db, "users", user.uid);
-
     try {
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
         const currentProfile = userSnap.data();
-
         transaction.set(doc(db, "users", user.uid, "userChallenges", checkInId), {
           id: checkInId,
           challengeId: discussion.id,
@@ -801,23 +739,19 @@ export default function Dashboard() {
           completedAt: new Date().toISOString(),
           pointsEarned: reward
         });
-
-        const currentMonthStr = now.toISOString().slice(0, 7);
-        const lastMonday = new Date(now);
-        lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const lastMonday = new Date();
+        lastMonday.setDate(lastMonday.getDate() - ((lastMonday.getDay() + 6) % 7));
         lastMonday.setHours(0, 0, 0, 0);
         const currentWeekStr = lastMonday.toISOString().split('T')[0];
-
         const newMonthlyPoints =
           currentProfile.currentMonth === currentMonthStr
             ? (currentProfile.monthlyPoints || 0) + reward
             : reward;
-
         const newWeeklyPoints =
           currentProfile.currentWeek === currentWeekStr
             ? (currentProfile.weeklyPoints || 0) + reward
             : reward;
-        
         transaction.update(userRef, {
           points: (currentProfile.points || 0) + reward,
           monthlyPoints: newMonthlyPoints,
@@ -835,7 +769,6 @@ export default function Dashboard() {
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.uid || !db) return;
-    
     const formData = new FormData(e.currentTarget);
     const updatedData = {
       name: formData.get("name") as string,
@@ -843,7 +776,6 @@ export default function Dashboard() {
       guidingSaint: formData.get("guidingSaint") as string,
       spiritualGoal: formData.get("spiritualGoal") as string,
     };
-
     updateDocumentNonBlocking(doc(db, "users", user.uid), updatedData);
     toast({ title: "Profile Updated", description: "Your spiritual profile has been refreshed." });
     setIsEditProfileOpen(false);
@@ -995,67 +927,110 @@ export default function Dashboard() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <Card className="border shadow-lg bg-white overflow-hidden">
-                <CardHeader className="pb-4 border-b border-accent/10">
+              {/* Redesigned Glassmorphic Current Study Card */}
+              <Card className="relative border shadow-2xl bg-white/40 backdrop-blur-xl border-white/20 overflow-hidden group transition-all duration-500 hover:shadow-accent/20">
+                {/* Abstract Digital Art Background Elements */}
+                <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-colors duration-700" />
+                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+                
+                <CardHeader className="relative pb-4 border-b border-white/20 z-10">
                   <div className="flex justify-between items-start">
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-accent/10 text-accent border-accent/20">MY CURRENT STUDY</Badge>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}>
-                          Change Book
+                        <Badge className="bg-primary/10 text-primary border-primary/20 backdrop-blur-sm px-3 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase">
+                          Active Study Phase
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[10px] text-blue-600 hover:text-blue-700 font-bold uppercase tracking-tighter"
+                          onClick={() => updateDocumentNonBlocking(doc(db, "users", user.uid), { currentBookId: null })}
+                        >
+                          Switch Trajectory
                         </Button>
                       </div>
-                      <CardTitle className="text-2xl font-headline text-primary">{currentBook.title}</CardTitle>
-                      <CardDescription className="text-muted-foreground mt-1 whitespace-pre-wrap">
+                      <CardTitle className="text-3xl font-headline font-bold text-primary tracking-tight leading-none">
+                        {currentBook.title}
+                      </CardTitle>
+                      <CardDescription className="text-foreground/70 mt-2 text-sm italic font-medium leading-relaxed max-w-lg">
                         {currentBook.description}
                       </CardDescription>
                     </div>
-                    <div className="p-2 bg-accent/10 rounded-full">
-                       <BookOpen className="h-6 w-6 text-accent" />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-accent/20 rounded-full blur-md animate-pulse" />
+                      <div className="relative p-3 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/50 shadow-inner">
+                         <BookOpen className="h-7 w-7 text-accent" />
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-6 pt-6">
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-blue-600">
-                      <span>Book Progress</span>
-                      <span className="text-accent">{progressPercent}%</span>
+
+                <CardContent className="relative space-y-8 pt-8 z-10">
+                  {/* Progress Visualization */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-end">
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">Completion Matrix</p>
+                      <p className="text-2xl font-black text-accent font-mono">{progressPercent}%</p>
                     </div>
-                    <Progress value={progressPercent} className="h-2 bg-accent/5" />
+                    <div className="h-3 w-full bg-primary/5 rounded-full overflow-hidden p-0.5 border border-primary/5 shadow-inner">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary via-blue-600 to-accent rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(50,65,84,0.3)]" 
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
                   </div>
                   
-                  {/* Weekly Progress Bar */}
-                  <div className="space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-blue-700">
-                      <span className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> Weekly Goal Progress</span>
-                      <span className="flex items-center gap-1.5">
-                        {isWeeklyGoalAchieved ? (
-                          <span className="text-accent font-black flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Goal Achieved</span>
-                        ) : (
-                          <span className="text-primary">{weeklyProgressPercent}%</span>
-                        )}
-                      </span>
+                  {/* Weekly Goal - Glass Panel */}
+                  <div className="relative group/weekly p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-accent/5 border border-white/40 shadow-lg overflow-hidden">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover/weekly:opacity-20 transition-opacity">
+                      <Sparkles className="h-12 w-12 text-accent" />
                     </div>
-                    <Progress value={weeklyProgressPercent} className="h-3 bg-white" />
-                    <div className="flex justify-between items-center mt-1">
-                       <p className="text-[10px] text-muted-foreground font-bold">{weeklyPagesRead} / {weeklyGoal} pages read this week</p>
-                       {isWeeklyGoalAchieved && <Sparkles className="h-3 w-3 text-accent animate-pulse" />}
+                    
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-white/60 rounded-lg shadow-sm">
+                          <CalendarDays className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-primary/80">Weekly Discipline Flow</span>
+                      </div>
+                      {isWeeklyGoalAchieved ? (
+                        <Badge className="bg-accent text-primary font-black animate-bounce shadow-lg border-none">
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> ASCENDED
+                        </Badge>
+                      ) : (
+                        <span className="text-xs font-bold text-blue-600">{weeklyProgressPercent}% toward target</span>
+                      )}
+                    </div>
+
+                    <div className="h-2 w-full bg-white/30 rounded-full overflow-hidden shadow-inner">
+                      <div 
+                        className="h-full bg-blue-600 transition-all duration-1000 ease-in-out shadow-[0_0_8px_rgba(37,99,235,0.4)]" 
+                        style={{ width: `${weeklyProgressPercent}%` }}
+                      />
+                    </div>
+                    
+                    <div className="mt-3 flex justify-between items-center text-[10px] font-bold text-primary/60">
+                      <p>{weeklyPagesRead} / {weeklyGoal} UNITS PROCESSED</p>
+                      <p className="italic uppercase tracking-widest">Ongoing Cycle</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
-                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><BookUp className="h-3 w-3" /> Current Page</p>
-                      <p className="text-lg font-black text-primary">{readingTotal} <span className="text-muted-foreground text-xs font-normal">/ {currentBook.totalPages}</span></p>
-                    </div>
-                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
-                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><GaugeCircle className="h-3 w-3" /> Pace</p>
-                      <p className="text-lg font-black text-primary">{pagesPerDayToFinish} <span className="text-muted-foreground text-[10px] font-normal">pgs/day</span></p>
-                    </div>
-                    <div className="bg-accent/5 p-4 rounded-xl border border-accent/10 text-center">
-                      <p className="text-[10px] text-blue-600 font-bold uppercase flex items-center justify-center gap-1 mb-1"><CalendarDays className="h-3 w-3" /> Finish By</p>
-                      <p className="text-xs font-black text-primary">{currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A'}</p>
-                    </div>
+                  {/* Metric Grid */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Current Loc', val: readingTotal, sub: `/ ${currentBook.totalPages}`, icon: Footprints },
+                      { label: 'Momentum', val: pagesPerDayToFinish, sub: 'pg/d', icon: GaugeCircle },
+                      { label: 'Target Horizon', val: currentBook.currentReadingPlanDueDate ? new Date(currentBook.currentReadingPlanDueDate).toLocaleDateString() : 'N/A', sub: '', icon: Milestone },
+                    ].map((stat, i) => (
+                      <div key={i} className="flex flex-col items-center justify-center p-4 bg-white/30 backdrop-blur-sm rounded-2xl border border-white/50 hover:bg-white/50 transition-colors duration-300 shadow-sm group/stat">
+                        <stat.icon className="h-4 w-4 text-accent/60 mb-2 group-hover/stat:scale-110 transition-transform" />
+                        <p className="text-[9px] font-black uppercase tracking-widest text-primary/50 text-center mb-1">{stat.label}</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-black text-primary">{stat.val}</span>
+                          <span className="text-[10px] text-primary/40 font-bold">{stat.sub}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
