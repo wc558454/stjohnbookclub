@@ -943,13 +943,20 @@ export default function Dashboard() {
         </section>
 
         {/* Dynamic Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-accent fill-accent" />
                 <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Weekly</span>
               </div>
               <p className="text-2xl font-black text-primary">{profile.weeklyPoints || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pts</span></p>
+            </div>
+            <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-blue-500 fill-blue-50" />
+                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Monthly</span>
+              </div>
+              <p className="text-2xl font-black text-primary">{profile.monthlyPoints || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pts</span></p>
             </div>
             <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
               <div className="flex items-center gap-2">
