@@ -225,7 +225,6 @@ export default function Dashboard() {
 
   const discussionsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    // Simplified query to avoid permission errors from missing composite indices
     return collection(db, "discussions");
   }, [db, user]);
   const { data: discussions } = useCollection(discussionsQuery);
@@ -938,57 +937,57 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Dynamic Stats Grid - Compacted & Merged */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Dynamic Stats Grid - Ultra Compact Horizontal Plan */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Merged Weekly/Monthly Points Card */}
-            <div className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-2 group hover:border-accent/30 transition-colors">
-              <div className="flex items-center gap-2 mb-1">
-                <Star className="h-4 w-4 text-accent fill-accent" />
-                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Points Activity</span>
+            <div className="bg-white px-3 py-2 rounded-xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Star className="h-3.5 w-3.5 text-accent fill-accent" />
+                <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Points Activity</span>
               </div>
               <div className="flex justify-between items-center divide-x divide-accent/10">
-                <div className="pr-4 flex-1">
-                  <p className="text-[9px] uppercase font-bold text-muted-foreground leading-none mb-1">Weekly</p>
-                  <p className="text-xl font-black text-primary leading-none">{profile.weeklyPoints || 0}<span className="text-[10px] ml-1 font-medium">pts</span></p>
+                <div className="pr-2 flex-1">
+                  <p className="text-[8px] uppercase font-bold text-muted-foreground leading-none mb-0.5">Weekly</p>
+                  <p className="text-lg font-black text-primary leading-none">{profile.weeklyPoints || 0}<span className="text-[9px] ml-0.5 font-medium">pts</span></p>
                 </div>
-                <div className="pl-4 flex-1">
-                  <p className="text-[9px] uppercase font-bold text-muted-foreground leading-none mb-1">Monthly</p>
-                  <p className="text-xl font-black text-primary leading-none">{profile.monthlyPoints || 0}<span className="text-[10px] ml-1 font-medium">pts</span></p>
+                <div className="pl-2 flex-1">
+                  <p className="text-[8px] uppercase font-bold text-muted-foreground leading-none mb-0.5">Monthly</p>
+                  <p className="text-lg font-black text-primary leading-none">{profile.monthlyPoints || 0}<span className="text-[9px] ml-0.5 font-medium">pts</span></p>
                 </div>
               </div>
             </div>
 
             {/* Streak Card */}
-            <div className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
+            <div className="bg-white px-3 py-2 rounded-xl shadow-sm border border-accent/10 flex flex-col justify-center gap-0.5 group hover:border-accent/30 transition-colors">
               <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <Flame className={`h-4 w-4 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
-                  <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
+                <div className="flex items-center gap-1.5">
+                  <Flame className={`h-3.5 w-3.5 ${profile.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-muted-foreground'}`} />
+                  <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Streak</span>
                 </div>
                 <div className="text-right flex flex-col">
-                   <span className="text-[9px] font-black text-accent uppercase leading-none">Longest</span>
-                   <span className="text-sm font-black text-primary">{profile.longestStreak || 0}d</span>
+                   <span className="text-[8px] font-black text-accent uppercase leading-none">Max</span>
+                   <span className="text-xs font-black text-primary">{profile.longestStreak || 0}d</span>
                 </div>
               </div>
-              <p className="text-xl font-black text-primary">{profile.streak || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">days</span></p>
+              <p className="text-lg font-black text-primary leading-none">{profile.streak || 0} <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">days</span></p>
             </div>
 
              {/* Freezes Card */}
-             <div className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
-              <div className="flex items-center gap-2">
-                <Snowflake className={`h-4 w-4 ${(profile.freezeCount ?? 0) > 0 ? 'text-blue-400' : 'text-muted-foreground'}`} />
-                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Freezes</span>
+             <div className="bg-white px-3 py-2 rounded-xl shadow-sm border border-accent/10 flex flex-col justify-center gap-0.5 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-1.5">
+                <Snowflake className={`h-3.5 w-3.5 ${(profile.freezeCount ?? 0) > 0 ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Freezes</span>
               </div>
-              <p className="text-xl font-black text-primary">{profile.freezeCount ?? 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">left</span></p>
+              <p className="text-lg font-black text-primary leading-none">{profile.freezeCount ?? 0} <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">left</span></p>
             </div>
 
             {/* Best Day Card */}
-            <div className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-accent/10 flex flex-col justify-center gap-1 group hover:border-accent/30 transition-colors">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-500" />
-                <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Best Day</span>
+            <div className="bg-white px-3 py-2 rounded-xl shadow-sm border border-accent/10 flex flex-col justify-center gap-0.5 group hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5 text-yellow-500" />
+                <span className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">Best Day</span>
               </div>
-              <p className="text-xl font-black text-primary">{profile.personalBestPages || 0} <span className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">pgs</span></p>
+              <p className="text-lg font-black text-primary leading-none">{profile.personalBestPages || 0} <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">pgs</span></p>
             </div>
         </div>
 
