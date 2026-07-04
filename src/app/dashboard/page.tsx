@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -902,39 +901,39 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Standalone Achievements Section */}
-          <div className="bg-white/50 backdrop-blur-md rounded-[2rem] border border-accent/10 shadow-xl overflow-hidden">
+          {/* Standalone Achievements Section - Compacted */}
+          <div className="bg-white/50 backdrop-blur-md rounded-[1.5rem] border border-accent/10 shadow-xl overflow-hidden">
             <div className="p-1 bg-accent/5 border-b border-accent/10">
-               <p className="text-[10px] text-accent font-black uppercase tracking-[0.4em] text-center py-1">Achievements & Standing</p>
+               <p className="text-[9px] text-accent font-black uppercase tracking-[0.4em] text-center py-0.5">Achievements & Standing</p>
             </div>
             <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-accent/10">
                {/* Merged Rank & Points Card */}
-               <div className="p-8 flex items-center gap-10 group hover:bg-accent/5 transition-colors">
-                  <div className={`p-6 rounded-[2.5rem] bg-primary shadow-2xl ring-8 ring-primary/5 ${rank.color}`}>
-                     <rank.icon className="h-10 w-10" />
+               <div className="p-5 flex items-center gap-5 group hover:bg-accent/5 transition-colors">
+                  <div className={`p-4 rounded-3xl bg-primary shadow-2xl ring-4 ring-primary/5 ${rank.color}`}>
+                     <rank.icon className="h-8 w-8" />
                   </div>
-                  <div className="flex-1 space-y-4">
+                  <div className="flex-1 space-y-2">
                      <div>
-                        <p className={`text-3xl font-black font-headline leading-tight ${rank.color === 'text-accent' ? 'text-accent' : 'text-primary'}`}>{rank.title}</p>
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em]">Spiritual Standing</p>
+                        <p className={`text-xl font-black font-headline leading-tight ${rank.color === 'text-accent' ? 'text-accent' : 'text-primary'}`}>{rank.title}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Spiritual Standing</p>
                      </div>
-                     <div className="space-y-2 border-t border-accent/10 pt-3">
+                     <div className="space-y-1.5 border-t border-accent/10 pt-2">
                         <div className="flex justify-between items-end">
-                           <p className="text-lg font-black text-primary">{profile.points?.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">pts</span></p>
-                           <p className="text-[10px] font-black text-accent uppercase tracking-tighter">Total Points</p>
+                           <p className="text-base font-black text-primary">{profile.points?.toLocaleString()} <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">pts</span></p>
+                           <p className="text-[9px] font-black text-accent uppercase tracking-tighter">Total Points</p>
                         </div>
-                        <Progress value={(profile.points % 1000) / 10} className="h-2 bg-accent/10" />
+                        <Progress value={(profile.points % 1000) / 10} className="h-1.5 bg-accent/10" />
                      </div>
                   </div>
                </div>
 
                {/* Badges Card */}
-               <div className="p-8 flex items-center gap-6 group hover:bg-accent/5 transition-colors">
-                  <div className="p-4 rounded-3xl bg-white border-2 border-accent text-accent shadow-md">
-                     <Award className="h-8 w-8" />
+               <div className="p-5 flex items-center gap-4 group hover:bg-accent/5 transition-colors">
+                  <div className="p-3 rounded-2xl bg-white border-2 border-accent text-accent shadow-md">
+                     <Award className="h-6 w-6" />
                   </div>
-                  <div className="space-y-2">
-                     <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Earned Badges</p>
+                  <div className="space-y-1">
+                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Earned Badges</p>
                      <UserBadgeList badges={profile.badges} maxDisplay={3} />
                   </div>
                </div>
