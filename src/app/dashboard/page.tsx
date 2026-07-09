@@ -652,6 +652,7 @@ export default function Dashboard() {
       let toastDescription = `Reflection saved!`;
       let alertNotif: any = null;
       let levelUpNotif: any = null;
+      let bookFinishedNotif: any = null;
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw "User does not exist";
